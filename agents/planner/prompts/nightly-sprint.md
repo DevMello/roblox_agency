@@ -51,6 +51,14 @@ Within each game's task list:
 
 ---
 
+## Step 5.5: Assign Tasks to Workers
+
+Run `agents/planner/prompts/worker-assignment.md` now.
+
+This sets `worker_id` on each task and `active_workers` on the sprint object. If no workers are registered, all `worker_id` fields remain `null` — this is valid single-machine mode.
+
+---
+
 ## Step 6: Write the Sprint Log
 
 Write the sprint to `games/{game-name}/sprint-log.md`. The sprint object must conform to `agents/planner/schemas/sprint.schema.json`.
