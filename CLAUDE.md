@@ -62,6 +62,11 @@ If you are not sure which role to fill, ask the human before proceeding.
 - **Always commit partial work to a branch before stopping** — never leave uncommitted work if interrupted.
 - **Always write to `progress.md` after completing a task** — the append-only log is how future agents understand history.
 - **Always check `memory/human-overrides.md` before generating a sprint** as Planner.
+- **Always `git pull --rebase origin main` before starting each task** as Builder — another worker may have completed a dependency.
+- **Always push sprint log updates immediately after each task** as Builder — `git push origin main`. If rejected, `git pull --rebase && git push`. Never batch sprint log updates.
+- **Always check `config/worker-id` at session start** as Builder — only execute tasks assigned to your worker ID (or all tasks if `worker_id` is null everywhere).
+- **Never execute tasks assigned to a different worker** — task reassignment is Planner's job, not Builder's.
+- **Always write a heartbeat to `memory/workers/{worker-id}.md`** after each task if `config/worker-id` exists.
 
 ---
 
@@ -91,14 +96,18 @@ memory/
   decisions.md           Architectural decisions with rationale
   game-states/           Per-game state snapshots
   human-overrides.md     Append-only human decision log (NEVER delete entries)
+  workers.md             Registered worker machines (written by register-worker.sh)
+  workers/               Per-worker heartbeat files ({worker-id}.md, updated after each task)
 reports/
   morning/{date}.md      Daily morning digest (Reporter generates at 5 am)
   weekly/                Weekly market research and game ideas
 scripts/
   apply-live-edit.sh     Trigger an immediate human-requested change
   launch-morning-report.sh  Generate today's morning report
-  launch-night-cycle.sh  Start the full night cycle
+  launch-night-cycle.sh  Start the full night cycle (coordinator entry point)
   launch-weekly-research.sh  Start the weekly research run
+  launch-worker.sh       Worker mode — execute tasks assigned to this machine
+  register-worker.sh     One-time machine registration for multi-worker mode
 specs/
   template.md            Canonical spec format
   {game-name}/spec.md    Human-written game specs (Architect reads these)
@@ -124,6 +133,8 @@ workflows/
 | `memory/decisions.md` | Architect, Planner, Human |
 | `memory/blockers.md` | Planner, Builder, QA (escalations), Human |
 | `memory/game-states/*.md` | Architect, Planner |
+| `memory/workers.md` | `register-worker.sh` (append), Builder (update `Last seen:` after each task) |
+| `memory/workers/{worker-id}.md` | Builder (heartbeat after each task), `launch-worker.sh` |
 | `reports/morning/*.md` | Reporter |
 | `reports/weekly/*.md` | Market Researcher |
 | Game source files (in Roblox Studio) | Builder only |

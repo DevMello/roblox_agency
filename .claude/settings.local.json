@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(xargs '-I{}' sh -c 'lines=$\\(wc -l < \"{}\"\\); echo \"$lines {}\"')",
-      "Bash(awk '$1 <= 1 {print \"EMPTY: \"$0}')"
+      "Bash(awk '$1 <= 1 {print \"EMPTY: \"$0}')",
+      "Bash(git checkout *)",
+      "Bash(git fetch *)",
+      "Bash(git branch *)",
+      "Bash(git push *)"
     ]
   }
 }

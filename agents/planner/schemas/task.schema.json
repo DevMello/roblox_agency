@@ -87,6 +87,16 @@
     "qa_notes": {
       "type": "string",
       "description": "QA's notes on the PR. Filled in by QA after review."
+    },
+    "worker_id": {
+      "type": ["string", "null"],
+      "description": "ID of the worker machine assigned to execute this task. Set by Planner during sprint generation. Null means any worker (single-machine mode).",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "worker_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the assigned worker actually began this task. Filled in by Builder at task start."
     }
   }
 }

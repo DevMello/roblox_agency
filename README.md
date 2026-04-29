@@ -201,6 +201,65 @@ Roblox Studio MCP uses the official Roblox batch file (`%LOCALAPPDATA%\Roblox\mc
 
 ---
 
+## Multi-Machine Setup
+
+Any number of machines can contribute to the same night cycle. Each machine runs its own Claude Code instance and Roblox Studio MCP — they share a single git repo as the coordination backbone.
+
+### How it works
+
+The **coordinator** runs the Planner, which reads the worker registry and pre-assigns each task to a specific machine before any building starts. Workers only execute their assigned tasks and push status updates after each one. No two machines ever race for the same task.
+
+### Setup (one-time per machine)
+
+```bash
+# On every machine that will participate:
+bash scripts/register-worker.sh my-machine-name
+```
+
+This creates a local `config/worker-id` file (gitignored) and adds the machine to `memory/workers.md` in the repo.
+
+### Running a multi-machine night cycle
+
+**Machine A — coordinator (also runs its own tasks):**
+```bash
+bash scripts/launch-night-cycle.sh sword-game
+```
+Planner assigns tasks across all registered workers, pushes the sprint log, then Builder on Machine A executes its assigned tasks.
+
+**Every other machine — worker only:**
+```bash
+bash scripts/launch-worker.sh
+```
+Polls until the coordinator's sprint log appears, then executes only the tasks assigned to that machine.
+
+**Coordinator-only mode** (if you want to separate Planner from building):
+```bash
+bash scripts/launch-night-cycle.sh --coordinator-only sword-game
+# Then on ALL machines (including coordinator):
+bash scripts/launch-worker.sh
+```
+
+### What each machine needs
+- `claude` CLI installed and authenticated (can be different accounts per machine)
+- Git configured and pointing to the same remote
+- Roblox Studio MCP running locally on `localhost:3001` for scripting tasks
+- Python 3 on PATH (`python3` or `python` — detected automatically by the scripts)
+
+### Windows users
+All scripts require **bash**. On Windows use **Git Bash** (ships with [Git for Windows](https://gitforwindows.org/)) or **WSL 2**. Do not run the scripts in PowerShell or CMD.
+
+```
+# Verify you have the right shell before running any script:
+bash --version      # should print GNU bash
+python3 --version   # or: python --version (Python 3.x required)
+git --version
+```
+
+### Scaling beyond 2 machines
+Register as many machines as you want with `register-worker.sh`. Planner distributes tasks round-robin weighted by estimated minutes, keeping dependency chains on the same worker when possible.
+
+---
+
 ## Repo Conventions
 
 - **Never commit directly to `main`.** All changes go through PRs. The nightly automation depends on this.

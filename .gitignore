@@ -1,2 +1,6 @@
 DataStore2.rbxmx
 roblox.toml
+
+# Local worker identity — unique per machine, never committed
+config/worker-id
+temp.md

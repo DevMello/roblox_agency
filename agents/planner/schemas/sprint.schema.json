@@ -101,6 +101,14 @@
         "type": "string"
       }
     },
+    "active_workers": {
+      "type": "array",
+      "description": "Worker IDs that have at least one task assigned in this sprint. Empty array means single-machine mode. Set by Planner during sprint generation.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$"
+      }
+    },
     "morning_report_flags": {
       "type": "array",
       "description": "Items that Reporter should highlight in the morning digest.",
