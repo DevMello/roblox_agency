@@ -176,14 +176,15 @@ The change is permanently recorded in `games/{game-name}/overrides.md` so Planne
 
 ## MCP Server Requirements
 
-Four MCP servers are required. See `config/mcp-servers.md` for full details.
+Three MCP servers are required. See `config/mcp-servers.md` for full details.
 
 | Server | Purpose |
 |--------|---------|
 | Roblox Studio MCP | Read/write scripts, manipulate Workspace hierarchy |
 | Blender MCP | Generate and export 3D assets |
 | Chrome MCP | Documentation lookups, DevForum access |
-| GitHub CLI (`gh`) | Branch, commit, PR, and label operations |
+
+GitHub operations (branches, commits, PRs, labels) use the **GitHub CLI (`gh`)**, not an MCP server.
 
 Roblox Studio MCP and Blender MCP must be running before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies connectivity. Run `gh auth status` to confirm the GitHub CLI is authenticated.
 
