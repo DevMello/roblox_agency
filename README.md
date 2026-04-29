@@ -183,9 +183,9 @@ Four MCP servers are required. See `config/mcp-servers.md` for full details.
 | Roblox Studio MCP | Read/write scripts, manipulate Workspace hierarchy |
 | Blender MCP | Generate and export 3D assets |
 | Chrome MCP | Documentation lookups, DevForum access |
-| GitHub MCP | Branch, commit, PR, and label operations |
+| GitHub CLI (`gh`) | Branch, commit, PR, and label operations |
 
-All servers must be running before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies connectivity.
+Roblox Studio MCP and Blender MCP must be running before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies connectivity. Run `gh auth status` to confirm the GitHub CLI is authenticated.
 
 ---
 

@@ -21,7 +21,7 @@ Builder reads the sprint once at the start of the night, then re-reads it at the
 | Roblox Studio MCP | Read/write scripts, manipulate Workspace | Always verify Studio is connected before use |
 | Blender MCP | Generate and export 3D assets | Use only for asset tasks; verify Blender is running |
 | Chrome MCP | Documentation lookups | Documentation-only, no general browsing |
-| GitHub MCP | Branches, commits, PRs | All commits go to branches, never main |
+| GitHub CLI (`gh`) | Branches, commits, PRs | All commits go to branches, never main |
 | Researcher (call-out) | API and pattern lookups | Only when blocked — not for general curiosity |
 
 ---

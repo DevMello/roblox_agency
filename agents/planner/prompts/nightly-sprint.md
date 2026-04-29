@@ -21,7 +21,7 @@ Read `memory/blockers.md`. For each active (unresolved) blocker:
 
 ## Step 3: Triage TBD PRs
 
-Read open PRs labelled `tbd-human` via GitHub MCP. Run the `pr-triage` prompt for each. The resulting tasks are added to tonight's candidate pool with their assigned priority.
+Read open PRs labelled `tbd-human` by running `gh pr list --label tbd-human --state open --json number,title,body,labels,state`. Run the `pr-triage` prompt for each. The resulting tasks are added to tonight's candidate pool with their assigned priority.
 
 ---
 

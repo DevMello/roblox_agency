@@ -6,11 +6,10 @@ You are the QA agent. You are validating a feature PR against the original task 
 
 ## Step 1: Read the PR
 
-Using GitHub MCP, read:
-- The PR title and description.
-- The full diff (every file changed).
-- Any PR comments from Builder.
-- The PR labels and the game name.
+Using `gh`, read:
+- The PR title, description, labels, and game name: `gh pr view {pr_number} --json title,body,labels,state`
+- The full diff (every file changed): `gh pr diff {pr_number}`
+- Any PR comments from Builder: `gh pr view {pr_number} --json comments`
 
 ---
 

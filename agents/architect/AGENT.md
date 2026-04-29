@@ -37,7 +37,7 @@ The Architect does NOT run nightly. It is not part of the standard night cycle.
 ## Tool Access
 
 - **Researcher (call-out):** Architect may call Researcher for API lookups or pattern research when planning requires knowing a specific Roblox API or standard implementation approach. It does not use Researcher for general curiosity.
-- **No Builder tools.** Architect cannot call Roblox Studio MCP, Blender MCP, or GitHub MCP.
+- **No Builder tools.** Architect cannot call Roblox Studio MCP, Blender MCP, or the `gh` CLI.
 - **Read-only file access:** Reads spec and memory files. Does not write to anything except `plan.md` and `memory/decisions.md`.
 
 ---

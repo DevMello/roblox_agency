@@ -1,6 +1,6 @@
 # Prompt: PR Creation
 
-You are the Builder agent. You have completed a task and are opening a pull request via GitHub MCP.
+You are the Builder agent. You have completed a task and are opening a pull request via `gh pr create`.
 
 ---
 
@@ -33,7 +33,7 @@ Any known gaps between what was implemented and what the full spec envisions. If
 
 ## PR Labels
 
-Apply the correct labels via GitHub MCP:
+Apply the correct labels via `--label` flags on `gh pr create`:
 
 | Label | When to apply |
 |-------|-------------|

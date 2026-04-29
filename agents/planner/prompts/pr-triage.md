@@ -6,10 +6,10 @@ You are the Planner agent. You are processing a pull request that a human has la
 
 ## Step 1: Read the PR
 
-Use GitHub MCP to read the PR. Collect:
-- The PR title and description.
-- The diff (list of files changed and what changed in each).
-- Any comments the human left on the PR.
+Use `gh` to read the PR. Collect:
+- The PR title and description: `gh pr view {pr_number} --json title,body,labels,state`
+- The diff (list of files changed): `gh pr diff {pr_number}`
+- Any comments the human left on the PR: `gh pr view {pr_number} --json comments`
 - The PR's labels and current status (open/draft).
 
 ---
@@ -50,11 +50,11 @@ Determine where in tonight's sprint this task belongs:
 After deciding what to do with the PR:
 
 **If converting to task(s):**
-- Add a comment to the PR: "Planner has picked up this PR. Converting to task(s) for tonight's sprint. Task IDs: {task_ids}."
-- Change the PR label from `tbd-human` to `in-progress`.
+- Add a comment: `gh pr comment {pr_number} --body "Planner has picked up this PR. Converting to task(s) for tonight's sprint. Task IDs: {task_ids}."`
+- Change the label: `gh pr edit {pr_number} --add-label "in-progress" --remove-label "tbd-human"`
 
 **If flagging as too ambiguous:**
-- Add a comment to the PR: "Planner flagged this PR as too ambiguous to convert to tasks. Reason: {reason}. Human input required."
-- Keep the `tbd-human` label.
+- Add a comment: `gh pr comment {pr_number} --body "Planner flagged this PR as too ambiguous to convert to tasks. Reason: {reason}. Human input required."`
+- Keep the `tbd-human` label (do not edit labels).
 - Add a `morning_report_flag` entry to the sprint log noting the PR number and what clarification is needed.
 - Do not guess at the PR's intent. Do not add a task based on an uncertain interpretation.

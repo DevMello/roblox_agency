@@ -70,4 +70,4 @@ Rules:
 - Do not create tasks for out-of-scope items — flag the conflict instead.
 - Do not create tasks for items listed only in "open questions" — flag them as blockers.
 - Do not write any Luau code.
-- Do not call Builder tools (Roblox Studio MCP, Blender MCP, GitHub MCP).
+- Do not call Builder tools (Roblox Studio MCP, Blender MCP, `gh` CLI).

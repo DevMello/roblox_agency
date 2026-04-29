@@ -70,10 +70,10 @@ log "Time:    ${TIMESTAMP}"
 STUDIO_OK=no
 GITHUB_OK=no
 curl -sf http://localhost:3001/health >/dev/null 2>&1 && STUDIO_OK=yes || true
-curl -sf http://localhost:3004/health >/dev/null 2>&1 && GITHUB_OK=yes || true
+gh auth status >/dev/null 2>&1 && GITHUB_OK=yes || true
 
 [[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: OK" || log "  Roblox Studio MCP: NOT RUNNING (scripting tasks will be blocked)"
-[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub MCP: OK"         || log "  GitHub MCP: NOT RUNNING (Builder will use local git)"
+[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub CLI (gh): authenticated OK" || log "  GitHub CLI (gh): NOT AUTHENTICATED — run 'gh auth login'"
 
 # ─── Invoke Builder in live-edit mode ────────────────────────────────────────
 
@@ -83,7 +83,7 @@ log "Builder will:"
 log "  1. Log the request to memory/human-overrides.md FIRST"
 log "  2. Create a live/${GAME}/... branch"
 log "  3. Implement the change (following agents/builder/prompts/live-edit.md)"
-log "  4. Commit and open a PR (or leave a local branch if GitHub MCP is unavailable)"
+log "  4. Commit and open a PR via gh CLI (or leave a local branch if gh is not authenticated)"
 log ""
 
 claude --dangerously-skip-permissions -p "
@@ -104,11 +104,11 @@ Steps:
 4. Create branch: live/${GAME}/$(echo "${CHANGE_REQUEST}" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | cut -c1-40)
 5. Implement the change following agents/builder/prompts/live-edit.md
 6. Commit with message: [${GAME}] live: ${CHANGE_REQUEST}
-7. Open a PR labelled 'live-edit' (if GitHub MCP available) or log the local branch
+7. Open a PR labelled 'live-edit' via gh CLI (if gh is authenticated) or log the local branch name
 
-MCP availability:
+MCP / CLI availability:
 - Roblox Studio MCP (localhost:3001): ${STUDIO_OK}
-- GitHub MCP (localhost:3004): ${GITHUB_OK}
+- GitHub CLI (gh): ${GITHUB_OK}
 
 If Studio MCP is unavailable and the change requires writing game scripts, mark it blocked
 and explain what script changes would be needed so a human can apply them manually.

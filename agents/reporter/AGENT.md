@@ -19,7 +19,7 @@ On Sundays after the weekly research run completes, Reporter also generates the 
 | Input | What Reporter extracts |
 |-------|----------------------|
 | `games/{game-name}/sprint-log.md` | Task counts (done/failed/skipped), replan events, QA results, morning report flags |
-| GitHub MCP — PR list | PRs merged last night, PRs still open, PRs awaiting human review |
+| GitHub CLI (`gh pr list`) | PRs merged last night, PRs still open, PRs awaiting human review |
 | `memory/blockers.md` | Active unresolved blockers |
 | `memory/decisions.md` | New decisions added since the last report |
 

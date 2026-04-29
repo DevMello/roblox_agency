@@ -45,7 +45,7 @@ An issue that stops the current task and requires Planner intervention. The task
 A condition that stops the entire night cycle.
 
 **Examples:**
-- Both Roblox Studio MCP and GitHub MCP are unreachable at pre-flight.
+- Both Roblox Studio MCP is unreachable and `gh auth status` fails at pre-flight.
 - Planner sprint generation failed after 2 retries.
 - The nightly API spend cap was hit.
 
