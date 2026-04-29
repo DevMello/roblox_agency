@@ -58,15 +58,82 @@ Market Researcher scans Roblox charts, analyses monetisation, identifies gaps, a
 
 ---
 
+## Running Locally — Quick Start
+
+### Prerequisites
+
+Open **Git Bash** (not PowerShell, not CMD) and verify:
+
+```bash
+claude --version          # Claude Code CLI must be installed and authenticated
+git --version             # git must be available
+curl http://localhost:3001/health   # Roblox Studio MCP should be running
+```
+
+If `claude --version` fails, install Claude Code:
+```bash
+npm install -g @anthropic-ai/claude-code
+claude   # run once to authenticate
+```
+
+### Step 1 — Initialize git (one-time)
+
+```bash
+git init
+git config user.name "Your Name"
+git config user.email "your@email.com"
+git add .
+git commit -m "init: agency setup"
+```
+
+### Step 2 — Create your game spec
+
+```bash
+bash scripts/new-game.sh your-game-name
+```
+
+Use lowercase letters and hyphens only (e.g. `sword-game`, `tower-defense`). This creates `specs/your-game-name/spec.md` from the template and opens it in VS Code. Fill in every section — the Architect reads all of them. Save and close when done.
+
+### Step 3 — Run the Architect
+
+```bash
+bash scripts/run-architect.sh your-game-name
+```
+
+Takes 2–5 minutes. Reads your spec and writes `games/your-game-name/plan.md`. Read the plan — if anything looks wrong, edit the spec, add `REPLAN_REQUESTED` to the first line, and re-run.
+
+### Step 4 — Run the night cycle
+
+```bash
+bash scripts/launch-night-cycle.sh your-game-name
+```
+
+This runs Planner → Builder → Reporter in sequence. The full run takes several hours. You can leave it overnight and check the morning report when you wake up.
+
+### What to check after the run
+
+| File | What it shows |
+|------|--------------|
+| `games/{game}/sprint-log.md` | What ran, what failed, what's blocked |
+| `games/{game}/progress.md` | Append-only build log |
+| `reports/morning/YYYY-MM-DD.md` | Summary of the night |
+| `logs/night-cycle-YYYY-MM-DD.log` | Full output from every agent |
+
+### Roblox Studio MCP
+
+Without the Studio MCP running on `localhost:3001`, Builder will mark all scripting tasks blocked and no Luau files will be written. The night cycle will still run and produce logs, sprint records, and a morning report — you just won't get actual game scripts until the MCP is available.
+
+---
+
 ## How to Start a New Game
 
 1. Copy `specs/template.md` to `specs/{your-game-name}/spec.md`.
 2. Fill in all sections of the spec.
 3. Run:
    ```bash
-   ./scripts/launch-night-cycle.sh
+   bash scripts/run-architect.sh your-game-name
+   bash scripts/launch-night-cycle.sh your-game-name
    ```
-   On the first run with a new spec, Architect activates automatically to decompose the spec into a plan before Builder starts.
 
 That's it. The next morning your report will show what was built.
 
