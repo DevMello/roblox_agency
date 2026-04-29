@@ -1,56 +1,20 @@
-name: Morning Report
+# morning-report.yml — NOT USED FOR LOCAL OPERATION
+#
+# The morning report is generated automatically at the end of the night cycle:
+#   bash scripts/launch-morning-report.sh
+#
+# It is also called by launch-night-cycle.sh as its final step, so you
+# do not normally need to run it separately.
 
+name: Morning Report (disabled)
 on:
-  schedule:
-    # 5:00 am ET = 09:00 UTC (during EDT)
-    # 5:00 am ET = 10:00 UTC (during EST)
-    - cron: '0 9 * * *'
   workflow_dispatch:
     inputs:
-      date:
-        description: 'Date to generate report for (YYYY-MM-DD, defaults to today)'
+      note:
+        description: 'This workflow is disabled. Run scripts/launch-morning-report.sh locally.'
         required: false
-
-# Only run one morning report at a time; do not queue multiple
-concurrency:
-  group: morning-report
-  cancel-in-progress: true
-
 jobs:
-  morning-report:
-    name: Generate Morning Report
-    runs-on: self-hosted
-    timeout-minutes: 35
-
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+  disabled:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Configure git identity
-        run: |
-          git config user.name "Agency Reporter Bot"
-          git config user.email "reporter@agency.local"
-
-      - name: Generate morning report
-        run: bash scripts/launch-morning-report.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push morning report
-        run: |
-          git add reports/morning/
-          git diff --cached --quiet || git commit -m "report: morning digest $(date +%Y-%m-%d)" --no-verify
-          git push origin main || true
-
-      - name: Post report summary to GitHub Step Summary
-        run: |
-          REPORT=$(ls -t reports/morning/*.md | head -1)
-          if [[ -f "$REPORT" ]]; then
-            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
-          fi
+      - run: echo "Run scripts/launch-morning-report.sh on your local machine instead."

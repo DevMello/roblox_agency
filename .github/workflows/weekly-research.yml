@@ -1,72 +1,20 @@
-name: Weekly Research
+# weekly-research.yml — NOT USED FOR LOCAL OPERATION
+#
+# Weekly research is run locally via:
+#   bash scripts/launch-weekly-research.sh
+#
+# Chrome MCP (localhost:3003) must be running for full browsing capability.
+# Without it, the Market Researcher falls back to WebSearch tool.
 
+name: Weekly Research (disabled)
 on:
-  schedule:
-    # Sunday 2:00 am ET = 06:00 UTC (during EDT)
-    # Sunday 2:00 am ET = 07:00 UTC (during EST)
-    - cron: '0 6 * * 0'
   workflow_dispatch:
     inputs:
-      reason:
-        description: 'Reason for manual trigger'
+      note:
+        description: 'This workflow is disabled. Run scripts/launch-weekly-research.sh locally.'
         required: false
-        default: 'Manual trigger'
-
-concurrency:
-  group: weekly-research
-  cancel-in-progress: false
-
 jobs:
-  weekly-research:
-    name: Market Research Run
-    runs-on: self-hosted
-    timeout-minutes: 130  # 2 hours 10 minutes
-
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+  disabled:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Configure git identity
-        run: |
-          git config user.name "Agency Market Researcher Bot"
-          git config user.email "researcher@agency.local"
-
-      - name: Verify Chrome MCP is running
-        run: |
-          curl -f http://localhost:3003/health || echo "WARNING: Chrome MCP not ready"
-
-      - name: Run weekly research
-        run: bash scripts/launch-weekly-research.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit and push research outputs
-        run: |
-          YEAR_WEEK=$(date +%G-%V)
-          git add "reports/weekly/market-research/${YEAR_WEEK}.md" \
-                  "reports/weekly/game-ideas/${YEAR_WEEK}.md" || true
-          git diff --cached --quiet || git commit -m "research: weekly market research ${YEAR_WEEK}" --no-verify
-          git push origin main || true
-
-      - name: Upload research to Step Summary
-        run: |
-          YEAR_WEEK=$(date +%G-%V)
-          IDEAS_FILE="reports/weekly/game-ideas/${YEAR_WEEK}.md"
-          if [[ -f "$IDEAS_FILE" ]]; then
-            echo "## Game Ideas — Week ${YEAR_WEEK}" >> "$GITHUB_STEP_SUMMARY"
-            cat "$IDEAS_FILE" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: weekly-research-logs-${{ github.run_id }}
-          path: logs/
-          retention-days: 7
+      - run: echo "Run scripts/launch-weekly-research.sh on your local machine instead."

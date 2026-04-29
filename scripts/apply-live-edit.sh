@@ -1,27 +1,40 @@
 #!/usr/bin/env bash
 # apply-live-edit.sh
 # Triggers a live edit: a human-requested immediate change to a game
-# outside the night cycle. Takes the change request as an argument
-# or prompts interactively.
+# outside the night cycle.
 #
 # Usage:
-#   ./scripts/apply-live-edit.sh "change request in plain language"
-#   ./scripts/apply-live-edit.sh  (will prompt for input)
+#   ./scripts/apply-live-edit.sh <game-name> "change request in plain language"
+#   ./scripts/apply-live-edit.sh <game-name>    (will prompt for the request)
+#
+# Example:
+#   ./scripts/apply-live-edit.sh sword-game "reduce dash cooldown from 2s to 1.5s"
+#
+# Prerequisites:
+#   - claude CLI on PATH
+#   - games/<game-name>/plan.md must exist
+#   - Roblox Studio MCP on localhost:3001 must be running to write scripts
 
 set -euo pipefail
-
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
 
-log() {
-  echo "[$(date -u +%H:%M:%S UTC)] $*"
-}
+GAME="${1:?Usage: ./scripts/apply-live-edit.sh <game-name> \"change request\"}"
+shift
+
+LOG_DIR="${REPO_ROOT}/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/live-edit-$(date +%Y-%m-%d-%H%M%S).log"
+
+log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
 
 # ─── Get change request ──────────────────────────────────────────────────────
 
 if [[ $# -ge 1 ]]; then
   CHANGE_REQUEST="$*"
 else
-  echo "Enter live edit request (be specific — vague requests will be flagged):"
+  echo "Enter live edit request for '${GAME}' (be specific):"
+  echo "Example: 'Change dash cooldown from 2s to 1.5s in the combat module'"
   read -r CHANGE_REQUEST
 fi
 
@@ -30,51 +43,78 @@ if [[ -z "$CHANGE_REQUEST" ]]; then
   exit 1
 fi
 
-# Basic ambiguity check — warn on very short or vague requests
 WORD_COUNT=$(echo "$CHANGE_REQUEST" | wc -w)
 if [[ $WORD_COUNT -lt 5 ]]; then
-  echo "WARNING: Your request seems very short (${WORD_COUNT} words)."
-  echo "Builder may flag this as too ambiguous. Consider being more specific."
-  echo "Example: 'Change the dash cooldown in sword-game from 2 seconds to 1.5 seconds'"
+  echo "WARNING: Request seems very short (${WORD_COUNT} words)."
+  echo "Builder may flag this as ambiguous. Consider being more specific."
   echo ""
   echo "Continue with: '${CHANGE_REQUEST}'? (y/n)"
   read -r CONFIRM
   [[ "$CONFIRM" != "y" ]] && { echo "Cancelled."; exit 0; }
 fi
 
-TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-log "=== Live Edit Request ==="
-log "Request: ${CHANGE_REQUEST}"
-log "Timestamp: ${TIMESTAMP}"
-
-# ─── Pre-flight: check GitHub MCP ────────────────────────────────────────────
-
-GITHUB_STATUS=$(curl -sf http://localhost:3004/health 2>/dev/null || echo '{"status":"error"}')
-GITHUB_OK=$(echo "$GITHUB_STATUS" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if d.get('status')=='ok' else 'no')" 2>/dev/null || echo 'no')
-
-if [[ "$GITHUB_OK" == "no" ]]; then
-  log "ERROR: GitHub MCP is unreachable. Cannot create branch or PR for live edit."
-  log "Check that the GitHub MCP server is running on localhost:3004."
+if [[ ! -f "games/${GAME}/plan.md" ]]; then
+  echo "ERROR: No plan.md found for '${GAME}'. Run run-architect.sh first."
   exit 1
 fi
 
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+log "=== Live Edit Request ==="
+log "Game:    ${GAME}"
+log "Request: ${CHANGE_REQUEST}"
+log "Time:    ${TIMESTAMP}"
+
+# ─── Pre-flight ───────────────────────────────────────────────────────────────
+
+STUDIO_OK=no
+GITHUB_OK=no
+curl -sf http://localhost:3001/health >/dev/null 2>&1 && STUDIO_OK=yes || true
+curl -sf http://localhost:3004/health >/dev/null 2>&1 && GITHUB_OK=yes || true
+
+[[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: OK" || log "  Roblox Studio MCP: NOT RUNNING (scripting tasks will be blocked)"
+[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub MCP: OK"         || log "  GitHub MCP: NOT RUNNING (Builder will use local git)"
+
 # ─── Invoke Builder in live-edit mode ────────────────────────────────────────
 
-log "Invoking Builder in live-edit mode..."
+log ""
+log "Invoking Builder for live edit..."
 log "Builder will:"
-log "  1. Write to memory/human-overrides.md BEFORE touching any code"
-log "  2. Create a live/ branch"
-log "  3. Implement the change"
-log "  4. Open a PR labelled 'live-edit'"
+log "  1. Log the request to memory/human-overrides.md FIRST"
+log "  2. Create a live/${GAME}/... branch"
+log "  3. Implement the change (following agents/builder/prompts/live-edit.md)"
+log "  4. Commit and open a PR (or leave a local branch if GitHub MCP is unavailable)"
+log ""
 
-claude --agent builder \
-       --prompt "agents/builder/prompts/live-edit.md" \
-       --input "${CHANGE_REQUEST}" \
-       --context "memory/human-overrides.md,games/*/sprint-log.md,games/*/overrides.md" \
-       --mode live-edit \
-       --timestamp "$TIMESTAMP" \
-  || { log "ERROR: Builder failed to apply live edit. Check memory/human-overrides.md for the logged request."; exit 1; }
+claude --dangerously-skip-permissions -p "
+Read CLAUDE.md first — follow all rules absolutely.
 
-log "Live edit applied. A PR has been opened and is awaiting QA review."
-log "Review the PR in GitHub and merge when satisfied."
-log "=== Live Edit Complete ==="
+You are the Builder agent. Read agents/builder/AGENT.md for your full role specification.
+Then read agents/builder/prompts/live-edit.md and follow it exactly.
+
+LIVE EDIT REQUEST
+Game:      ${GAME}
+Timestamp: ${TIMESTAMP}
+Request:   ${CHANGE_REQUEST}
+
+Steps:
+1. Read memory/human-overrides.md and games/${GAME}/overrides.md
+2. Append this live edit request to memory/human-overrides.md with status 'active'
+3. Read games/${GAME}/plan.md and games/${GAME}/sprint-log.md for context
+4. Create branch: live/${GAME}/$(echo "${CHANGE_REQUEST}" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | cut -c1-40)
+5. Implement the change following agents/builder/prompts/live-edit.md
+6. Commit with message: [${GAME}] live: ${CHANGE_REQUEST}
+7. Open a PR labelled 'live-edit' (if GitHub MCP available) or log the local branch
+
+MCP availability:
+- Roblox Studio MCP (localhost:3001): ${STUDIO_OK}
+- GitHub MCP (localhost:3004): ${GITHUB_OK}
+
+If Studio MCP is unavailable and the change requires writing game scripts, mark it blocked
+and explain what script changes would be needed so a human can apply them manually.
+" 2>&1 | tee -a "$LOG_FILE"
+
+log ""
+log "Live edit complete. Check the branch/PR and review before merging."
+log "Log: ${LOG_FILE}"
+log "=== Live Edit Done ==="

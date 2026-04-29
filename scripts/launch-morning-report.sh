@@ -1,52 +1,64 @@
 #!/usr/bin/env bash
 # launch-morning-report.sh
-# Invokes the Reporter agent to generate today's morning report
-# from last night's sprint logs and PR data.
-# Called automatically by launch-night-cycle.sh at 5 am,
-# or run manually: ./scripts/launch-morning-report.sh
+# Invokes the Reporter agent to generate today's morning report.
+# Called automatically by launch-night-cycle.sh, or run manually.
+#
+# Usage:
+#   ./scripts/launch-morning-report.sh
+#   ./scripts/launch-morning-report.sh "abort reason text"   (when night cycle aborted early)
+#
+# Prerequisites:
+#   - claude CLI on PATH
+#   - games/*/sprint-log.md must exist (night cycle must have run)
 
 set -euo pipefail
-
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
 TODAY=$(date +%Y-%m-%d)
 REPORT_PATH="${REPO_ROOT}/reports/morning/${TODAY}.md"
-ABORT_REASON="${1:-}"  # Optional: --abort-reason "description"
+ABORT_REASON="${1:-}"
 
-log() {
-  echo "[$(date -u +%H:%M:%S UTC)] $*"
-}
+LOG_DIR="${REPO_ROOT}/logs"
+mkdir -p "$LOG_DIR" "$(dirname "$REPORT_PATH")"
+LOG_FILE="${LOG_DIR}/morning-report-${TODAY}.log"
 
-log "Generating morning report for ${TODAY}..."
+log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
 
-# Collect context files for Reporter
-CONTEXT_FILES=(
-  "games/*/sprint-log.md"
-  "memory/blockers.md"
-  "memory/decisions.md"
-)
+log "=== Morning Report — ${TODAY} ==="
 
-# If called with an abort reason, pass it to Reporter as context
-ABORT_FLAG=""
+ABORT_CONTEXT=""
 if [[ -n "$ABORT_REASON" ]]; then
-  ABORT_FLAG="--abort-reason ${ABORT_REASON}"
-  log "Note: Night cycle aborted — reason: ${ABORT_REASON}"
+  ABORT_CONTEXT="NOTE: The night cycle was aborted early. Reason: ${ABORT_REASON}
+Reflect this in the report — show partial completion, explain what did not run."
+  log "Note: abort reason passed in — ${ABORT_REASON}"
 fi
 
-# Invoke Reporter
-claude --agent reporter \
-       --prompt "agents/reporter/prompts/morning-digest.md agents/reporter/prompts/tonights-plan.md" \
-       --template "agents/reporter/templates/morning-report.md" \
-       --output "$REPORT_PATH" \
-       --context "${CONTEXT_FILES[*]}" \
-       $ABORT_FLAG \
-  || { log "ERROR: Reporter failed to generate morning report."; exit 1; }
+claude --dangerously-skip-permissions -p "
+Read CLAUDE.md first.
 
-log "Morning report written to: ${REPORT_PATH}"
+You are the Reporter agent. Read agents/reporter/AGENT.md for your full role specification.
 
-# Print the report path for GitHub Actions step summary
-if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-  echo "## Morning Report" >> "$GITHUB_STEP_SUMMARY"
-  echo "Report path: \`${REPORT_PATH}\`" >> "$GITHUB_STEP_SUMMARY"
-  echo "" >> "$GITHUB_STEP_SUMMARY"
-  cat "$REPORT_PATH" >> "$GITHUB_STEP_SUMMARY"
+Your task: generate the morning report for ${TODAY}.
+
+Follow agents/reporter/prompts/morning-digest.md exactly:
+1. Read all games/*/sprint-log.md files to collect last night's results
+2. Read memory/blockers.md for any active blockers to surface
+3. Read memory/decisions.md for any new architectural decisions made
+4. Read all games/*/progress.md for the append-only build history
+5. Use agents/reporter/prompts/tonights-plan.md to add the 'Tonight's Plan' section
+6. Write the complete report to ${REPORT_PATH}
+
+${ABORT_CONTEXT}
+
+Do not modify any sprint logs, plan files, or memory files.
+Output path: ${REPORT_PATH}
+" 2>&1 | tee -a "$LOG_FILE"
+
+if [[ -f "$REPORT_PATH" ]]; then
+  log "Morning report written to: ${REPORT_PATH}"
+else
+  log "WARNING: Reporter did not write a report to ${REPORT_PATH}. Check the log."
 fi
+
+log "=== Morning Report Complete ==="

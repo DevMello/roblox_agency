@@ -1,64 +1,24 @@
-name: Night Cycle
+# night-cycle.yml — NOT USED FOR LOCAL OPERATION
+#
+# This file is a placeholder. The night cycle is run locally via:
+#   bash scripts/launch-night-cycle.sh [game-name]
+#
+# If you later want to run the agency on a GitHub Actions self-hosted runner,
+# restore the job definition here and configure your runner to start the
+# MCP servers (Roblox Studio MCP on :3001, GitHub MCP on :3004) before
+# the workflow fires.
+#
+# For now, use the scripts directly from a terminal or task scheduler.
 
+name: Night Cycle (disabled)
 on:
-  schedule:
-    # 11:00 pm ET = 04:00 UTC (during EDT, UTC-4)
-    # 11:00 pm ET = 04:00 UTC (adjust to 05:00 UTC during EST, UTC-5)
-    - cron: '0 4 * * *'
   workflow_dispatch:
     inputs:
-      reason:
-        description: 'Reason for manual trigger'
+      note:
+        description: 'This workflow is disabled. Run scripts/launch-night-cycle.sh locally.'
         required: false
-        default: 'Manual trigger'
-
-concurrency:
-  group: night-cycle
-  cancel-in-progress: false  # Never cancel a running night cycle
-
 jobs:
-  night-cycle:
-    name: Run Night Cycle
-    runs-on: self-hosted  # Must run on a machine with Roblox Studio and MCP servers
-    timeout-minutes: 370  # 6 hours 10 minutes — slightly over the 6-hour window
-
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+  disabled:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Configure git identity
-        run: |
-          git config user.name "Agency Builder Bot"
-          git config user.email "builder@agency.local"
-
-      - name: Verify MCP servers are running
-        run: |
-          echo "Checking MCP server health..."
-          curl -f http://localhost:3001/health || echo "WARNING: Roblox Studio MCP not ready"
-          curl -f http://localhost:3004/health || echo "WARNING: GitHub MCP not ready"
-
-      - name: Run night cycle
-        run: bash scripts/launch-night-cycle.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: night-cycle-logs-${{ github.run_id }}
-          path: logs/
-          retention-days: 7
-
-      - name: Commit and push any generated files
-        if: always()
-        run: |
-          git add reports/ games/ memory/ || true
-          git diff --cached --quiet || git commit -m "chore: night cycle outputs $(date +%Y-%m-%d)" --no-verify
-          git push origin main || true
+      - run: echo "Run scripts/launch-night-cycle.sh on your local machine instead."
