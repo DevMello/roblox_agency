@@ -67,7 +67,8 @@ Open **Git Bash** (not PowerShell, not CMD) and verify:
 ```bash
 claude --version          # Claude Code CLI must be installed and authenticated
 git --version             # git must be available
-curl http://localhost:3001/health   # Roblox Studio MCP should be running
+gh auth status            # GitHub CLI must be installed and authenticated
+ls "$LOCALAPPDATA/Roblox/mcp.bat"  # Roblox Studio MCP batch file must exist
 ```
 
 If `claude --version` fails, install Claude Code:
@@ -75,6 +76,14 @@ If `claude --version` fails, install Claude Code:
 npm install -g @anthropic-ai/claude-code
 claude   # run once to authenticate
 ```
+
+If `gh auth status` fails, install and authenticate the GitHub CLI:
+```bash
+winget install GitHub.cli   # or download from https://cli.github.com
+gh auth login
+```
+
+The Roblox Studio MCP is the official Roblox-provided MCP server. It is configured via `.mcp.json` in this repo and communicates through a batch file at `%LOCALAPPDATA%\Roblox\mcp.bat` (installed automatically when you install Roblox Studio). Open Roblox Studio before running the night cycle — the batch file must be present and Studio must be running for Builder to write game scripts.
 
 ### Step 1 — Initialize git (one-time)
 
@@ -121,7 +130,9 @@ This runs Planner → Builder → Reporter in sequence. The full run takes sever
 
 ### Roblox Studio MCP
 
-Without the Studio MCP running on `localhost:3001`, Builder will mark all scripting tasks blocked and no Luau files will be written. The night cycle will still run and produce logs, sprint records, and a morning report — you just won't get actual game scripts until the MCP is available.
+The Roblox Studio MCP uses the official Roblox-provided MCP server, configured in `.mcp.json`. It communicates via a batch file at `%LOCALAPPDATA%\Roblox\mcp.bat` — no localhost server is required. Roblox Studio must be open and running before the night cycle starts.
+
+Without the Studio MCP available (i.e. the batch file is missing or Studio is not open), Builder will mark all scripting tasks blocked and no Luau files will be written. The night cycle will still run and produce logs, sprint records, and a morning report — you just won't get actual game scripts until the MCP is available.
 
 ---
 
@@ -185,7 +196,7 @@ Four MCP servers are required. See `config/mcp-servers.md` for full details.
 | Chrome MCP | Documentation lookups, DevForum access |
 | GitHub CLI (`gh`) | Branch, commit, PR, and label operations |
 
-Roblox Studio MCP and Blender MCP must be running before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies connectivity. Run `gh auth status` to confirm the GitHub CLI is authenticated.
+Roblox Studio MCP uses the official Roblox batch file (`%LOCALAPPDATA%\Roblox\mcp.bat`) — configured automatically via `.mcp.json`. Blender MCP must be running before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies the Roblox MCP batch file is present. Run `gh auth status` to confirm the GitHub CLI is authenticated.
 
 ---
 
