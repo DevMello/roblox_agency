@@ -157,7 +157,8 @@ All MCP operations go through these servers. See `config/mcp-servers.md` for ful
 | Roblox Studio MCP | 3001 | Builder only |
 | Blender MCP | 3002 | Builder only |
 | Chrome MCP | 3003 | Builder (docs), Researcher, Market Researcher |
-| GitHub MCP | 3004 | Builder, Planner, QA, Reporter |
+
+GitHub operations (branches, commits, PRs, labels, comments) use the **GitHub CLI (`gh`)** — not an MCP server. See `.claude/skills/github-cli.md` for the full command reference. Verify authentication with `gh auth status` before starting any night cycle.
 
 Before using any MCP server, run its health check. If it fails after one retry, mark the affected task blocked — do not attempt to work around a missing MCP server.
 

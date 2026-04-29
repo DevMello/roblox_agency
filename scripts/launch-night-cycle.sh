@@ -11,10 +11,8 @@
 #   - claude CLI on PATH
 #   - games/<game>/plan.md must exist (run run-architect.sh first)
 #   - Roblox Studio MCP running on localhost:3001  (Builder needs this to write scripts)
+#   - gh CLI authenticated (run: gh auth status)
 #   - Local git repo initialised (Builder commits to branches)
-#
-# The GitHub MCP (localhost:3004) is OPTIONAL. If unavailable, Builder will use
-# local git operations via the Bash tool instead of GitHub MCP.
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -54,10 +52,10 @@ STUDIO_OK=no
 GITHUB_OK=no
 
 curl -sf http://localhost:3001/health >/dev/null 2>&1 && STUDIO_OK=yes || true
-curl -sf http://localhost:3004/health >/dev/null 2>&1 && GITHUB_OK=yes || true
+gh auth status >/dev/null 2>&1 && GITHUB_OK=yes || true
 
 [[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: OK" || log "  Roblox Studio MCP: NOT RUNNING (Builder will mark scripting tasks blocked)"
-[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub MCP: OK"         || log "  GitHub MCP: NOT RUNNING (Builder will use local git)"
+[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub CLI (gh): authenticated OK" || log "  GitHub CLI (gh): NOT AUTHENTICATED — run 'gh auth login' (Builder will commit locally only)"
 
 # ─── Check for new specs that still need Architect ───────────────────────────
 
@@ -92,7 +90,7 @@ Follow agents/planner/prompts/nightly-sprint.md exactly:
 3. Read games/${GAME}/plan.md and select tonight's tasks (fit within 288 estimated minutes)
 4. Write the sprint to games/${GAME}/sprint-log.md
 
-Also check for any open PRs that need triage if GitHub MCP is available.
+Also check for any open PRs that need triage: run 'gh pr list --label tbd-human --state open' and process each with the pr-triage prompt.
 " 2>&1 | tee -a "$LOG_FILE"
 
   log "Sprint written for ${GAME}."
@@ -121,17 +119,17 @@ For each task in the sprint (in order):
    - Feature tasks: agents/builder/prompts/feature-impl.md
    - Bug fixes:     agents/builder/prompts/bug-fix.md
    - Asset tasks:   agents/builder/prompts/asset-integration.md
-4. Create a git branch, implement the task, commit, open a PR (or local branch if no GitHub MCP)
+4. Create a git branch, implement the task, commit, open a PR via gh CLI (or commit locally only if gh is not authenticated)
 5. Update the task status in games/${GAME}/sprint-log.md to 'done'
 6. Append an entry to games/${GAME}/progress.md
 
 Continue until all tasks are done or you reach 3 failures on one task.
 Do NOT modify plan.md, memory/decisions.md, memory/human-overrides.md, or any agent config file.
 
-MCP availability:
+MCP / CLI availability:
 - Roblox Studio MCP (localhost:3001): ${STUDIO_OK}
-- GitHub MCP (localhost:3004): ${GITHUB_OK}
-If a required MCP is unavailable, mark the task blocked in the sprint log and move to the next task.
+- GitHub CLI (gh): ${GITHUB_OK}
+If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If gh is not authenticated, commit locally but do not open PRs.
 " 2>&1 | tee -a "$LOG_FILE"
 
   log "Builder finished for ${GAME}."

@@ -1,6 +1,8 @@
-# Builder Guide: GitHub MCP
+# Builder Guide: GitHub CLI
 
-Internal guide for all version control operations. Builder never uses git CLI directly — all git operations go through GitHub MCP.
+Internal guide for all version control operations. Builder uses the **GitHub CLI (`gh`)** and standard `git` for all GitHub interactions — there is no GitHub MCP server.
+
+For the complete command reference, read `.claude/skills/github-cli.md`.
 
 ---
 
@@ -21,32 +23,27 @@ Rules:
 
 ## Creating a Branch
 
-```
-create_branch(
-  branch_name: "feature/sword-game/sg-001",
-  from_ref: "main"
-)
+```bash
+git fetch origin
+git checkout -b feature/sword-game/sg-001 origin/main
+git push -u origin feature/sword-game/sg-001
 ```
 
 Always confirm the branch was created before writing any code:
-```
-get_branch(branch_name: "feature/sword-game/sg-001")
-→ should return branch info with commit SHA matching main HEAD
+```bash
+git ls-remote --heads origin feature/sword-game/sg-001
+# Must return a SHA — empty output means push failed
 ```
 
 ---
 
 ## Committing
 
-```
-commit(
-  branch_name: "feature/sword-game/sg-001",
-  message: "[sword-game] feat: add dash mechanic with server validation",
-  files: [
-    { path: "src/ServerScriptService/DashHandler.lua", content: "..." },
-    { path: "src/ReplicatedStorage/RemoteEvents/DashRequested.lua", content: "..." }
-  ]
-)
+```bash
+git add src/ServerScriptService/DashHandler.lua \
+        src/ReplicatedStorage/RemoteEvents/DashRequested.lua
+git commit -m "[sword-game] feat: add dash mechanic with server validation"
+git push
 ```
 
 **Message format:** `[{game-slug}] {type}: {short description}`
@@ -58,15 +55,13 @@ One commit per logical change. Do not batch unrelated changes in one commit.
 
 ## Opening a Pull Request
 
-```
-create_pr(
-  title: "[sword-game] feat: add dash mechanic",
-  head_branch: "feature/sword-game/sg-001",
-  base_branch: "main",
-  body: "...",  # see pr-creation.md for required sections
-  labels: ["feature", "sword-game"],
-  draft: false
-)
+```bash
+gh pr create \
+  --title "[sword-game] feat: add dash mechanic" \
+  --base main \
+  --body "..."  # see pr-creation.md for required sections
+  --label "feature" \
+  --label "sword-game"
 ```
 
 After creation, record the PR number in the sprint log (`pr_reference` field).
@@ -75,11 +70,8 @@ After creation, record the PR number in the sprint log (`pr_reference` field).
 
 ## Adding a PR Comment
 
-```
-add_pr_comment(
-  pr_number: 42,
-  body: "QA review requested."
-)
+```bash
+gh pr comment 42 --body "QA review requested."
 ```
 
 ---
@@ -87,32 +79,33 @@ add_pr_comment(
 ## Checking if a Dependency PR Has Been Merged
 
 Before starting a task with hard dependencies:
-```
-get_pr(pr_number: 38)
-→ check "merged" field: true/false
+```bash
+gh pr view 38 --json merged --jq '.merged'
+# true = merged, false = not yet merged
 ```
 
 If the dependency PR is not merged:
 - Mark the current task `blocked` in the sprint log.
-- Add a `failure_reason`: "hard dependency PR #{38} not yet merged."
+- Add a `failure_reason`: `"hard dependency PR #38 not yet merged."`
 - Do not start the task.
 
 ---
 
 ## Checking for Merge Conflicts
 
-When creating a branch from main, check if the task's target files have been modified by another branch:
-```
-compare_branches(
-  base: "main",
-  head: "feature/sword-game/sg-001"
-)
-→ returns list of conflicting files if any
+When creating a branch from main, verify target files have no conflicts:
+```bash
+git fetch origin
+git merge-tree \
+  $(git merge-base origin/main origin/feature/sword-game/sg-001) \
+  origin/main \
+  origin/feature/sword-game/sg-001
+# Conflict markers (<<<<<<<) in output = conflict exists
 ```
 
 If a merge conflict is detected:
 - **Do not attempt to resolve it automatically.**
-- Mark the task `blocked` with failure reason: "merge conflict detected in {file list}."
+- Mark the task `blocked` with failure reason: `"merge conflict detected in {file list}."`
 - Update the sprint log with a `morning_report_flag` of type `human-input-required`.
 - The conflict must be resolved by a human or by Planner on the next cycle.
 
@@ -120,12 +113,8 @@ If a merge conflict is detected:
 
 ## Changing PR Labels
 
-```
-update_pr_labels(
-  pr_number: 42,
-  add_labels: ["in-progress"],
-  remove_labels: ["tbd-human"]
-)
+```bash
+gh pr edit 42 --add-label "in-progress" --remove-label "tbd-human"
 ```
 
 ---

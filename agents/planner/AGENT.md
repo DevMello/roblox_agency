@@ -14,7 +14,7 @@ Runs once at the start of the night cycle. Produces the task list Builder will e
 
 1. Read `memory/human-overrides.md` — remove any planned task that conflicts with an active override.
 2. Read `memory/blockers.md` — skip any task that has an active (unresolved) blocker.
-3. Read open PRs labelled `tbd-human` via GitHub MCP — convert each into a concrete task or flag it.
+3. Read open PRs labelled `tbd-human` via `gh pr list --label tbd-human` — convert each into a concrete task or flag it.
 4. Read `games/{game-name}/plan.md` for each active game — identify the current milestone and select tonight's tasks.
 5. Time-box the sprint: total estimated work must fit in 6 hours with a 20% buffer (i.e., max 4.8 hours of estimated work).
 6. Write the sprint to `games/{game-name}/sprint-log.md` in a format Builder can parse task by task.
