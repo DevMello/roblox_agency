@@ -9,6 +9,12 @@
 #
 # Worker ID rules: lowercase letters, numbers, hyphens only.
 # Example: pranav-desktop, laptop-1, cloud-vm-us
+#
+# Prerequisites:
+#   - bash (Windows: use Git Bash or WSL — not PowerShell or CMD)
+#   - git on PATH
+#   - Python 3 on PATH (command may be 'python3' or 'python' — detected automatically)
+#   - curl on PATH (for MCP health checks)
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,6 +25,23 @@ REGISTRY="${REPO_ROOT}/memory/workers.md"
 WORKERS_DIR="${REPO_ROOT}/memory/workers"
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
+
+# ─── Detect Python 3 (portable: works on macOS, Linux, and Windows/Git Bash) ──
+# On Windows the executable is often 'python' rather than 'python3'.
+
+PYTHON=""
+for _cmd in python3 python; do
+  if command -v "$_cmd" >/dev/null 2>&1 \
+      && "$_cmd" -c "import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)" 2>/dev/null; then
+    PYTHON="$_cmd"
+    break
+  fi
+done
+if [[ -z "$PYTHON" ]]; then
+  echo "ERROR: Python 3 is required but was not found on PATH."
+  echo "       Install it from https://python.org and ensure it is accessible in this shell."
+  exit 1
+fi
 
 # ─── Get or confirm worker ID ─────────────────────────────────────────────────
 
@@ -68,7 +91,7 @@ git pull --rebase origin main 2>/dev/null || true
 if grep -q "^## Worker: ${NEW_ID}$" "$REGISTRY" 2>/dev/null; then
   log "Updating existing entry for ${NEW_ID}..."
   # Remove the old block (from ## Worker: ID to the next ## Worker: or end of file)
-  python3 - "$REGISTRY" "$NEW_ID" <<'PYEOF'
+  "$PYTHON" - "$REGISTRY" "$NEW_ID" <<'PYEOF'
 import sys, re
 path, wid = sys.argv[1], sys.argv[2]
 with open(path) as f:

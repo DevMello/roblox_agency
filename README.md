@@ -231,6 +231,17 @@ bash scripts/launch-worker.sh
 - `claude` CLI installed and authenticated (can be different accounts per machine)
 - Git configured and pointing to the same remote
 - Roblox Studio MCP running locally on `localhost:3001` for scripting tasks
+- Python 3 on PATH (`python3` or `python` — detected automatically by the scripts)
+
+### Windows users
+All scripts require **bash**. On Windows use **Git Bash** (ships with [Git for Windows](https://gitforwindows.org/)) or **WSL 2**. Do not run the scripts in PowerShell or CMD.
+
+```
+# Verify you have the right shell before running any script:
+bash --version      # should print GNU bash
+python3 --version   # or: python --version (Python 3.x required)
+git --version
+```
 
 ### Scaling beyond 2 machines
 Register as many machines as you want with `register-worker.sh`. Planner distributes tasks round-robin weighted by estimated minutes, keeping dependency chains on the same worker when possible.

@@ -8,7 +8,10 @@
 #   ./scripts/launch-worker.sh <game-name>   (run for one specific game only)
 #
 # Prerequisites:
+#   - bash (Windows: use Git Bash or WSL — not PowerShell or CMD)
 #   - claude CLI on PATH
+#   - git on PATH, configured to access the shared remote
+#   - Python 3 on PATH (command may be 'python3' or 'python' — detected automatically)
 #   - register-worker.sh must have been run at least once (creates config/worker-id)
 #   - Same git remote as the coordinator machine
 
@@ -24,6 +27,23 @@ mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/worker-$(date +%Y-%m-%d).log"
 
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
+
+# ─── Detect Python 3 (portable: works on macOS, Linux, and Windows/Git Bash) ──
+# On Windows the executable is often 'python' rather than 'python3'.
+
+PYTHON=""
+for _cmd in python3 python; do
+  if command -v "$_cmd" >/dev/null 2>&1 \
+      && "$_cmd" -c "import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)" 2>/dev/null; then
+    PYTHON="$_cmd"
+    break
+  fi
+done
+if [[ -z "$PYTHON" ]]; then
+  echo "ERROR: Python 3 is required but was not found on PATH."
+  echo "       Install it from https://python.org and ensure it is accessible in this shell."
+  exit 1
+fi
 
 # ─── Load worker identity ─────────────────────────────────────────────────────
 
@@ -73,7 +93,7 @@ find_sprint_logs() {
 
 # Return the sprint's date field from the JSON, or empty string on failure.
 sprint_json_date() {
-  python3 -c "
+  "$PYTHON" -c "
 import json, sys
 try:
     with open(sys.argv[1]) as f:
@@ -89,7 +109,7 @@ update_registry_last_seen() {
   local ts
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   [[ -f "$REGISTRY" ]] || return 0
-  python3 - "$REGISTRY" "$WORKER_ID" "$ts" <<'PYEOF'
+  "$PYTHON" - "$REGISTRY" "$WORKER_ID" "$ts" <<'PYEOF'
 import sys, re
 path, wid, ts = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(path) as f:
