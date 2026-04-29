@@ -62,6 +62,11 @@ If you are not sure which role to fill, ask the human before proceeding.
 - **Always commit partial work to a branch before stopping** — never leave uncommitted work if interrupted.
 - **Always write to `progress.md` after completing a task** — the append-only log is how future agents understand history.
 - **Always check `memory/human-overrides.md` before generating a sprint** as Planner.
+- **Always `git pull --rebase origin main` before starting each task** as Builder — another worker may have completed a dependency.
+- **Always push sprint log updates immediately after each task** as Builder — `git push origin main`. If rejected, `git pull --rebase && git push`. Never batch sprint log updates.
+- **Always check `config/worker-id` at session start** as Builder — only execute tasks assigned to your worker ID (or all tasks if `worker_id` is null everywhere).
+- **Never execute tasks assigned to a different worker** — task reassignment is Planner's job, not Builder's.
+- **Always write a heartbeat to `memory/workers/{worker-id}.md`** after each task if `config/worker-id` exists.
 
 ---
 

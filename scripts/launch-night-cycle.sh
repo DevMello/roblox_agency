@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 # launch-night-cycle.sh
-# Runs one full night cycle: Planner generates the sprint, Builder executes it,
-# Reporter writes the morning report.
+# Coordinator mode: runs Planner (assigns tasks to workers), then Builder for
+# this machine's tasks, then Reporter.
 #
 # Usage:
-#   ./scripts/launch-night-cycle.sh <game-name>
-#   ./scripts/launch-night-cycle.sh          (runs for ALL games that have a plan.md)
+#   ./scripts/launch-night-cycle.sh [options] [game-name ...]
+#
+# Options:
+#   --coordinator-only   Run Planner only (task assignment), then exit.
+#                        Workers then run launch-worker.sh to pick up their tasks.
+#
+# Examples:
+#   ./scripts/launch-night-cycle.sh sword-game       # single game, all phases
+#   ./scripts/launch-night-cycle.sh                  # all games, all phases
+#   ./scripts/launch-night-cycle.sh --coordinator-only sword-game  # planner only
+#
+# Multi-machine setup:
+#   1. All machines: bash scripts/register-worker.sh <id>
+#   2. Coordinator:  bash scripts/launch-night-cycle.sh [--coordinator-only]
+#   3. Other workers: bash scripts/launch-worker.sh
 #
 # Prerequisites:
 #   - claude CLI on PATH
@@ -26,6 +39,27 @@ LOG_FILE="${LOG_DIR}/night-cycle-$(date +%Y-%m-%d).log"
 
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG_FILE"; }
 
+# ─── Parse flags ─────────────────────────────────────────────────────────────
+
+COORDINATOR_ONLY=no
+ARGS=()
+for arg in "$@"; do
+  if [[ "$arg" == "--coordinator-only" ]]; then
+    COORDINATOR_ONLY=yes
+  else
+    ARGS+=("$arg")
+  fi
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
+# ─── Worker identity ─────────────────────────────────────────────────────────
+
+WORKER_ID_FILE="${REPO_ROOT}/config/worker-id"
+WORKER_ID="default"
+if [[ -f "$WORKER_ID_FILE" ]]; then
+  WORKER_ID=$(cat "$WORKER_ID_FILE")
+fi
+
 # ─── Determine which games to run ────────────────────────────────────────────
 
 GAMES=()
@@ -44,7 +78,9 @@ if [[ ${#GAMES[@]} -eq 0 ]]; then
 fi
 
 log "=== Night Cycle Start — $(date) ==="
-log "Games: ${GAMES[*]}"
+log "Games:         ${GAMES[*]}"
+log "Worker ID:     ${WORKER_ID}"
+log "Coordinator only: ${COORDINATOR_ONLY}"
 
 # ─── Pre-flight checks ───────────────────────────────────────────────────────
 
@@ -90,13 +126,30 @@ Follow agents/planner/prompts/nightly-sprint.md exactly:
 1. Run the override check using agents/planner/prompts/override-check.md
 2. Read memory/blockers.md and exclude blocked tasks
 3. Read games/${GAME}/plan.md and select tonight's tasks (fit within 288 estimated minutes)
-4. Write the sprint to games/${GAME}/sprint-log.md
+4. Run Step 5.5 — worker assignment using agents/planner/prompts/worker-assignment.md
+   Read memory/workers.md to find available workers (last_seen within 2 hours, status active).
+   Assign worker_id to each task and set active_workers on the sprint.
+   If no active workers found, set worker_id: null on all tasks (single-machine mode).
+5. Write the sprint to games/${GAME}/sprint-log.md
+6. Commit the sprint log and push: git add games/${GAME}/sprint-log.md && git commit -m '[${GAME}] plan: nightly sprint $(date +%Y-%m-%d)' && git push origin main
 
 Also check for any open PRs that need triage if GitHub MCP is available.
 " 2>&1 | tee -a "$LOG_FILE"
 
   log "Sprint written for ${GAME}."
 done
+
+# ─── Coordinator-only exit ────────────────────────────────────────────────────
+
+if [[ "$COORDINATOR_ONLY" == "yes" ]]; then
+  log ""
+  log "=== Coordinator-only mode: Planner phase complete ==="
+  log "Sprint logs have been written and pushed. Workers can now run:"
+  log "  bash scripts/launch-worker.sh"
+  log ""
+  log "Log: ${LOG_FILE}"
+  exit 0
+fi
 
 # ─── Step 2: Builder — Task Execution ────────────────────────────────────────
 
@@ -108,24 +161,31 @@ for GAME in "${GAMES[@]}"; do
   claude --dangerously-skip-permissions -p "
 Read CLAUDE.md first — follow all rules there absolutely.
 
-You are the Builder agent. Read agents/builder/AGENT.md for your full role specification.
+You are the Builder agent running as worker '${WORKER_ID}'. Read agents/builder/AGENT.md for your full role specification.
 
-Your task: execute all pending tasks in tonight's sprint for game '${GAME}'.
+Your task: execute tasks assigned to worker '${WORKER_ID}' in tonight's sprint for game '${GAME}'.
 
 Sprint log: games/${GAME}/sprint-log.md
+Your worker ID: ${WORKER_ID}
 
-For each task in the sprint (in order):
-1. Read the task definition from the sprint log
-2. Check that hard dependencies are satisfied
-3. Use the appropriate prompt:
+IMPORTANT: Only execute tasks where worker_id == '${WORKER_ID}' OR where worker_id is null (single-machine mode). Skip tasks assigned to other workers.
+
+For each task assigned to you (in order):
+1. Pull from git: git pull --rebase origin main  (pick up completions from other workers)
+2. Read the task definition from the sprint log
+3. Check that hard dependencies are satisfied (deps may be done by other workers — check their status)
+   - If a hard dependency is not yet done and is on another worker: wait up to 30 min (pull every 2 min)
+4. Use the appropriate prompt:
    - Feature tasks: agents/builder/prompts/feature-impl.md
    - Bug fixes:     agents/builder/prompts/bug-fix.md
    - Asset tasks:   agents/builder/prompts/asset-integration.md
-4. Create a git branch, implement the task, commit, open a PR (or local branch if no GitHub MCP)
-5. Update the task status in games/${GAME}/sprint-log.md to 'done'
-6. Append an entry to games/${GAME}/progress.md
+5. Create a git branch, implement the task, commit, open a PR (or local branch if no GitHub MCP)
+6. Update the task status in games/${GAME}/sprint-log.md to 'done'
+7. Push sprint log update immediately: commit and git push origin main (pull --rebase if rejected)
+8. Append an entry to games/${GAME}/progress.md
+9. Write heartbeat to memory/workers/${WORKER_ID}.md with current timestamp. Commit and push.
 
-Continue until all tasks are done or you reach 3 failures on one task.
+Continue until all your assigned tasks are done or you reach 3 failures on one task.
 Do NOT modify plan.md, memory/decisions.md, memory/human-overrides.md, or any agent config file.
 
 MCP availability:

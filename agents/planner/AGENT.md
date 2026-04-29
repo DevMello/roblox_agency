@@ -17,7 +17,8 @@ Runs once at the start of the night cycle. Produces the task list Builder will e
 3. Read open PRs labelled `tbd-human` via GitHub MCP — convert each into a concrete task or flag it.
 4. Read `games/{game-name}/plan.md` for each active game — identify the current milestone and select tonight's tasks.
 5. Time-box the sprint: total estimated work must fit in 6 hours with a 20% buffer (i.e., max 4.8 hours of estimated work).
-6. Write the sprint to `games/{game-name}/sprint-log.md` in a format Builder can parse task by task.
+6. **Assign tasks to workers** using `agents/planner/prompts/worker-assignment.md`. Set `worker_id` on each task. If no workers are registered, set `worker_id: null` on all tasks (single-machine mode).
+7. Write the sprint to `games/{game-name}/sprint-log.md` in a format Builder can parse task by task.
 
 Use the `nightly-sprint` prompt for this step.
 
@@ -38,6 +39,8 @@ Runs every 30 minutes during the night cycle. Does not interrupt Builder.
 | `games/{game-name}/plan.md` | Sprint generation only |
 | `memory/human-overrides.md` | Sprint generation only |
 | `memory/blockers.md` | Sprint generation and replan |
+| `memory/workers.md` | Sprint generation (worker assignment) |
+| `memory/workers/{worker-id}.md` | Every monitoring pass (stale worker detection) |
 | `games/{game-name}/sprint-log.md` | Every monitoring pass |
 | Open PRs tagged `tbd-human` | Sprint generation only |
 
@@ -61,6 +64,15 @@ Planner reads `sprint-log.md` every 30 minutes. It does not poll Builder directl
 - Builder writes task status updates to the sprint log as it works.
 - Planner reads those updates and decides whether to act.
 - If Planner issues a replan, it updates the sprint log with new instructions. Builder reads the sprint log at the start of each new task, so it will see the updated plan before starting the next task.
+
+### Multi-Worker Monitoring
+
+When multiple workers are active, Planner also checks `memory/workers/{worker-id}.md` for each active worker during each monitoring pass:
+
+- If a worker's `last_updated` timestamp is older than 20 minutes AND that worker has tasks still in `in-progress` or `pending` state, the worker is considered stalled.
+- Planner reassigns the stalled worker's remaining `pending` tasks to other available workers by updating `worker_id` in the sprint log.
+- Planner marks the stalled worker's `in-progress` task as `paused` (not failed) and adds a note explaining the reassignment.
+- Planner does not attempt to contact the stalled worker — it simply redistributes the work.
 
 ---
 

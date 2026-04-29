@@ -189,6 +189,54 @@ All servers must be running before the night cycle starts. The pre-flight check 
 
 ---
 
+## Multi-Machine Setup
+
+Any number of machines can contribute to the same night cycle. Each machine runs its own Claude Code instance and Roblox Studio MCP — they share a single git repo as the coordination backbone.
+
+### How it works
+
+The **coordinator** runs the Planner, which reads the worker registry and pre-assigns each task to a specific machine before any building starts. Workers only execute their assigned tasks and push status updates after each one. No two machines ever race for the same task.
+
+### Setup (one-time per machine)
+
+```bash
+# On every machine that will participate:
+bash scripts/register-worker.sh my-machine-name
+```
+
+This creates a local `config/worker-id` file (gitignored) and adds the machine to `memory/workers.md` in the repo.
+
+### Running a multi-machine night cycle
+
+**Machine A — coordinator (also runs its own tasks):**
+```bash
+bash scripts/launch-night-cycle.sh sword-game
+```
+Planner assigns tasks across all registered workers, pushes the sprint log, then Builder on Machine A executes its assigned tasks.
+
+**Every other machine — worker only:**
+```bash
+bash scripts/launch-worker.sh
+```
+Polls until the coordinator's sprint log appears, then executes only the tasks assigned to that machine.
+
+**Coordinator-only mode** (if you want to separate Planner from building):
+```bash
+bash scripts/launch-night-cycle.sh --coordinator-only sword-game
+# Then on ALL machines (including coordinator):
+bash scripts/launch-worker.sh
+```
+
+### What each machine needs
+- `claude` CLI installed and authenticated (can be different accounts per machine)
+- Git configured and pointing to the same remote
+- Roblox Studio MCP running locally on `localhost:3001` for scripting tasks
+
+### Scaling beyond 2 machines
+Register as many machines as you want with `register-worker.sh`. Planner distributes tasks round-robin weighted by estimated minutes, keeping dependency chains on the same worker when possible.
+
+---
+
 ## Repo Conventions
 
 - **Never commit directly to `main`.** All changes go through PRs. The nightly automation depends on this.
