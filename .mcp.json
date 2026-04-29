@@ -1,0 +1,19 @@
+{
+    "mcpServers": {
+        "chrome-devtools": {
+          "type": "stdio",
+          "command": "npx",
+          "args": [
+            "chrome-devtools-mcp@latest"
+          ],
+          "env": {}
+        },
+        "Roblox_Studio": {
+            "command": "cmd.exe",
+            "args": [
+                "/c",
+                "%LOCALAPPDATA%\\Roblox\\mcp.bat"
+            ]
+        }
+    }
+}
