@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "milestone.schema.json",
+  "title": "Milestone",
+  "description": "A time-boxed group of tasks representing a coherent phase of game development.",
+  "type": "object",
+  "required": ["milestone_id", "name", "goal", "task_ids", "estimated_nights", "success_criteria", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "milestone_id": {
+      "type": "string",
+      "description": "Unique milestone identifier in format {game-slug}-m{number}.",
+      "pattern": "^[a-z0-9-]+-m\\d+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Short human-readable name for this milestone.",
+      "maxLength": 80
+    },
+    "goal": {
+      "type": "string",
+      "description": "One sentence describing what a player can do when this milestone is complete that they could not do before.",
+      "maxLength": 200
+    },
+    "task_ids": {
+      "type": "array",
+      "description": "Ordered list of task IDs included in this milestone. Order reflects recommended execution sequence.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+-\\d{3}$"
+      },
+      "minItems": 2,
+      "maxItems": 15
+    },
+    "estimated_nights": {
+      "type": "integer",
+      "description": "Estimated number of nightly build cycles needed to complete all tasks in this milestone.",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "actual_nights": {
+      "type": "integer",
+      "description": "Actual nights taken. Filled in by Planner when milestone is marked complete.",
+      "minimum": 0
+    },
+    "success_criteria": {
+      "type": "array",
+      "description": "List of 2-5 testable statements defining when this milestone is done.",
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "minItems": 2,
+      "maxItems": 5
+    },
+    "status": {
+      "type": "string",
+      "description": "Current state of this milestone.",
+      "enum": ["pending", "in-progress", "complete", "partially-complete", "blocked"]
+    },
+    "critical_path": {
+      "type": "boolean",
+      "description": "True if this milestone is on the critical path — i.e. it must be complete before the next milestone can begin.",
+      "default": false
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when the first task in this milestone was started. ISO 8601 date."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when all tasks in this milestone reached done status. ISO 8601 date."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes from Architect or Planner about this milestone (e.g. reasons for deferral, scope changes)."
+    }
+  }
+}

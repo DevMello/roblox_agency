@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "task.schema.json",
+  "title": "SprintTask",
+  "description": "An atomic task within a nightly sprint. Written by Planner, executed and updated by Builder.",
+  "type": "object",
+  "required": ["task_id", "title", "type", "description", "estimated_minutes", "assigned_agent", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Task identifier matching the ID from the task tree.",
+      "pattern": "^[a-z0-9-]+-\\d{3}$"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short task title.",
+      "maxLength": 100
+    },
+    "type": {
+      "type": "string",
+      "description": "Category of work.",
+      "enum": ["scripting", "asset", "ui", "config", "fix", "research", "game-mechanic", "data"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Full description of what Builder needs to implement. Should be self-contained — Builder should not need to look at another file to understand what to build."
+    },
+    "estimated_minutes": {
+      "type": "integer",
+      "description": "Planner's estimate of how long this task should take Builder.",
+      "minimum": 10,
+      "maximum": 90
+    },
+    "actual_minutes": {
+      "type": "integer",
+      "description": "Actual time Builder spent on this task from start to PR open. Filled in by Builder.",
+      "minimum": 0
+    },
+    "assigned_agent": {
+      "type": "string",
+      "description": "Which agent executes this task.",
+      "enum": ["builder", "researcher"]
+    },
+    "depends_on": {
+      "type": "array",
+      "description": "Task IDs that must be in done status before this task can start.",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+-\\d{3}$"
+      }
+    },
+    "status": {
+      "type": "string",
+      "description": "Current execution state.",
+      "enum": ["pending", "in-progress", "done", "failed", "blocked", "paused", "skipped"]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when Builder began this task."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when Builder marked this task done (PR opened)."
+    },
+    "pr_reference": {
+      "type": "string",
+      "description": "GitHub PR URL or number. Filled in by Builder when PR is opened."
+    },
+    "failure_reason": {
+      "type": "string",
+      "description": "If status is failed, a concise description of why the task failed. Builder fills this in."
+    },
+    "attempt_count": {
+      "type": "integer",
+      "description": "How many times Builder has attempted this task. Incremented by Builder on each attempt.",
+      "minimum": 0,
+      "default": 0
+    },
+    "qa_verdict": {
+      "type": "string",
+      "description": "QA's verdict on the PR for this task.",
+      "enum": ["pending", "approved", "blocked", "needs-revision"]
+    },
+    "qa_notes": {
+      "type": "string",
+      "description": "QA's notes on the PR. Filled in by QA after review."
+    }
+  }
+}

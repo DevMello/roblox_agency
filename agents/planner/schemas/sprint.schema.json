@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sprint.schema.json",
+  "title": "Sprint",
+  "description": "A nightly sprint object written by Planner and read by Builder.",
+  "type": "object",
+  "required": ["sprint_id", "date", "game_name", "milestone_ref", "task_list", "total_estimated_minutes", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "sprint_id": {
+      "type": "string",
+      "description": "Unique sprint identifier in format {game-slug}-{YYYY-MM-DD}.",
+      "pattern": "^[a-z0-9-]+-\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "The calendar date of the night this sprint runs (the evening date, not the 5am end date)."
+    },
+    "game_name": {
+      "type": "string",
+      "description": "Human-readable game name."
+    },
+    "game_slug": {
+      "type": "string",
+      "description": "URL-safe game identifier.",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "milestone_ref": {
+      "type": "string",
+      "description": "ID of the milestone this sprint is working towards.",
+      "pattern": "^[a-z0-9-]+-m\\d+$"
+    },
+    "task_list": {
+      "type": "array",
+      "description": "Ordered list of tasks for Builder to execute. Builder works through them in order.",
+      "items": {
+        "$ref": "task.schema.json"
+      },
+      "minItems": 0
+    },
+    "total_estimated_minutes": {
+      "type": "integer",
+      "description": "Sum of estimated_minutes across all tasks in task_list.",
+      "minimum": 0,
+      "maximum": 288
+    },
+    "actual_start_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when Builder began executing the first task."
+    },
+    "actual_end_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the sprint concluded (all tasks done, wind-down, or abort)."
+    },
+    "status": {
+      "type": "string",
+      "description": "Current state of the sprint.",
+      "enum": ["planned", "running", "complete", "partial", "failed", "aborted"]
+    },
+    "notes": {
+      "type": "array",
+      "description": "Timestamped notes from Planner. Written during sprint generation and mid-night monitoring passes.",
+      "items": {
+        "type": "object",
+        "required": ["timestamp", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["info", "replan", "blocker", "override-conflict", "cost-cap", "morning-flag"]
+          }
+        }
+      }
+    },
+    "conflict_report": {
+      "type": "object",
+      "description": "Output of the override-check prompt.",
+      "additionalProperties": true
+    },
+    "skipped_due_to_blocker": {
+      "type": "array",
+      "description": "Task IDs that were removed from the sprint because of active blockers.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "skipped_due_to_override": {
+      "type": "array",
+      "description": "Task IDs that were removed or adapted because of human overrides.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "morning_report_flags": {
+      "type": "array",
+      "description": "Items that Reporter should highlight in the morning digest.",
+      "items": {
+        "type": "object",
+        "required": ["type", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["failure", "blocker", "human-input-required", "tbd-pr-ambiguous", "cost-cap-hit", "sprint-abort"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "pr_number": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

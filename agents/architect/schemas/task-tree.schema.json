@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "task-tree.schema.json",
+  "title": "TaskTree",
+  "description": "The complete set of tasks for a single game, produced by the Architect agent.",
+  "type": "object",
+  "required": ["game_slug", "game_name", "created_at", "tasks"],
+  "additionalProperties": false,
+  "properties": {
+    "game_slug": {
+      "type": "string",
+      "description": "URL-safe identifier for the game, matching the directory name under games/.",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "game_name": {
+      "type": "string",
+      "description": "Human-readable game title."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this task tree was generated."
+    },
+    "last_updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the most recent update to this task tree."
+    },
+    "tasks": {
+      "type": "array",
+      "description": "Ordered list of all tasks. Order is not execution order — use depends_on for that.",
+      "items": {
+        "$ref": "#/definitions/Task"
+      },
+      "minItems": 1
+    }
+  },
+  "definitions": {
+    "Task": {
+      "type": "object",
+      "required": ["task_id", "title", "type", "description", "estimated_complexity", "assignee", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Unique task identifier in format {game-slug}-{3-digit-number}.",
+          "pattern": "^[a-z0-9-]+-\\d{3}$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short title for the task. Should be completable as a sentence starting with 'Implement...' or 'Create...'.",
+          "maxLength": 100
+        },
+        "type": {
+          "type": "string",
+          "description": "The category of work this task involves.",
+          "enum": ["scripting", "asset", "ui", "game-mechanic", "data", "config"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Full description of what this task requires. Should include what to build, what it connects to, and any known constraints from the spec."
+        },
+        "estimated_complexity": {
+          "type": "string",
+          "description": "Rough size estimate. low = under 30 min, medium = 30-60 min, high = 60-90 min.",
+          "enum": ["low", "medium", "high"]
+        },
+        "estimated_minutes": {
+          "type": "integer",
+          "description": "Estimated implementation time in minutes. Filled in by milestone-planner, not parse-spec.",
+          "minimum": 10,
+          "maximum": 90
+        },
+        "actual_minutes": {
+          "type": "integer",
+          "description": "Actual time taken. Filled in by Builder after completion.",
+          "minimum": 0
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "List of task dependencies. Filled in by dependency-mapper, not parse-spec.",
+          "items": {
+            "type": "object",
+            "required": ["task_id", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "type": "string",
+                "description": "ID of the task this task depends on."
+              },
+              "type": {
+                "type": "string",
+                "enum": ["hard", "soft"],
+                "description": "hard = cannot start until dependency is merged. soft = easier after dependency, but can start independently."
+              }
+            }
+          }
+        },
+        "assignee": {
+          "type": "string",
+          "description": "Which agent will execute this task.",
+          "enum": ["builder", "researcher"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Current execution state of this task.",
+          "enum": ["pending", "in-progress", "done", "failed", "blocked", "paused", "skipped"]
+        },
+        "milestone_id": {
+          "type": "string",
+          "description": "ID of the milestone this task belongs to. Filled in by milestone-planner.",
+          "pattern": "^[a-z0-9-]+-m\\d+$"
+        },
+        "pr_reference": {
+          "type": "string",
+          "description": "GitHub PR URL or number for the PR that implemented this task. Filled in by Builder."
+        },
+        "ambiguity_notes": {
+          "type": "string",
+          "description": "Notes about anything in the spec that was unclear when this task was created. Architect fills this in when a task has ambiguous requirements."
+        },
+        "failure_reason": {
+          "type": "string",
+          "description": "If status is failed, a short description of why the task failed."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional additional metadata. Use sparingly.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
