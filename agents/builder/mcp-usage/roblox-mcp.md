@@ -6,14 +6,9 @@ Internal guide for using the Roblox Studio MCP server. Read this before your fir
 
 ## Connection
 
-**URL:** `localhost:3001`
+**Method:** Official Roblox MCP server via batch file at `%LOCALAPPDATA%\Roblox\mcp.bat`, configured in `.mcp.json`. No localhost URL is used — Claude Code connects automatically when the batch file is present and Roblox Studio is open.
 
-Always verify connection before use:
-```
-health_check → should return { "status": "ok", "studio_open": true }
-```
-
-If `studio_open` is false, Roblox Studio is not running. Mark the task blocked — do not attempt any Studio operations without an open Studio session. Log the issue in `memory/blockers.md`.
+Always verify Studio is open before making MCP calls. If an MCP call returns an error indicating Studio is not running, mark the task blocked — do not attempt any Studio operations without an open Studio session. Log the issue in `memory/blockers.md`.
 
 ---
 

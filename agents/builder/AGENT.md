@@ -18,7 +18,7 @@ Builder reads the sprint once at the start of the night, then re-reads it at the
 
 | Tool | Purpose | Constraints |
 |------|---------|------------|
-| Roblox Studio MCP | Read/write scripts, manipulate Workspace | Always verify Studio is connected before use |
+| Roblox Studio MCP | Read/write scripts, manipulate Workspace | Verify Studio is open and bat file exists before use |
 | Blender MCP | Generate and export 3D assets | Use only for asset tasks; verify Blender is running |
 | Chrome MCP | Documentation lookups | Documentation-only, no general browsing |
 | GitHub CLI (`gh`) | Branches, commits, PRs | All commits go to branches, never main |
@@ -91,7 +91,7 @@ Builder marks a task `failed` and stops when any of these conditions are met:
 
 1. **Three failed implementation attempts**: Builder has tried three times to implement the task and each attempt has produced a different fundamental error. It does not try a fourth time.
 2. **Missing dependency**: A hard dependency task has not been merged and the current task cannot proceed without it.
-3. **MCP server unavailable**: The required MCP server (typically Roblox Studio MCP) is unreachable after one retry and there is no fallback.
+3. **MCP server unavailable**: The required MCP server (Roblox Studio MCP — batch file missing or Studio not open) is unavailable after one retry and there is no fallback.
 4. **Irresolvable ambiguity**: The task definition is too ambiguous to implement without guessing at core behaviour, and Researcher cannot clarify it.
 
 When marking a task failed, Builder must:
