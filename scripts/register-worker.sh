@@ -73,9 +73,10 @@ import sys, re
 path, wid = sys.argv[1], sys.argv[2]
 with open(path) as f:
     content = f.read()
-# Remove block for this worker
-pattern = r'\n## Worker: ' + re.escape(wid) + r'\n.*?(?=\n## Worker: |\Z)'
-content = re.sub(pattern, '', content, flags=re.DOTALL)
+# Remove block for this worker. Use MULTILINE so ^ anchors to line start,
+# and handle entries that may appear first in the file (no preceding newline).
+pattern = r'(?:^|\n)## Worker: ' + re.escape(wid) + r'\n.*?(?=\n## Worker: |\Z)'
+content = re.sub(pattern, '', content, flags=re.DOTALL | re.MULTILINE)
 with open(path, 'w') as f:
     f.write(content)
 PYEOF

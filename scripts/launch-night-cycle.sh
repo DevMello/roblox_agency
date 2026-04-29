@@ -51,6 +51,7 @@ for arg in "$@"; do
   fi
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
+# Note: the expansion above is the safe empty-array idiom required under set -u.
 
 # ─── Worker identity ─────────────────────────────────────────────────────────
 

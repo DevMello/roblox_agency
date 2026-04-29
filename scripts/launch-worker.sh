@@ -34,6 +34,7 @@ if [[ ! -f "$WORKER_ID_FILE" ]]; then
 fi
 
 WORKER_ID=$(cat "$WORKER_ID_FILE")
+REGISTRY="${REPO_ROOT}/memory/workers.md"
 log "=== Worker Mode: ${WORKER_ID} ==="
 
 # ─── MCP pre-flight ──────────────────────────────────────────────────────────
@@ -70,16 +71,51 @@ find_sprint_logs() {
   fi
 }
 
+# Return the sprint's date field from the JSON, or empty string on failure.
+sprint_json_date() {
+  python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    print(d.get('date', ''))
+except Exception:
+    pass
+" "$1" 2>/dev/null || true
+}
+
+# Update the Last seen: line for WORKER_ID in memory/workers.md.
+update_registry_last_seen() {
+  local ts
+  ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  [[ -f "$REGISTRY" ]] || return 0
+  python3 - "$REGISTRY" "$WORKER_ID" "$ts" <<'PYEOF'
+import sys, re
+path, wid, ts = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as f:
+    content = f.read()
+# Replace 'Last seen: <value>' inside this worker's block only.
+def replace_last_seen(m):
+    block = m.group(0)
+    block = re.sub(r'(Last seen: ).*', r'\g<1>' + ts, block)
+    return block
+pattern = r'## Worker: ' + re.escape(wid) + r'\b.*?(?=\n## Worker: |\Z)'
+content = re.sub(pattern, replace_last_seen, content, flags=re.DOTALL)
+with open(path, 'w') as f:
+    f.write(content)
+PYEOF
+}
+
 wait_for_sprint() {
   while [[ $POLL_COUNT -lt $POLL_MAX ]]; do
     git pull --rebase origin main --quiet 2>/dev/null || true
     FOUND=0
+    TODAY=$(date +%Y-%m-%d)
     while IFS= read -r sprint_file; do
       [[ -f "$sprint_file" ]] || continue
-      # Check sprint was written today and has assigned tasks
-      FILE_DATE=$(date -r "$sprint_file" +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)
-      TODAY=$(date +%Y-%m-%d)
-      if [[ "$FILE_DATE" == "$TODAY" ]]; then
+      # Read the date from the sprint JSON itself — mtime is unreliable after git pull.
+      SPRINT_DATE=$(sprint_json_date "$sprint_file")
+      if [[ "$SPRINT_DATE" == "$TODAY" ]]; then
         # Check if any task is assigned to this worker
         if grep -q "\"worker_id\": \"${WORKER_ID}\"" "$sprint_file" 2>/dev/null; then
           FOUND=1
@@ -102,7 +138,7 @@ wait_for_sprint() {
   log "  - The coordinator has not run launch-night-cycle.sh yet"
   log "  - No tasks were assigned to worker '${WORKER_ID}' tonight"
   log "  - The coordinator is running in single-machine mode (no workers registered)"
-  exit 0
+  exit 1
 }
 
 wait_for_sprint
@@ -118,7 +154,7 @@ while IFS= read -r SPRINT_LOG; do
   log ""
   log "--- Worker ${WORKER_ID}: executing tasks for ${GAME} ---"
 
-  # Update heartbeat
+  # Update heartbeat and refresh Last seen: in the worker registry
   mkdir -p "$HEARTBEAT_DIR"
   cat > "${HEARTBEAT_DIR}/${WORKER_ID}.md" << EOF
 # Worker Heartbeat: ${WORKER_ID}
@@ -127,7 +163,8 @@ Last updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 Current task: starting ${GAME}
 Status: active
 EOF
-  git add "${HEARTBEAT_DIR}/${WORKER_ID}.md"
+  update_registry_last_seen
+  git add "${HEARTBEAT_DIR}/${WORKER_ID}.md" "$REGISTRY"
   git diff --cached --quiet || git commit -m "worker: ${WORKER_ID} starting ${GAME}"
   git push origin main --quiet 2>/dev/null || true
 
@@ -157,7 +194,7 @@ For each task assigned to you (in order):
 6. Update the task status in ${SPRINT_LOG} to 'done'
 7. Commit the sprint log update and push immediately: git push origin main (retry once if rejected with: git pull --rebase && git push)
 8. Append an entry to games/${GAME}/progress.md
-9. Write heartbeat: update memory/workers/${WORKER_ID}.md with current timestamp and task just completed. Commit and push.
+9. Write heartbeat: update memory/workers/${WORKER_ID}.md with current timestamp and task just completed. Also update the Last seen: line for this worker in memory/workers.md (use the same Python helper as register-worker.sh). Commit and push both files.
 
 Continue until all your assigned tasks are done or you reach 3 failures on one task.
 Do NOT modify plan.md, memory/decisions.md, memory/human-overrides.md, or any agent config file.
@@ -183,7 +220,8 @@ Last updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 Current task: idle
 Status: complete
 EOF
-git add "${HEARTBEAT_DIR}/${WORKER_ID}.md"
+update_registry_last_seen
+git add "${HEARTBEAT_DIR}/${WORKER_ID}.md" "$REGISTRY"
 git diff --cached --quiet || {
   git commit -m "worker: ${WORKER_ID} night complete"
   git push origin main --quiet 2>/dev/null || true

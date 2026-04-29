@@ -56,7 +56,7 @@ For every task, the mandatory workflow is:
    - `git commit -m "[{game-slug}] status: task {task-id} done (worker: {worker-id})"`
    - `git push origin main`
    - If push is rejected (another worker pushed first): `git pull --rebase origin main && git push origin main`
-9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` with the current timestamp and the task just completed. Commit and push.
+9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` with the current timestamp and the task just completed. Also update the `Last seen:` line for this worker in `memory/workers.md` (use `sed -i` or a Python one-liner targeting only that worker's block). Commit and push both files.
 
 Never commit directly to `main`. Never force-push. Never merge your own PRs.
 

@@ -69,7 +69,7 @@ Planner reads `sprint-log.md` every 30 minutes. It does not poll Builder directl
 
 When multiple workers are active, Planner also checks `memory/workers/{worker-id}.md` for each active worker during each monitoring pass:
 
-- If a worker's `last_updated` timestamp is older than 20 minutes AND that worker has tasks still in `in-progress` or `pending` state, the worker is considered stalled.
+- If a worker's `Last updated:` timestamp is older than 20 minutes AND that worker has tasks still in `in-progress` or `pending` state, the worker is considered stalled.
 - Planner reassigns the stalled worker's remaining `pending` tasks to other available workers by updating `worker_id` in the sprint log.
 - Planner marks the stalled worker's `in-progress` task as `paused` (not failed) and adds a note explaining the reassignment.
 - Planner does not attempt to contact the stalled worker — it simply redistributes the work.
