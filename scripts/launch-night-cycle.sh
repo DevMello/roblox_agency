@@ -10,7 +10,7 @@
 # Prerequisites:
 #   - claude CLI on PATH
 #   - games/<game>/plan.md must exist (run run-architect.sh first)
-#   - Roblox Studio MCP running on localhost:3001  (Builder needs this to write scripts)
+#   - Roblox Studio open with MCP batch file at %LOCALAPPDATA%\Roblox\mcp.bat
 #   - gh CLI authenticated (run: gh auth status)
 #   - Local git repo initialised (Builder commits to branches)
 
@@ -51,10 +51,12 @@ log "Pre-flight checks..."
 STUDIO_OK=no
 GITHUB_OK=no
 
-curl -sf http://localhost:3001/health >/dev/null 2>&1 && STUDIO_OK=yes || true
+# Check Roblox MCP via batch file presence (official Roblox MCP uses a bat file, not localhost)
+ROBLOX_MCP_BAT="${LOCALAPPDATA}/Roblox/mcp.bat"
+[[ -f "$ROBLOX_MCP_BAT" ]] && STUDIO_OK=yes || true
 gh auth status >/dev/null 2>&1 && GITHUB_OK=yes || true
 
-[[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: OK" || log "  Roblox Studio MCP: NOT RUNNING (Builder will mark scripting tasks blocked)"
+[[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: bat file found OK" || log "  Roblox Studio MCP: bat file NOT found at ${ROBLOX_MCP_BAT} (Builder will mark scripting tasks blocked)"
 [[ "$GITHUB_OK" == "yes" ]] && log "  GitHub CLI (gh): authenticated OK" || log "  GitHub CLI (gh): NOT AUTHENTICATED — run 'gh auth login' (Builder will commit locally only)"
 
 # ─── Check for new specs that still need Architect ───────────────────────────
@@ -127,7 +129,7 @@ Continue until all tasks are done or you reach 3 failures on one task.
 Do NOT modify plan.md, memory/decisions.md, memory/human-overrides.md, or any agent config file.
 
 MCP / CLI availability:
-- Roblox Studio MCP (localhost:3001): ${STUDIO_OK}
+- Roblox Studio MCP (bat file at %LOCALAPPDATA%/Roblox/mcp.bat): ${STUDIO_OK}
 - GitHub CLI (gh): ${GITHUB_OK}
 If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If gh is not authenticated, commit locally but do not open PRs.
 " 2>&1 | tee -a "$LOG_FILE"
