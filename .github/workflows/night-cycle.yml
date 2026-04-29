@@ -5,7 +5,7 @@
 #
 # If you later want to run the agency on a GitHub Actions self-hosted runner,
 # restore the job definition here and configure your runner to start the
-# MCP servers (Roblox Studio MCP on :3001, GitHub MCP on :3004) before
+# MCP servers (Roblox Studio MCP on :3001) and the gh CLI authenticated before
 # the workflow fires.
 #
 # For now, use the scripts directly from a terminal or task scheduler.

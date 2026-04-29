@@ -59,7 +59,7 @@ One commit per logical change. Do not batch unrelated changes in one commit.
 gh pr create \
   --title "[sword-game] feat: add dash mechanic" \
   --base main \
-  --body "..."  # see pr-creation.md for required sections
+  --body "..." \
   --label "feature" \
   --label "sword-game"
 ```
