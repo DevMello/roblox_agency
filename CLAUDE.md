@@ -18,6 +18,7 @@ At the start of every session, read these files in order:
 2. `memory/human-overrides.md` — know what humans have decided. Never contradict active entries.
 3. `memory/blockers.md` — know what is currently blocked before planning any work.
 4. `memory/decisions.md` — know what architectural decisions have already been made.
+5. `architecture.md` - read the architecture of the codebase.
 
 If you are operating as a specific agent (Builder, Planner, QA, etc.), also read your agent's `AGENT.md` before taking any action.
 
@@ -29,7 +30,7 @@ Identify which agent role you are filling before doing anything:
 
 | Role | AGENT.md location | Primary output |
 |------|------------------|---------------|
-| Architect | `agents/architect/AGENT.md` | `games/{game}/plan.md` |
+| Architect | `agents/architect/AGENT.md` | `games/{game}/plan.md` | `architecture.md` |
 | Researcher | `agents/researcher/AGENT.md` | Inline notes + `progress.md` research log |
 | Planner | `agents/planner/AGENT.md` | `games/{game}/sprint-log.md` |
 | Builder | `agents/builder/AGENT.md` | Game source files, PRs |
@@ -91,6 +92,8 @@ games/{game-name}/
   plan.md                Living milestone plan (Architect creates, Planner updates)
   progress.md            Append-only build log (Builder writes after each task)
   sprint-log.md          Per-night structured sprint record (Planner writes, Builder/QA update)
+  *.rbxl                 Roblox place file (present when a Studio project exists for this game)
+  src/                   Luau source files (Builder writes via Roblox Studio MCP)
 memory/
   blockers.md            All known blockers across all games
   decisions.md           Architectural decisions with rationale
