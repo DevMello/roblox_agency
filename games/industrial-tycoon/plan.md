@@ -1,7 +1,7 @@
 # Industrial Megamap Tycoon — Plan
 
 ## Status
-Active milestone: industrial-tycoon-m1 (Infrastructure Foundation)
+Active milestone: industrial-tycoon-m2 (Megamap Layout and Lumber Zone Assets)
 Last updated: 2026-04-29
 
 ---
@@ -37,7 +37,8 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 **Goal:** A player can join the server and be auto-assigned to a team, with their data schema initialised and all shared RemoteEvents available.
 **Estimated nights:** 1
 **Critical path:** Yes
-**Status:** pending
+**Status:** complete
+**Completed:** 2026-04-29
 **Tasks (execution order):** it-001, it-002, it-003, it-004
 
 **Success criteria:**
@@ -53,7 +54,7 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 **Goal:** A player can load into a mirrored megamap with both team's Lumber zones visually present and a neutral center Sell Depot zone.
 **Estimated nights:** 1
 **Critical path:** Yes
-**Status:** pending
+**Status:** in-progress
 **Tasks (execution order):** it-005, it-006
 
 **Success criteria:**
@@ -145,11 +146,11 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 
 | Task ID | Title | Type | Complexity | Est. Min | Milestone | Status | Depends On |
 |---------|-------|------|-----------|---------|-----------|--------|------------|
-| it-001 | Create constants module | config | low | 20 | m1 | pending | — |
-| it-002 | Declare RemoteEvents and RemoteFunctions | config | low | 20 | m1 | pending | it-001 (soft) |
-| it-003 | Player data schema and DataStore module | data | medium | 50 | m1 | pending | it-001 (hard), it-002 (soft) |
-| it-004 | Teams service auto-balance and wallet data structure | scripting | medium | 50 | m1 | pending | it-001 (hard), it-002 (hard) |
-| it-005 | Build megamap geometry (mirrored halves, center zone) | asset | high | 80 | m2 | pending | it-001 (soft) |
+| it-001 | Create constants module | config | low | 20 | m1 | done | — |
+| it-002 | Declare RemoteEvents and RemoteFunctions | config | low | 20 | m1 | done | it-001 (soft) |
+| it-003 | Player data schema and DataStore module | data | medium | 50 | m1 | done | it-001 (hard), it-002 (soft) |
+| it-004 | Teams service auto-balance and wallet data structure | scripting | medium | 50 | m1 | done | it-001 (hard), it-002 (hard) |
+| it-005 | Build megamap geometry (mirrored halves, center zone) | asset | high | 80 | m2 | done | it-001 (soft) |
 | it-006 | Place Lumber zone machine assets on both team halves | asset | high | 80 | m2 | pending | it-005 (hard) |
 | it-007 | Implement ConveyorBelt server module | scripting | high | 80 | m3 | pending | it-001 (hard) |
 | it-008 | Implement ClickDetector chopper machine activation | game-mechanic | medium | 50 | m3 | pending | it-006 (hard), it-007 (hard) |
@@ -175,7 +176,7 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 ## Full Task Definitions
 
 ### it-001 — Create constants module
-**Type:** config | **Complexity:** low | **Est. minutes:** 20 | **Milestone:** m1 | **Assignee:** builder | **Status:** pending
+**Type:** config | **Complexity:** low | **Est. minutes:** 20 | **Milestone:** m1 | **Assignee:** builder | **Status:** done
 
 Create a shared `Constants` ModuleScript in `ReplicatedStorage` (readable by both server and client). Must define: round duration (default 900 seconds), team names ("Team A", "Team B"), team colors (BrickColor values), all upgrade tier limits and cost tables per machine type, conveyor baseline speed per tier, Boost Bucks product IDs (placeholder), game pass IDs (placeholder), DataStore key names, and a DEBUG_MODE boolean. All magic numbers in any other script must reference this module.
 
@@ -184,7 +185,7 @@ Create a shared `Constants` ModuleScript in `ReplicatedStorage` (readable by bot
 ---
 
 ### it-002 — Declare RemoteEvents and RemoteFunctions
-**Type:** config | **Complexity:** low | **Est. minutes:** 20 | **Milestone:** m1 | **Assignee:** builder | **Status:** pending
+**Type:** config | **Complexity:** low | **Est. minutes:** 20 | **Milestone:** m1 | **Assignee:** builder | **Status:** done
 
 Create a `RemoteEvents` folder and `RemoteFunctions` folder in `ReplicatedStorage`. Declare the following named instances:
 - RemoteEvents: `MoneyUpdated`, `TeamWalletUpdated`, `RoundStateChanged`, `RoundTimerTick`, `UpgradePurchased`, `LeaderboardUpdated`, `SellDepotDeposited`, `BonusDropFired`, `BoostBucksUpdated`
@@ -197,7 +198,7 @@ Script must not contain logic — it is a pure declaration script (runs once on 
 ---
 
 ### it-003 — Player data schema and DataStore module
-**Type:** data | **Complexity:** medium | **Est. minutes:** 50 | **Milestone:** m1 | **Assignee:** builder | **Status:** pending
+**Type:** data | **Complexity:** medium | **Est. minutes:** 50 | **Milestone:** m1 | **Assignee:** builder | **Status:** done
 
 Create a `PlayerDataService` ModuleScript in `ServerScriptService`. Responsibilities:
 - Define the canonical player data schema: `{ money: number, boostBucks: number, upgradesPurchased: { [machineId: string]: number }, cosmeticsOwned: { [id: string]: boolean } }`.
@@ -211,7 +212,7 @@ Create a `PlayerDataService` ModuleScript in `ServerScriptService`. Responsibili
 ---
 
 ### it-004 — Teams service auto-balance and wallet data structure
-**Type:** scripting | **Complexity:** medium | **Est. minutes:** 50 | **Milestone:** m1 | **Assignee:** builder | **Status:** pending
+**Type:** scripting | **Complexity:** medium | **Est. minutes:** 50 | **Milestone:** m1 | **Assignee:** builder | **Status:** done
 
 Create a `TeamService` ModuleScript in `ServerScriptService`. Responsibilities:
 - On player join: assign to the team with fewer players (Team A or Team B). If equal, assign to Team A.
@@ -225,7 +226,7 @@ Create a `TeamService` ModuleScript in `ServerScriptService`. Responsibilities:
 ---
 
 ### it-005 — Build megamap geometry (mirrored halves, center zone)
-**Type:** asset | **Complexity:** high | **Est. minutes:** 80 | **Milestone:** m2 | **Assignee:** builder | **Status:** pending
+**Type:** asset | **Complexity:** high | **Est. minutes:** 80 | **Milestone:** m2 | **Assignee:** builder | **Status:** done
 
 In Roblox Studio, construct the megamap `Workspace` layout:
 - Total map size: approximately 1200×1200 studs, flat terrain base.
@@ -637,3 +638,4 @@ None. All open questions (Boost Bucks conversion rate, VIP server pricing) have 
 | Date | Event | Author |
 |------|-------|--------|
 | 2026-04-29 | Initial plan created from spec `specs/industrial-tycoon/spec.md`. 24 tasks across 7 milestones. Mining, Oil, Sabotage, Steal, Anti-Sabotage, and Cosmetics Store deferred per spec out-of-scope list. | Architect |
+| 2026-04-29 | M1 complete (it-001 through it-004 done). it-005 (first M2 task) completed in same sprint. Active milestone advanced to M2. Task statuses updated. | Planner |
