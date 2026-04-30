@@ -14,6 +14,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+source "${REPO_ROOT}/scripts/run-agent.sh"
 
 TODAY=$(date +%Y-%m-%d)
 REPORT_PATH="${REPO_ROOT}/reports/morning/${TODAY}.md"
@@ -34,7 +35,7 @@ Reflect this in the report — show partial completion, explain what did not run
   log "Note: abort reason passed in — ${ABORT_REASON}"
 fi
 
-claude --dangerously-skip-permissions -p "
+_REPORTER_PROMPT="
 Read CLAUDE.md first.
 
 You are the Reporter agent. Read agents/reporter/AGENT.md for your full role specification.
@@ -53,7 +54,8 @@ ${ABORT_CONTEXT}
 
 Do not modify any sprint logs, plan files, or memory files.
 Output path: ${REPORT_PATH}
-" 2>&1 | tee -a "$LOG_FILE"
+"
+run_agent "reporter" "$_REPORTER_PROMPT" "$LOG_FILE"
 
 if [[ -f "$REPORT_PATH" ]]; then
   log "Morning report written to: ${REPORT_PATH}"

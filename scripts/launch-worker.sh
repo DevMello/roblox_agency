@@ -15,6 +15,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+source "${REPO_ROOT}/scripts/run-agent.sh"
 
 WORKER_ID_FILE="${REPO_ROOT}/config/worker-id"
 HEARTBEAT_DIR="${REPO_ROOT}/memory/workers"
@@ -132,7 +133,7 @@ EOF
   git push origin main --quiet 2>/dev/null || true
 
   # Invoke Builder for this worker's tasks only
-  claude --dangerously-skip-permissions -p "
+  _WORKER_PROMPT="
 Read CLAUDE.md first — follow all rules there absolutely.
 
 You are the Builder agent running as worker '${WORKER_ID}'. Read agents/builder/AGENT.md for your full role specification.
@@ -167,7 +168,8 @@ MCP availability:
 - Roblox Studio MCP (localhost:3001): ${STUDIO_OK}
 - GitHub MCP (localhost:3004): ${GITHUB_OK}
 If a required MCP is unavailable, mark the task blocked in the sprint log and move to the next task.
-" 2>&1 | tee -a "$LOG_FILE"
+"
+  run_agent "worker-builder" "$_WORKER_PROMPT" "$LOG_FILE"
 
   log "Worker ${WORKER_ID} finished tasks for ${GAME}."
 
