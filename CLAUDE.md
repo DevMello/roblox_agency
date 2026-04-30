@@ -166,10 +166,12 @@ All MCP operations go through these servers. See `config/mcp-servers.md` for ful
 | Server | Connection | Used by |
 |--------|-----------|---------|
 | Roblox Studio MCP | `%LOCALAPPDATA%\Roblox\mcp.bat` (batch file) | Builder only |
-| Blender MCP | 3002 | Builder only |
-| Chrome MCP | 3003 | Builder (docs), Researcher, Market Researcher |
+| Blender MCP | `localhost:3002` | Builder only |
+| Chrome MCP | `localhost:3003` | Builder (docs), Researcher, Market Researcher |
 
 GitHub operations (branches, commits, PRs, labels, comments) use the **GitHub CLI (`gh`)** — not an MCP server. See `.claude/skills/github-cli.md` for the full command reference. Verify authentication with `gh auth status` before starting any night cycle.
+
+Blender MCP operations (mesh generation, material application, FBX/OBJ export) use the **Blender MCP server** at `localhost:3002`. See `.claude/skills/blender-mcp.md` for the full operation reference, polygon/texture budgets, and error-handling patterns. Run the health check at `http://localhost:3002/health` before any asset task.
 
 Before using the Roblox Studio MCP, verify that Roblox Studio is open and the batch file at `%LOCALAPPDATA%\Roblox\mcp.bat` exists. Before using any other MCP server, run its health check. If it fails after one retry, mark the affected task blocked — do not attempt to work around a missing MCP server.
 

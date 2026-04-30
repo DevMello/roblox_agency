@@ -40,13 +40,28 @@ Registry of every MCP server used by this agency. Agents check this file to dete
 
 **Authorised agents:** Builder only.
 
+**Skill reference:** See `.claude/skills/blender-mcp.md` for the full operation reference — health check, scene management, mesh generation, material application, FBX/OBJ export, polygon/texture budgets, batch export, and error-handling patterns.
+
 **What it supports:**
-- Create and modify meshes via Python API calls.
+- Create and modify meshes via Python (`bpy`) API calls.
 - Apply materials and basic textures.
-- Export scenes or individual objects as FBX or OBJ.
+- Export scenes or individual objects as FBX (preferred) or OBJ.
 - Batch export multiple objects in a single session.
 
-**Session requirement:** Blender must be open with the MCP add-on enabled. Builder should not assume Blender is open — verify via health check before use.
+**Polygon budget (enforced by Builder before every export):**
+- Background / environmental decoration: max 5,000 polygons
+- Interactive objects: max 10,000 polygons
+- Character accessories or hero props: max 20,000 polygons
+- Hard limit — any single asset: 50,000 polygons
+
+**Texture budget:**
+- Diffuse texture: max 1024×1024 px
+- Normal/roughness map: max 512×512 px
+- Hard limit — any texture: 2048×2048 px
+
+**Health check:** `curl -sf http://localhost:3002/health` — must return `{"status":"ok"}` before use.
+
+**Session requirement:** Blender must be open with the MCP add-on enabled. Builder must not assume Blender is open — run the health check before every asset task. The night cycle pre-flight also checks this at startup.
 
 ---
 

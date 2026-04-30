@@ -87,15 +87,26 @@ log "Coordinator only: ${COORDINATOR_ONLY}"
 log "Pre-flight checks..."
 
 STUDIO_OK=no
+BLENDER_OK=no
 GITHUB_OK=no
 
 # Check Roblox MCP via batch file presence (official Roblox MCP uses a bat file, not localhost)
 ROBLOX_MCP_BAT="${LOCALAPPDATA}/Roblox/mcp.bat"
 [[ -f "$ROBLOX_MCP_BAT" ]] && STUDIO_OK=yes || true
+
+# Check Blender MCP health endpoint (localhost:3002) — one retry
+if curl -sf http://localhost:3002/health >/dev/null 2>&1; then
+  BLENDER_OK=yes
+else
+  sleep 5
+  curl -sf http://localhost:3002/health >/dev/null 2>&1 && BLENDER_OK=yes || true
+fi
+
 gh auth status >/dev/null 2>&1 && GITHUB_OK=yes || true
 
-[[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: bat file found OK" || log "  Roblox Studio MCP: bat file NOT found at ${ROBLOX_MCP_BAT} (Builder will mark scripting tasks blocked)"
-[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub CLI (gh): authenticated OK" || log "  GitHub CLI (gh): NOT AUTHENTICATED — run 'gh auth login' (Builder will commit locally only)"
+[[ "$STUDIO_OK"  == "yes" ]] && log "  Roblox Studio MCP: bat file found OK"         || log "  Roblox Studio MCP: bat file NOT found at ${ROBLOX_MCP_BAT} (Builder will mark scripting tasks blocked)"
+[[ "$BLENDER_OK" == "yes" ]] && log "  Blender MCP: reachable at localhost:3002 OK"   || log "  Blender MCP: NOT reachable at localhost:3002 (Builder will mark asset tasks blocked)"
+[[ "$GITHUB_OK"  == "yes" ]] && log "  GitHub CLI (gh): authenticated OK"             || log "  GitHub CLI (gh): NOT AUTHENTICATED — run 'gh auth login' (Builder will commit locally only)"
 
 # ─── Check for new specs that still need Architect ───────────────────────────
 
@@ -193,8 +204,10 @@ Do NOT modify plan.md, memory/decisions.md, memory/human-overrides.md, or any ag
 
 MCP / CLI availability:
 - Roblox Studio MCP (bat file at %LOCALAPPDATA%/Roblox/mcp.bat): ${STUDIO_OK}
+- Blender MCP (localhost:3002): ${BLENDER_OK}
 - GitHub CLI (gh): ${GITHUB_OK}
-If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If gh is not authenticated, commit locally but do not open PRs.
+If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If Blender MCP is unavailable, mark asset tasks blocked and continue with non-asset tasks. If gh is not authenticated, commit locally but do not open PRs.
+See .claude/skills/blender-mcp.md for full Blender MCP operation reference before working on any asset task.
 "
   run_agent "builder" "$_BUILDER_PROMPT" "$LOG_FILE"
 
