@@ -4,6 +4,16 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-29 — it-012: Implement team wallet server module
+PR: #14 (https://github.com/DevMello/roblox_agency/pull/14)
+Status: done
+Notes: TeamService wallet API (AddToTeamWallet, GetTeamWallet, ResetWallets, GetWinningTeam)
+  was already fully implemented in Studio from it-004. This task committed the source to git
+  and verified compliance. Wallet mutations fire TeamWalletUpdated RemoteEvent synchronously.
+  Source at games/industrial-tycoon/src/ServerScriptService/TeamService.lua.
+
+---
+
 ## 2026-04-29 — it-007: Implement ConveyorBelt server module
 PR: #13 (https://github.com/DevMello/roblox_agency/pull/13)
 Status: done
