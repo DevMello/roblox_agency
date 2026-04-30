@@ -135,12 +135,12 @@ task_list:
     depends_on:
       - it-005
       - it-012
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T23:51:00Z"
+    completed_at: "2026-04-31T00:05:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/21"
 
   - task_id: it-014
     title: "Implement upgrade effect application to machines"

@@ -15,6 +15,19 @@ Notes: Teams already existed in Studio but with swapped colors (Team A was Brigh
 
 ---
 
+## 2026-04-30 — it-011: Implement Sell Depot goods conversion server logic
+PR: #21 (https://github.com/DevMello/roblox_agency/pull/21)
+Status: done
+Notes: SellDepotService Script at ServerScriptService.SellDepotService. Wires Touched on
+  DepositZone (workspace.Map.Center.SellDepot.DepositZone). Validates ResourceType and
+  OwnerTeam attributes on touching Part. Converts folder name (TeamA/TeamB) to team display
+  name via lookup table. Calls TeamService:AddToTeamWallet then fires SellDepotDeposited
+  and LeaderboardUpdated RemoteEvents. Destruction before wallet credit (part gone before
+  any re-fire). Server-side only.
+  Source at games/industrial-tycoon/src/ServerScriptService/SellDepotService.lua.
+
+---
+
 ## 2026-04-30 — it-009: Implement Sawmill processor script
 PR: #20 (https://github.com/DevMello/roblox_agency/pull/20)
 Status: done
