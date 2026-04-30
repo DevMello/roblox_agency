@@ -95,9 +95,12 @@ task_list:
     estimated_minutes: 20
     assigned_agent: builder
     depends_on: []
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-04-29T23:10:00Z"
+    completed_at: "2026-04-29T23:30:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/8"
 
   - task_id: it-002
     title: "Declare RemoteEvents and RemoteFunctions"
