@@ -30,6 +30,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+source "${REPO_ROOT}/scripts/run-agent.sh"
 
 LOG_DIR="${REPO_ROOT}/logs"
 mkdir -p "$LOG_DIR"
@@ -116,7 +117,7 @@ for GAME in "${GAMES[@]}"; do
   log ""
   log "--- Planner: generating sprint for ${GAME} ---"
 
-  claude --dangerously-skip-permissions -p "
+  _PLANNER_PROMPT="
 Read CLAUDE.md first.
 
 You are the Planner agent. Read agents/planner/AGENT.md for your full role specification.
@@ -135,7 +136,8 @@ Follow agents/planner/prompts/nightly-sprint.md exactly:
 6. Commit the sprint log and push: git add games/${GAME}/sprint-log.md && git commit -m '[${GAME}] plan: nightly sprint $(date +%Y-%m-%d)' && git push origin main
 
 Also check for any open PRs that need triage: run 'gh pr list --label tbd-human --state open' and process each with the pr-triage prompt.
-" 2>&1 | tee -a "$LOG_FILE"
+"
+  run_agent "planner" "$_PLANNER_PROMPT" "$LOG_FILE"
 
   log "Sprint written for ${GAME}."
 done
@@ -159,7 +161,7 @@ for GAME in "${GAMES[@]}"; do
   log "--- Builder: executing sprint for ${GAME} ---"
   log "This may take a long time. Builder will work through all tasks in the sprint."
 
-  claude --dangerously-skip-permissions -p "
+  _BUILDER_PROMPT="
 Read CLAUDE.md first — follow all rules there absolutely.
 
 You are the Builder agent running as worker '${WORKER_ID}'. Read agents/builder/AGENT.md for your full role specification.
@@ -193,7 +195,8 @@ MCP / CLI availability:
 - Roblox Studio MCP (bat file at %LOCALAPPDATA%/Roblox/mcp.bat): ${STUDIO_OK}
 - GitHub CLI (gh): ${GITHUB_OK}
 If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If gh is not authenticated, commit locally but do not open PRs.
-" 2>&1 | tee -a "$LOG_FILE"
+"
+  run_agent "builder" "$_BUILDER_PROMPT" "$LOG_FILE"
 
   log "Builder finished for ${GAME}."
 done

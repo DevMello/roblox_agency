@@ -13,6 +13,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+source "${REPO_ROOT}/scripts/run-agent.sh"
 
 GAME="${1:?Usage: ./scripts/run-architect.sh <game-name>}"
 SPEC_FILE="specs/${GAME}/spec.md"
@@ -53,7 +54,8 @@ log "Running... (this typically takes 2-5 minutes)"
 # Claude Code will use its Read/Write tools to read the spec and prompts,
 # then write plan.md and append to memory/decisions.md.
 
-claude --dangerously-skip-permissions -p "
+_ARCH_LOG="${LOG_DIR}/architect-${GAME}-$(date +%Y-%m-%d).log"
+_ARCH_PROMPT="
 Read CLAUDE.md first — it contains rules that apply to all agents.
 
 You are the Architect agent. Read agents/architect/AGENT.md for your full role specification.
@@ -73,7 +75,8 @@ Execute the Architect role exactly as described in your AGENT.md:
 7. Append any significant architectural decisions to memory/decisions.md
 
 Do not write any game source code. Do not call Roblox Studio MCP or Blender MCP.
-" 2>&1 | tee "${LOG_DIR}/architect-${GAME}-$(date +%Y-%m-%d).log"
+"
+run_agent "architect" "$_ARCH_PROMPT" "$_ARCH_LOG"
 
 log ""
 log "=== Architect complete ==="

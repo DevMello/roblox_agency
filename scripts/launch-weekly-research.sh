@@ -15,6 +15,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+source "${REPO_ROOT}/scripts/run-agent.sh"
 
 YEAR_WEEK=$(date +%G-%V)
 MARKET_REPORT="${REPO_ROOT}/reports/weekly/market-research/${YEAR_WEEK}.md"
@@ -52,7 +53,7 @@ log "  ${MARKET_REPORT}"
 log "  ${IDEAS_REPORT}"
 log ""
 
-claude --dangerously-skip-permissions -p "
+_RESEARCHER_PROMPT="
 Read CLAUDE.md first.
 
 You are the Market Researcher agent. Read agents/market-researcher/AGENT.md for your full role specification.
@@ -92,7 +93,8 @@ Output:
     ${IDEAS_REPORT}
 
 Do not write any game source code. Do not modify any games/ or memory/ files.
-" 2>&1 | tee -a "$LOG_FILE"
+"
+run_agent "market-researcher" "$_RESEARCHER_PROMPT" "$LOG_FILE"
 
 log ""
 log "Market research report: ${MARKET_REPORT}"

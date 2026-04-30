@@ -18,6 +18,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+source "${REPO_ROOT}/scripts/run-agent.sh"
 
 GAME="${1:?Usage: ./scripts/apply-live-edit.sh <game-name> \"change request\"}"
 shift
@@ -88,7 +89,8 @@ log "  3. Implement the change (following agents/builder/prompts/live-edit.md)"
 log "  4. Commit and open a PR via gh CLI (or leave a local branch if gh is not authenticated)"
 log ""
 
-claude --dangerously-skip-permissions -p "
+_BRANCH_SLUG=$(echo "${CHANGE_REQUEST}" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | cut -c1-40)
+_LIVE_PROMPT="
 Read CLAUDE.md first — follow all rules absolutely.
 
 You are the Builder agent. Read agents/builder/AGENT.md for your full role specification.
@@ -103,7 +105,7 @@ Steps:
 1. Read memory/human-overrides.md and games/${GAME}/overrides.md
 2. Append this live edit request to memory/human-overrides.md with status 'active'
 3. Read games/${GAME}/plan.md and games/${GAME}/sprint-log.md for context
-4. Create branch: live/${GAME}/$(echo "${CHANGE_REQUEST}" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | cut -c1-40)
+4. Create branch: live/${GAME}/${_BRANCH_SLUG}
 5. Implement the change following agents/builder/prompts/live-edit.md
 6. Commit with message: [${GAME}] live: ${CHANGE_REQUEST}
 7. Open a PR labelled 'live-edit' via gh CLI (if gh is authenticated) or log the local branch name
@@ -114,7 +116,8 @@ MCP / CLI availability:
 
 If Studio MCP is unavailable and the change requires writing game scripts, mark it blocked
 and explain what script changes would be needed so a human can apply them manually.
-" 2>&1 | tee -a "$LOG_FILE"
+"
+run_agent "live-edit-builder" "$_LIVE_PROMPT" "$LOG_FILE"
 
 log ""
 log "Live edit complete. Check the branch/PR and review before merging."
