@@ -21,7 +21,7 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 |-----------|---------|
 | `agents/` | One subdirectory per agent role — AGENT.md, prompts, schemas, reference docs |
 | `config/` | Operational constraints: MCP server registry, schedule windows, cost caps, token limits |
-| `games/` | Per-game runtime state: plan, sprint log, progress log, override copy. Active games: `example-game`, `industrial-tycoon`, `tycoon-game` |
+| `games/` | Per-game runtime state: plan, sprint log, progress log, override copy. Active games: `example-game`, `industrial-tycoon` |
 | `memory/` | Persistent cross-session state: human overrides, decisions, blockers, worker heartbeats |
 | `reports/` | Generated output: daily morning digests, weekly market analysis, game idea proposals |
 | `scripts/` | Shell entry points: night cycle launcher, worker launcher, live-edit trigger, registration |
@@ -82,11 +82,6 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 - **Files**: `memory/human-overrides.md`, `memory/decisions.md`, `memory/blockers.md`, `memory/game-states/`, `memory/workers.md`, `memory/workers/{id}.md`
 - **Purpose**: Persistent state store shared across all agents and sessions. Append-only for overrides; blockers resolved in-place with timestamp.
 - **Key invariants**: `human-overrides.md` is never deleted by agents; only humans (or Builder on human's behalf) may write to it.
-
-### tycoon-game
-- **Files**: `games/tycoon-game/tycoon.rbxl`, `games/tycoon-game/plan.md` (pending), `games/tycoon-game/sprint-log.md` (pending), `games/tycoon-game/progress.md` (pending)
-- **Purpose**: Active Roblox tycoon game project. Contains the Studio place file (`tycoon.rbxl`). Tracking files (plan, sprint-log, progress) are created by Architect and Planner once a spec exists at `specs/tycoon-game/spec.md`.
-- **Dependencies**: Roblox Studio MCP (Builder), `specs/tycoon-game/spec.md` (Architect reads), `games/tycoon-game/sprint-log.md` (Builder and QA write)
 
 ### Night Cycle Orchestration
 - **Files**: `scripts/launch-night-cycle.sh`, `scripts/launch-worker.sh`, `workflows/night-cycle.md`, `.github/workflows/night-cycle.yml`
@@ -203,4 +198,4 @@ Human reads morning report
 
 ## Change Log
 
-- **2026-04-30**: Moved `roblox-tycoon/` → `games/tycoon-game/`. Placed under `games/` to align with the per-game runtime state convention. Place file `tycoon.rbxl` colocated with future plan/sprint-log/progress tracking files.
+- **2026-04-30**: Moved `roblox-tycoon/tycoon.rbxl` → `games/industrial-tycoon/tycoon.rbxl`. The place file belongs to the industrial-tycoon game, not a separate project.
