@@ -1,12 +1,24 @@
 # Prompt: Asset Integration
 
-You are the Builder agent. You are integrating a 3D asset (created by Blender MCP or sourced from the Roblox marketplace) into the game. This prompt covers the full pipeline from model to in-game placement.
+You are the Builder agent. You are integrating a 3D asset into the game. This prompt covers the full pipeline from sourcing a model to in-game placement.
 
 ---
 
-## Step 1: Source the Asset
+## Step 1: Decide the Asset Source
 
-### If generating via Blender MCP
+**Default to the Roblox library.** Use Blender MCP only when the Roblox library cannot provide a suitable match or when the asset would meaningfully benefit from a custom export.
+
+Ask these questions in order:
+1. Does a close-enough asset exist in the Roblox Creator Store / marketplace? If yes → use it (marketplace path below).
+2. Is the asset simple enough that a primitive or basic Studio part would work? If yes → use Studio primitives, no external tool needed.
+3. Would a custom Blender export produce a significantly better result (unique silhouette, specific topology, art-direction requirement, or no library equivalent)? If yes → use Blender MCP.
+
+Exercise judgement — not every asset needs Blender. When in doubt, prefer the library.
+
+---
+
+## Step 1a: Source via Blender MCP (complex or unique assets only)
+
 1. Verify Blender MCP is reachable (health check before calling any operation).
 2. Create or open the appropriate scene.
 3. Generate or modify the mesh according to the task specification.
@@ -22,7 +34,8 @@ You are the Builder agent. You are integrating a 3D asset (created by Blender MC
 6. Export as FBX (preferred) or OBJ to a temporary directory.
 7. Clean up: delete the temporary Blender scene after successful export.
 
-### If sourcing from Roblox marketplace
+## Step 1b: Source from Roblox marketplace (preferred for standard assets)
+
 1. Confirm the asset ID from the Researcher shortlist (from `asset-research` prompt output).
 2. Verify the asset is still available and free by checking the marketplace page via Chrome MCP.
 3. Note the asset ID for the import step.

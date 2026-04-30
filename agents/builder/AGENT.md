@@ -30,7 +30,7 @@ Builder reads the sprint once at the start of the night, then re-reads it at the
 | Tool | Purpose | Constraints |
 |------|---------|------------|
 | Roblox Studio MCP | Read/write scripts, manipulate Workspace | Verify Studio is open and bat file exists before use |
-| Blender MCP | Generate and export 3D assets | Use only for asset tasks; run health check first; see `.claude/skills/blender-mcp.md` |
+| Blender MCP | Generate and export complex 3D assets | Prefer the Roblox library first; use Blender only when no library asset fits or a custom export is clearly better; run health check first; see `.claude/skills/blender-mcp.md` |
 | Chrome MCP | Documentation lookups | Documentation-only, no general browsing |
 | GitHub CLI (`gh`) | Branches, commits, PRs | All commits go to branches, never main; see `.claude/skills/github-cli.md` |
 | Researcher (call-out) | API and pattern lookups | Only when blocked — not for general curiosity |

@@ -1,6 +1,13 @@
 # Skill: Blender MCP Operations
 
-All 3D asset generation and export for this agency runs through the **Blender MCP server** at `localhost:3002`. Use the patterns in this file whenever you need to create meshes, apply materials, or export assets for import into Roblox Studio.
+All 3D asset generation and export for this agency runs through the **Blender MCP server** at `localhost:3002`. Use the patterns in this file when you need to create meshes, apply materials, or export assets for import into Roblox Studio.
+
+**Use Blender only when necessary.** Always check the Roblox Creator Store / marketplace first. Reach for Blender when:
+- No library asset is a close enough match for the task requirement
+- A custom export would produce a meaningfully better result (unique silhouette, specific topology, art-direction requirement)
+- The task spec explicitly calls for a custom asset
+
+Do not use Blender for anything a marketplace asset or Studio primitive can handle adequately. Exercise judgement — closer is good enough in most cases.
 
 Blender must be open with the MCP add-on enabled before the night cycle starts. If the health check fails after one retry, mark the asset task blocked and continue with non-asset tasks.
 
