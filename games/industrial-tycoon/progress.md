@@ -4,6 +4,30 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-teams: Create Team A and Team B objects in Roblox Teams service
+PR: #18 (https://github.com/DevMello/roblox_agency/pull/18)
+Status: done
+Notes: Teams already existed in Studio but with swapped colors (Team A was Bright blue,
+  Team B was Bright red). Corrected to match Constants.TEAM_COLORS: Team A = Bright red,
+  Team B = Bright blue. AutoAssignable set to false — TeamService owns player assignment.
+  Setup script at games/industrial-tycoon/src/Setup/teams-setup.lua.
+  Addresses morning report action item from 2026-04-30.
+
+---
+
+## 2026-04-30 — it-008: Implement ClickDetector chopper machine activation
+PR: #19 (https://github.com/DevMello/roblox_agency/pull/19)
+Status: done
+Notes: ChopperService Script created at ServerScriptService.ChopperService.
+  Wires ClickDetector on AutoChopper and Tree for both TeamA and TeamB.
+  Server-side team validation: player.Team.Name (spaces stripped) vs team folder name.
+  Log Part spawned at OutputPoint attachment position; tagged ResourceType=Log, OwnerTeam=<folder>.
+  CLICK_COOLDOWN (0.5 s) enforced via os.clock() per UserId; cleared on PlayerRemoving.
+  ConveyorBelt built from Conveyors folder segments, sorted by X (TeamB reversed).
+  Source at games/industrial-tycoon/src/ServerScriptService/ChopperService.lua.
+
+---
+
 ## 2026-04-30 — it-006: Place Lumber zone machine assets on both team halves
 PR: #16 (https://github.com/DevMello/roblox_agency/pull/16)
 Status: done
