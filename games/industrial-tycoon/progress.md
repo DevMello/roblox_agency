@@ -15,6 +15,21 @@ Notes: Teams already existed in Studio but with swapped colors (Team A was Brigh
 
 ---
 
+## 2026-04-30 — it-022: Implement MarketplaceService framework
+PR: #23 (https://github.com/DevMello/roblox_agency/pull/23)
+Status: done
+Notes: MonetisationService ModuleScript at ServerScriptService.MonetisationService.
+  ProcessReceipt: idempotent via in-memory session cache + ProcessedReceipts DataStore
+  (best-effort async persistence). Routes Boost Bucks product IDs from Constants.BOOST_BUCKS_PRODUCT_IDS;
+  fires BoostBucksUpdated RemoteEvent after grant. Returns NotProcessedYet if player offline
+  (Roblox retries on rejoin). CheckGamePass: pcall-wrapped UserOwnsGamePassAsync; returns
+  false for placeholder passId=0. HandleDevProduct: explicit server-side grant path.
+  IMPORTANT: BOOST_BUCKS_PRODUCT_IDS, BOOST_BUCKS_AMOUNTS, and VIP_PASS_ID in Constants
+  are all placeholder-zeroed. Human must populate these before launch.
+  Source at games/industrial-tycoon/src/ServerScriptService/MonetisationService.lua.
+
+---
+
 ## 2026-04-30 — it-014: Implement upgrade effect application to machines
 PR: #22 (https://github.com/DevMello/roblox_agency/pull/22)
 Status: done
