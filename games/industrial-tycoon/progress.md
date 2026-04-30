@@ -4,6 +4,25 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-006: Place Lumber zone machine assets on both team halves
+PR: #16 (https://github.com/DevMello/roblox_agency/pull/16)
+Status: done
+Notes: All Lumber zone assets placed in Studio via execute_luau for both team halves.
+  Final world positions (Team A / Team B mirrored at x=0):
+    Tree (4×20×4):      x=±350, y=10, z=0
+    AutoChopper (6×8×6): x=±342, y=4,  z=0  — OutputPoint at local (∓3,0,0)
+    ConveyorSegments×18: x=±338→±202, y=0.25, z=0 (8-stud spacing)
+    Sawmill (20×15×20):  x=±200, y=7.5, z=0
+    LogInput (4×0.5×4):  x=±210, y=0.25 — IsLogInput=true, CanCollide=false
+    PlankOutput (4×0.5×4): x=±190, y=0.25 — IsPlankOutput=true, CanCollide=false
+    CashPad (8×0.5×8):   x=±185, y=0.25 — IsCashPad=true, Neon yellow, CanCollide=false
+  18 segments used (exceeds minimum 5) for full visual coverage and dense waypoints.
+  Tree is single blocky Part (no detailed mesh — deferred to Blender MCP asset pass).
+  Script idempotent. Source at games/industrial-tycoon/src/Assets/lumber-zone-assets.lua.
+  Completes Milestone M2. M3 tasks it-008 and it-009 are now eligible.
+
+---
+
 ## 2026-04-29 — it-013: Implement per-machine upgrade state server module
 PR: #15 (https://github.com/DevMello/roblox_agency/pull/15)
 Status: done
