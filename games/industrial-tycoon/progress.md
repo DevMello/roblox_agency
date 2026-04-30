@@ -4,6 +4,18 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-29 — it-007: Implement ConveyorBelt server module
+PR: #13 (https://github.com/DevMello/roblox_agency/pull/13)
+Status: done
+Notes: ConveyorBelt ModuleScript created at ServerScriptService.ConveyorBelt. Closure-based
+  implementation avoids --!strict metatable typing issues. Moves parts via CFrame lerp each
+  Heartbeat tick (decision-2026-04-29-0001). Exposes AddPart, RemovePart, SetSpeed,
+  OnPartArrived. Multiple belt instances can coexist. Arrivals dispatched via task.spawn.
+  DEBUG_MODE guard on all print statements. Source at
+  games/industrial-tycoon/src/ServerScriptService/ConveyorBelt.lua.
+
+---
+
 ## 2026-04-30 — it-005: Build megamap geometry (mirrored halves, center zone)
 PR: #12 (https://github.com/DevMello/roblox_agency/pull/12)
 Status: done
