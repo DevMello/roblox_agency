@@ -242,9 +242,12 @@ task_list:
     depends_on:
       - it-001
       - it-003
-    status: pending
-    attempt_count: 0
-    worker_id: null
+    status: done
+    attempt_count: 1
+    worker_id: default
+    worker_started_at: "2026-04-29T23:46:00Z"
+    completed_at: "2026-04-29T23:58:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/15"
 
   - task_id: it-006
     title: "Place Lumber zone machine assets on both team halves"

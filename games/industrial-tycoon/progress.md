@@ -4,6 +4,19 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-29 — it-013: Implement per-machine upgrade state server module
+PR: #15 (https://github.com/DevMello/roblox_agency/pull/15)
+Status: done
+Notes: UpgradeStateService ModuleScript created at ServerScriptService.UpgradeStateService.
+  Round-scoped in-memory table keyed by Workspace path. Exposes GetUpgradeLevel,
+  SetUpgradeLevel (clamped to UPGRADE_MAX_LEVEL), GetAllUpgrades (shallow copy),
+  ResetAllUpgrades (table.clear), RecordPurchase (delegates to PlayerDataService).
+  Known limitation: RecordPurchase stores by machineId only (no speed/output distinction
+  in DataStore schema yet — schema extension deferred to future task).
+  Source at games/industrial-tycoon/src/ServerScriptService/UpgradeStateService.lua.
+
+---
+
 ## 2026-04-29 — it-012: Implement team wallet server module
 PR: #14 (https://github.com/DevMello/roblox_agency/pull/14)
 Status: done
