@@ -4,6 +4,13 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-004: Teams service auto-balance and wallet data structure
+PR: #11 (https://github.com/DevMello/roblox_agency/pull/11)
+Status: done
+Notes: TeamService ModuleScript in ServerScriptService. Auto-balance assigns joining players to smaller team (ties to Team A). In-memory TeamWallets dict resets on load and via ResetWallets(). AddToTeamWallet fires TeamWalletUpdated RemoteEvent to all clients synchronously (no yield between read/write). GetWinningTeam returns nil on tie. Source at games/industrial-tycoon/src/ServerScriptService/TeamService.lua. Note: Teams named "Team A" / "Team B" must exist in the Teams service before players join — a future setup task will create them.
+
+---
+
 ## 2026-04-30 — it-003: Player data schema and DataStore module
 PR: #10 (https://github.com/DevMello/roblox_agency/pull/10)
 Status: done

@@ -228,9 +228,12 @@ task_list:
     depends_on:
       - it-001
       - it-002
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-04-30T00:12:00Z"
+    completed_at: "2026-04-30T00:30:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/11"
 
   - task_id: it-005
     title: "Build megamap geometry (mirrored halves, center zone)"
