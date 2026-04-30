@@ -8,17 +8,18 @@ Registry of every MCP server used by this agency. Agents check this file to dete
 
 | Server | Connection | Authorised Agents | Rate Limit | Session Limit |
 |--------|-----------|-------------------|------------|--------------|
-| Roblox Studio MCP | `localhost:3001` | Builder only | 60 ops/min | 1 concurrent Studio session |
+| Roblox Studio MCP | `%LOCALAPPDATA%\Roblox\mcp.bat` (batch file) | Builder only | 60 ops/min | 1 concurrent Studio session |
 | Blender MCP | `localhost:3002` | Builder only | 30 ops/min | 1 concurrent Blender session |
 | Chrome MCP | `localhost:3003` | Builder, Researcher, Market Researcher | 120 req/min | 5 concurrent tabs |
-| GitHub MCP | `localhost:3004` | Builder, Planner, QA, Reporter | GitHub API rate limits apply (5000 req/hr) | No session limit |
 
 ---
 
 ## Server Descriptions
 
-### Roblox Studio MCP (`localhost:3001`)
+### Roblox Studio MCP (`%LOCALAPPDATA%\Roblox\mcp.bat`)
 **Purpose:** Direct manipulation of a running Roblox Studio instance. Enables reading and writing scripts, modifying the Workspace hierarchy, inserting and configuring instances, and triggering playtests.
+
+**Connection method:** The official Roblox MCP server is invoked via a batch file installed by Roblox Studio at `%LOCALAPPDATA%\Roblox\mcp.bat`. This is configured in `.mcp.json` at the repo root — no localhost server is needed. Roblox Studio must be open for the MCP to function.
 
 **Authorised agents:** Builder only. No other agent is permitted to call Roblox Studio MCP directly.
 
@@ -30,7 +31,7 @@ Registry of every MCP server used by this agency. Agents check this file to dete
 
 **What it does not support:** Publishing to Roblox, modifying game metadata (game description, thumbnail), managing assets in the Toolbox.
 
-**Session requirement:** Roblox Studio must be open and connected before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies this.
+**Session requirement:** Roblox Studio must be open before the night cycle starts. The pre-flight check in `scripts/launch-night-cycle.sh` verifies the batch file exists at `%LOCALAPPDATA%\Roblox\mcp.bat`.
 
 ---
 
@@ -65,19 +66,6 @@ Registry of every MCP server used by this agency. Agents check this file to dete
 
 ---
 
-### GitHub MCP (`localhost:3004`)
-**Purpose:** All version control and PR management operations.
-
-**Authorised agents:** Builder (branches, commits, PRs), Planner (read PRs, update labels), QA (PR comments, label changes), Reporter (read PR status).
-
-**What it supports:**
-- Create and push branches.
-- Commit files with messages.
-- Open, update, and close pull requests.
-- Add PR labels and comments.
-- Read PR diffs, comments, and merge status.
-- Check branch protection and merge status.
-
 ---
 
 ## Auth Reference
@@ -89,7 +77,7 @@ Credentials and tokens are stored in environment variables loaded at agent start
 | Roblox Studio MCP | Local MCP server config (not in repo) |
 | Blender MCP | Local MCP server config (not in repo) |
 | Chrome MCP | No auth required for permitted sites |
-| GitHub MCP | `GITHUB_TOKEN` environment variable |
+| GitHub CLI (`gh`) | `gh auth login` — token stored by gh credential helper. Run `gh auth status` to verify. |
 
 ---
 
@@ -100,8 +88,8 @@ On any MCP call failure, the calling agent waits 5 seconds and retries once. If 
 
 ### Per-server fallbacks
 
-**Roblox Studio MCP unreachable:**
-Builder marks the current task as blocked with type `MCP server issue` in `memory/blockers.md`. It does not attempt to implement the task without Studio. Planner is informed on the next monitoring pass.
+**Roblox Studio MCP unavailable:**
+Builder marks the current task as blocked with type `MCP server issue` in `memory/blockers.md`. "Unavailable" means either the batch file at `%LOCALAPPDATA%\Roblox\mcp.bat` is missing or Roblox Studio is not open. Builder does not attempt to implement the task without Studio. Planner is informed on the next monitoring pass.
 
 **Blender MCP unreachable:**
 Builder marks the asset task as blocked. It continues with non-asset tasks in the sprint. The morning report flags the asset task as unstarted.
@@ -109,8 +97,8 @@ Builder marks the asset task as blocked. It continues with non-asset tasks in th
 **Chrome MCP unreachable:**
 Researcher marks research as incomplete and returns what it has from its cache. If no cached data exists, it flags the gap to the calling agent. The calling agent decides whether to proceed with reduced information or skip the task.
 
-**GitHub MCP unreachable:**
-Builder does not commit or open PRs. All work-in-progress is saved locally. Planner is notified. The night cycle continues running Builder tasks in local-only mode until GitHub MCP recovers. Work is committed in a batch when connectivity is restored.
+**`gh` CLI unreachable or unauthenticated:**
+Run `gh auth status` to diagnose. If GitHub is unreachable (network) or the token is invalid, Builder does not open PRs. All work is committed locally on the branch. Planner is notified. Night cycle continues in local-only mode; the morning report flags the issue for human follow-up.
 
 ### Hard abort
-If Roblox Studio MCP and GitHub MCP are both unreachable at the start of the night cycle, the pre-flight check aborts the night cycle and notifies via the morning report.
+If Roblox Studio MCP is unavailable (batch file missing) and `gh auth status` also fails at the start of the night cycle, the pre-flight check aborts the night cycle and notifies via the morning report.

@@ -8,11 +8,13 @@ Run this prompt after Step 5 (task ordering) and before Step 6 (write sprint log
 
 ## Step 1: Read the Worker Registry
 
-Read `memory/workers.md`. Collect all workers where:
-- `status: active`
-- `last_seen` is within the last 2 hours (compare against current timestamp)
+Read `memory/workers.md`. For each worker entry with `status: active`:
 
-If no active workers are found, or the file does not exist: assign `worker_id: null` to all tasks and proceed in single-machine mode. Document this in the sprint log notes.
+1. Check `Last seen:` in `memory/workers.md` as a quick filter.
+2. If that timestamp is stale (> 2 hours old), also check `memory/workers/{worker-id}.md` for a fresher `Last updated:` timestamp — workers refresh the registry when they heartbeat, but if the registry push was lost, the per-worker file is the authoritative fallback.
+3. A worker is considered **available** if either `Last seen:` (in the registry) or `Last updated:` (in the heartbeat file) is within the last 2 hours, and `status: active`.
+
+If no available workers are found, or the file does not exist: assign `worker_id: null` to all tasks and proceed in single-machine mode. Document this in the sprint log notes.
 
 ---
 

@@ -96,14 +96,18 @@ memory/
   decisions.md           Architectural decisions with rationale
   game-states/           Per-game state snapshots
   human-overrides.md     Append-only human decision log (NEVER delete entries)
+  workers.md             Registered worker machines (written by register-worker.sh)
+  workers/               Per-worker heartbeat files ({worker-id}.md, updated after each task)
 reports/
   morning/{date}.md      Daily morning digest (Reporter generates at 5 am)
   weekly/                Weekly market research and game ideas
 scripts/
   apply-live-edit.sh     Trigger an immediate human-requested change
   launch-morning-report.sh  Generate today's morning report
-  launch-night-cycle.sh  Start the full night cycle
+  launch-night-cycle.sh  Start the full night cycle (coordinator entry point)
   launch-weekly-research.sh  Start the weekly research run
+  launch-worker.sh       Worker mode — execute tasks assigned to this machine
+  register-worker.sh     One-time machine registration for multi-worker mode
 specs/
   template.md            Canonical spec format
   {game-name}/spec.md    Human-written game specs (Architect reads these)
@@ -129,6 +133,8 @@ workflows/
 | `memory/decisions.md` | Architect, Planner, Human |
 | `memory/blockers.md` | Planner, Builder, QA (escalations), Human |
 | `memory/game-states/*.md` | Architect, Planner |
+| `memory/workers.md` | `register-worker.sh` (append), Builder (update `Last seen:` after each task) |
+| `memory/workers/{worker-id}.md` | Builder (heartbeat after each task), `launch-worker.sh` |
 | `reports/morning/*.md` | Reporter |
 | `reports/weekly/*.md` | Market Researcher |
 | Game source files (in Roblox Studio) | Builder only |
@@ -157,14 +163,15 @@ Example: `[sword-game] feat: add dash mechanic with server validation`
 
 All MCP operations go through these servers. See `config/mcp-servers.md` for full details.
 
-| Server | Port | Used by |
-|--------|------|---------|
-| Roblox Studio MCP | 3001 | Builder only |
+| Server | Connection | Used by |
+|--------|-----------|---------|
+| Roblox Studio MCP | `%LOCALAPPDATA%\Roblox\mcp.bat` (batch file) | Builder only |
 | Blender MCP | 3002 | Builder only |
 | Chrome MCP | 3003 | Builder (docs), Researcher, Market Researcher |
-| GitHub MCP | 3004 | Builder, Planner, QA, Reporter |
 
-Before using any MCP server, run its health check. If it fails after one retry, mark the affected task blocked — do not attempt to work around a missing MCP server.
+GitHub operations (branches, commits, PRs, labels, comments) use the **GitHub CLI (`gh`)** — not an MCP server. See `.claude/skills/github-cli.md` for the full command reference. Verify authentication with `gh auth status` before starting any night cycle.
+
+Before using the Roblox Studio MCP, verify that Roblox Studio is open and the batch file at `%LOCALAPPDATA%\Roblox\mcp.bat` exists. Before using any other MCP server, run its health check. If it fails after one retry, mark the affected task blocked — do not attempt to work around a missing MCP server.
 
 ---
 

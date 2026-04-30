@@ -19,11 +19,21 @@ For each active game, read `games/{game-name}/sprint-log.md`. Extract:
 
 ## Step 2: Read PR Data
 
-Via GitHub MCP, fetch:
-- PRs merged since yesterday's 11 pm (the night cycle start).
-- PRs that are open and labelled `qa-approved` but not yet merged (awaiting human merge).
-- PRs that are open and labelled `needs-human`.
-- PRs that are open and labelled `qa-failed` (Builder still needs to fix these).
+Via `gh`, fetch:
+```bash
+# PRs merged since night cycle start (adjust timestamp to last night's 11 pm UTC)
+gh pr list --state merged --json number,title,mergedAt,labels \
+  --jq '[.[] | select(.mergedAt >= "YYYY-MM-DDT23:00:00Z")]'
+
+# Open PRs awaiting human merge (qa-approved but not merged)
+gh pr list --label "qa-approved" --state open --json number,title,labels
+
+# Open PRs needing human input
+gh pr list --label "needs-human" --state open --json number,title,labels
+
+# Open PRs where Builder must fix failures
+gh pr list --label "qa-failed" --state open --json number,title,labels
+```
 
 ---
 

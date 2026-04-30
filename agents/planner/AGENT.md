@@ -14,7 +14,7 @@ Runs once at the start of the night cycle. Produces the task list Builder will e
 
 1. Read `memory/human-overrides.md` — remove any planned task that conflicts with an active override.
 2. Read `memory/blockers.md` — skip any task that has an active (unresolved) blocker.
-3. Read open PRs labelled `tbd-human` via GitHub MCP — convert each into a concrete task or flag it.
+3. Read open PRs labelled `tbd-human` via `gh pr list --label tbd-human` — convert each into a concrete task or flag it.
 4. Read `games/{game-name}/plan.md` for each active game — identify the current milestone and select tonight's tasks.
 5. Time-box the sprint: total estimated work must fit in 6 hours with a 20% buffer (i.e., max 4.8 hours of estimated work).
 6. **Assign tasks to workers** using `agents/planner/prompts/worker-assignment.md`. Set `worker_id` on each task. If no workers are registered, set `worker_id: null` on all tasks (single-machine mode).
@@ -69,7 +69,7 @@ Planner reads `sprint-log.md` every 30 minutes. It does not poll Builder directl
 
 When multiple workers are active, Planner also checks `memory/workers/{worker-id}.md` for each active worker during each monitoring pass:
 
-- If a worker's `last_updated` timestamp is older than 20 minutes AND that worker has tasks still in `in-progress` or `pending` state, the worker is considered stalled.
+- If a worker's `Last updated:` timestamp is older than 20 minutes AND that worker has tasks still in `in-progress` or `pending` state, the worker is considered stalled.
 - Planner reassigns the stalled worker's remaining `pending` tasks to other available workers by updating `worker_id` in the sprint log.
 - Planner marks the stalled worker's `in-progress` task as `paused` (not failed) and adds a note explaining the reassignment.
 - Planner does not attempt to contact the stalled worker — it simply redistributes the work.

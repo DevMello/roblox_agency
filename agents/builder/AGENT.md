@@ -29,10 +29,10 @@ Builder reads the sprint once at the start of the night, then re-reads it at the
 
 | Tool | Purpose | Constraints |
 |------|---------|------------|
-| Roblox Studio MCP | Read/write scripts, manipulate Workspace | Always verify Studio is connected before use |
+| Roblox Studio MCP | Read/write scripts, manipulate Workspace | Verify Studio is open and bat file exists before use |
 | Blender MCP | Generate and export 3D assets | Use only for asset tasks; verify Blender is running |
 | Chrome MCP | Documentation lookups | Documentation-only, no general browsing |
-| GitHub MCP | Branches, commits, PRs | All commits go to branches, never main |
+| GitHub CLI (`gh`) | Branches, commits, PRs | All commits go to branches, never main |
 | Researcher (call-out) | API and pattern lookups | Only when blocked — not for general curiosity |
 
 ---
@@ -56,7 +56,7 @@ For every task, the mandatory workflow is:
    - `git commit -m "[{game-slug}] status: task {task-id} done (worker: {worker-id})"`
    - `git push origin main`
    - If push is rejected (another worker pushed first): `git pull --rebase origin main && git push origin main`
-9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` with the current timestamp and the task just completed. Commit and push.
+9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` with the current timestamp and the task just completed. Also update the `Last seen:` line for this worker in `memory/workers.md` (use `sed -i` or a Python one-liner targeting only that worker's block). Commit and push both files.
 
 Never commit directly to `main`. Never force-push. Never merge your own PRs.
 
@@ -118,7 +118,7 @@ Builder marks a task `failed` and stops when any of these conditions are met:
 
 1. **Three failed implementation attempts**: Builder has tried three times to implement the task and each attempt has produced a different fundamental error. It does not try a fourth time.
 2. **Missing dependency**: A hard dependency task has not been merged and the current task cannot proceed without it.
-3. **MCP server unavailable**: The required MCP server (typically Roblox Studio MCP) is unreachable after one retry and there is no fallback.
+3. **MCP server unavailable**: The required MCP server (Roblox Studio MCP — batch file missing or Studio not open) is unavailable after one retry and there is no fallback.
 4. **Irresolvable ambiguity**: The task definition is too ambiguous to implement without guessing at core behaviour, and Researcher cannot clarify it.
 
 When marking a task failed, Builder must:

@@ -23,14 +23,14 @@ Every 30m  Planner: monitoring pass
 
 The `scripts/launch-night-cycle.sh` script runs these checks before any agent activates:
 
-1. **Roblox Studio MCP** — health check at `localhost:3001`. Must return `{ "status": "ok", "studio_open": true }`.
-2. **GitHub MCP** — health check at `localhost:3004`. Must return a valid response.
+1. **Roblox Studio MCP** — checks that the batch file exists at `%LOCALAPPDATA%\Roblox\mcp.bat`. Roblox Studio must be open and running for Builder to use the MCP.
+2. **GitHub CLI (`gh`)** — run `gh auth status`. Must exit 0 with an authenticated account.
 3. **Active sprint log** — check that `games/{game-name}/sprint-log.md` exists for each active game (or will be created by Planner). If a game directory exists under `games/` but has no plan.md, flag it as needing Architect.
 4. **New specs** — check for any file at `specs/{game-name}/spec.md` with no corresponding `games/{game-name}/plan.md`. If found, activate Architect for that game before continuing.
 
-**If Roblox Studio MCP and GitHub MCP are both unreachable:** Abort the night cycle. Reporter will note the abort in the morning report.
+**If Roblox Studio MCP batch file is missing and `gh auth status` fails:** Abort the night cycle. Reporter will note the abort in the morning report.
 
-**If only one is unreachable:** Log the issue and continue. Builder will hit the specific server failure when it reaches a task that requires it.
+**If only one is unavailable:** Log the issue and continue. Builder will hit the specific server failure when it reaches a task that requires it.
 
 ---
 
@@ -66,7 +66,7 @@ If Planner fails after 2 retries: abort the night cycle. Reporter notes it in th
 - Reads `sprint-log.md` and begins the first task.
 - For each task:
   1. Checks the sprint log for any Planner updates since last read.
-  2. Verifies hard dependencies are merged via GitHub MCP.
+  2. Verifies hard dependencies are merged via `gh pr view {pr_number} --json merged`.
   3. Implements the task (using `feature-impl`, `bug-fix`, or `asset-integration` prompt as appropriate).
   4. Commits and opens a PR (using `pr-creation` prompt).
   5. Updates the sprint log task status to `done`.

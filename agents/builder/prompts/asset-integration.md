@@ -66,6 +66,6 @@ If the import fails after one retry:
 
 ## Step 5: Commit and PR
 
-1. Commit the scene changes (via Roblox Studio MCP save + GitHub MCP commit) with message: `[{game-slug}] asset: {asset name} imported and positioned`
+1. Save the scene via Roblox Studio MCP, then commit with `git` and message: `[{game-slug}] asset: {asset name} imported and positioned`
 2. Run the `pr-creation` prompt.
 3. Update the sprint log and `progress.md`.

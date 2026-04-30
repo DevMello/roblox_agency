@@ -16,13 +16,13 @@ Before writing any code:
 
 2. Read the relevant existing files via Roblox Studio MCP to understand the current state of the game. Do not assume — verify what already exists.
 
-3. Check the task's `depends_on` list. For each hard dependency, verify via GitHub MCP that the dependency PR has been merged. If it has not, stop here and mark the task `blocked`.
+3. Check the task's `depends_on` list. For each hard dependency, run `gh pr view {pr_number} --json merged --jq '.merged'` to verify the dependency PR has been merged. If it has not, stop here and mark the task `blocked`.
 
 ---
 
 ## Step 2: Create the Branch
 
-Create a branch named `feature/{game-slug}/{task-id}` from the current `main` HEAD via GitHub MCP. Switch to that branch before writing any code.
+Create a branch named `feature/{game-slug}/{task-id}` from the current `main` HEAD using `git checkout -b` and push it with `git push -u origin`. Switch to that branch before writing any code. See `agents/builder/mcp-usage/github-cli.md` for the exact commands.
 
 ---
 

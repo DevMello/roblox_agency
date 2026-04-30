@@ -23,11 +23,9 @@
 # Prerequisites:
 #   - claude CLI on PATH
 #   - games/<game>/plan.md must exist (run run-architect.sh first)
-#   - Roblox Studio MCP running on localhost:3001  (Builder needs this to write scripts)
+#   - Roblox Studio open with MCP batch file at %LOCALAPPDATA%\Roblox\mcp.bat
+#   - gh CLI authenticated (run: gh auth status)
 #   - Local git repo initialised (Builder commits to branches)
-#
-# The GitHub MCP (localhost:3004) is OPTIONAL. If unavailable, Builder will use
-# local git operations via the Bash tool instead of GitHub MCP.
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -52,6 +50,7 @@ for arg in "$@"; do
   fi
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
+# Note: the expansion above is the safe empty-array idiom required under set -u.
 
 # ─── Worker identity ─────────────────────────────────────────────────────────
 
@@ -90,11 +89,13 @@ log "Pre-flight checks..."
 STUDIO_OK=no
 GITHUB_OK=no
 
-curl -sf http://localhost:3001/health >/dev/null 2>&1 && STUDIO_OK=yes || true
-curl -sf http://localhost:3004/health >/dev/null 2>&1 && GITHUB_OK=yes || true
+# Check Roblox MCP via batch file presence (official Roblox MCP uses a bat file, not localhost)
+ROBLOX_MCP_BAT="${LOCALAPPDATA}/Roblox/mcp.bat"
+[[ -f "$ROBLOX_MCP_BAT" ]] && STUDIO_OK=yes || true
+gh auth status >/dev/null 2>&1 && GITHUB_OK=yes || true
 
-[[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: OK" || log "  Roblox Studio MCP: NOT RUNNING (Builder will mark scripting tasks blocked)"
-[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub MCP: OK"         || log "  GitHub MCP: NOT RUNNING (Builder will use local git)"
+[[ "$STUDIO_OK" == "yes" ]] && log "  Roblox Studio MCP: bat file found OK" || log "  Roblox Studio MCP: bat file NOT found at ${ROBLOX_MCP_BAT} (Builder will mark scripting tasks blocked)"
+[[ "$GITHUB_OK" == "yes" ]] && log "  GitHub CLI (gh): authenticated OK" || log "  GitHub CLI (gh): NOT AUTHENTICATED — run 'gh auth login' (Builder will commit locally only)"
 
 # ─── Check for new specs that still need Architect ───────────────────────────
 
@@ -134,7 +135,7 @@ Follow agents/planner/prompts/nightly-sprint.md exactly:
 5. Write the sprint to games/${GAME}/sprint-log.md
 6. Commit the sprint log and push: git add games/${GAME}/sprint-log.md && git commit -m '[${GAME}] plan: nightly sprint $(date +%Y-%m-%d)' && git push origin main
 
-Also check for any open PRs that need triage if GitHub MCP is available.
+Also check for any open PRs that need triage: run 'gh pr list --label tbd-human --state open' and process each with the pr-triage prompt.
 "
   run_agent "planner" "$_PLANNER_PROMPT" "$LOG_FILE"
 
@@ -181,7 +182,7 @@ For each task assigned to you (in order):
    - Feature tasks: agents/builder/prompts/feature-impl.md
    - Bug fixes:     agents/builder/prompts/bug-fix.md
    - Asset tasks:   agents/builder/prompts/asset-integration.md
-5. Create a git branch, implement the task, commit, open a PR (or local branch if no GitHub MCP)
+5. Create a git branch, implement the task, commit, open a PR via gh CLI (or commit locally only if gh is not authenticated)
 6. Update the task status in games/${GAME}/sprint-log.md to 'done'
 7. Push sprint log update immediately: commit and git push origin main (pull --rebase if rejected)
 8. Append an entry to games/${GAME}/progress.md
@@ -190,10 +191,10 @@ For each task assigned to you (in order):
 Continue until all your assigned tasks are done or you reach 3 failures on one task.
 Do NOT modify plan.md, memory/decisions.md, memory/human-overrides.md, or any agent config file.
 
-MCP availability:
-- Roblox Studio MCP (localhost:3001): ${STUDIO_OK}
-- GitHub MCP (localhost:3004): ${GITHUB_OK}
-If a required MCP is unavailable, mark the task blocked in the sprint log and move to the next task.
+MCP / CLI availability:
+- Roblox Studio MCP (bat file at %LOCALAPPDATA%/Roblox/mcp.bat): ${STUDIO_OK}
+- GitHub CLI (gh): ${GITHUB_OK}
+If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If gh is not authenticated, commit locally but do not open PRs.
 "
   run_agent "builder" "$_BUILDER_PROMPT" "$LOG_FILE"
 
