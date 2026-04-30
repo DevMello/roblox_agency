@@ -15,6 +15,20 @@ Notes: Teams already existed in Studio but with swapped colors (Team A was Brigh
 
 ---
 
+## 2026-04-30 — it-009: Implement Sawmill processor script
+PR: #20 (https://github.com/DevMello/roblox_agency/pull/20)
+Status: done
+Notes: SawmillService Script at ServerScriptService.SawmillService. FIFO log queue
+  per team; processes one log at a time via task.spawn loop with SAWMILL_PROCESS_TIME (2s)
+  delay. Spawns Plank (ResourceType=Plank, OwnerTeam) at PlankOutput; adds to outbound
+  2-waypoint ConveyorBelt (PlankOutput→CashPad).
+  Also created BeltRegistry ModuleScript (ServerScriptService.BeltRegistry) — shared
+  registry for ConveyorBelt instances. ChopperService updated to register inbound belts
+  there; SawmillService registers outbound belts under "<team>_outbound" key.
+  Source at games/industrial-tycoon/src/ServerScriptService/SawmillService.lua and BeltRegistry.lua.
+
+---
+
 ## 2026-04-30 — it-008: Implement ClickDetector chopper machine activation
 PR: #19 (https://github.com/DevMello/roblox_agency/pull/19)
 Status: done
