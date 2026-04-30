@@ -4,6 +4,23 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-005: Build megamap geometry (mirrored halves, center zone)
+PR: #12 (https://github.com/DevMello/roblox_agency/pull/12)
+Status: done
+Notes: Full 1200×1200 megamap built in Studio via execute_luau. Stud dimensions:
+  BaseGround 1200×1×1200 at y=-0.5 (top at y=0). TeamA zone x=(-600,-50) center x=-325 width=550.
+  Center strip x=(-50,+50) width=100. TeamB zone x=(+50,+600) center x=+325 width=550.
+  TerritoryBorders 2×50×1200 walls at x=-50 (Bright red) and x=+50 (Bright blue).
+  Tint overlays 550×0.2×1200 at transparency=0.85, CanCollide=false.
+  SellDepot body 80×30×60 at (0,15,0). Roof 86×5×66 at (0,32.5,0).
+  Entrance pillars+lintel at x=±40 framing a 20Z-wide gap.
+  DepositZone 70×1×50 glowing yellow, attr DepositZone=true, SurfaceLight gold.
+  Zone signs 60×10×4 with SurfaceGui text. 40 total descendants.
+  All Parts Anchored=true; overlay Parts CanCollide=false.
+  Builder script at games/industrial-tycoon/src/Assets/megamap-geometry.lua.
+
+---
+
 ## 2026-04-30 — it-004: Teams service auto-balance and wallet data structure
 PR: #11 (https://github.com/DevMello/roblox_agency/pull/11)
 Status: done
