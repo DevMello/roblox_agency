@@ -15,6 +15,19 @@ Notes: Teams already existed in Studio but with swapped colors (Team A was Brigh
 
 ---
 
+## 2026-04-30 — it-014: Implement upgrade effect application to machines
+PR: #22 (https://github.com/DevMello/roblox_agency/pull/22)
+Status: done
+Notes: UpgradeEffectService ModuleScript at ServerScriptService.UpgradeEffectService.
+  ApplySpeedUpgrade: extracts team folder name from machineId path string, retrieves belt
+  from BeltRegistry, calls belt:SetSpeed(CONVEYOR_BASE_SPEED[1] * SPEED_MULTIPLIER[level]).
+  ApplyOutputUpgrade: finds Sawmill Part in Workspace, sets OutputMultiplier attribute;
+  SawmillService will read this to control planks-per-log (requires future SawmillService
+  update to respect the attribute).
+  Source at games/industrial-tycoon/src/ServerScriptService/UpgradeEffectService.lua.
+
+---
+
 ## 2026-04-30 — it-011: Implement Sell Depot goods conversion server logic
 PR: #21 (https://github.com/DevMello/roblox_agency/pull/21)
 Status: done

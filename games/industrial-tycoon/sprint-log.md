@@ -155,12 +155,12 @@ task_list:
     assigned_agent: builder
     depends_on:
       - it-013
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T00:06:00Z"
+    completed_at: "2026-04-30T00:20:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/22"
 
   - task_id: it-022
     title: "Implement MarketplaceService framework"
