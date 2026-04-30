@@ -201,6 +201,52 @@ If Roblox Studio MCP is unavailable, mark scripting tasks blocked. If gh is not 
   log "Builder finished for ${GAME}."
 done
 
+# ─── Step 2.5: QA — Validate Builder PRs ─────────────────────────────────────
+
+for GAME in "${GAMES[@]}"; do
+  log ""
+  log "--- QA: validating sprint PRs for ${GAME} ---"
+
+  _QA_PROMPT="
+Read CLAUDE.md first and follow every absolute rule in it without exception.
+
+You are the QA agent. Read agents/qa/AGENT.md for your full role specification.
+
+Your task: run QA on every open PR opened by Builder during tonight's sprint for game '${GAME}'.
+
+1. Read games/${GAME}/sprint-log.md. Find all tasks with status 'done' that reference a PR number.
+2. For each such PR:
+   a. Check labels: gh pr view {pr_number} --json labels -q '.labels[].name'
+      Skip any PR already labelled 'qa-approved' or 'qa-failed'.
+   b. Run all checks in sequence (stop at Check 1 if it has a blocking failure, but note the skip):
+      - Luau lint:        agents/qa/checklists/luau-lint.md
+      - Feature test:     agents/qa/prompts/feature-test.md
+      - Regression check: agents/qa/prompts/regression-check.md
+      - Playtest eval:    agents/qa/prompts/playtest-eval.md
+        Roblox Studio MCP available: ${STUDIO_OK}
+        If STUDIO_OK is 'no', skip playtest-eval and note it in the verdict.
+   c. Apply the verdict:
+      Approved: gh pr edit {pr_number} --add-label qa-approved
+                gh pr comment {pr_number} --body 'QA approved. Ready to merge.\n\n{verdict}'
+                Set qa_verdict='approved' in the sprint log for this task.
+      Blocked:  gh pr edit {pr_number} --add-label qa-failed
+                Comment with every failure listed (file, line, expected vs found).
+                Set qa_verdict='blocked' and qa_notes with failure summary in the sprint log.
+      Security or data-loss concern: also add label 'needs-human' regardless of verdict.
+   d. Immediately push the sprint log after each verdict:
+      git add games/${GAME}/sprint-log.md
+      git commit -m '[${GAME}] qa: verdict for task {task_id}'
+      git pull --rebase origin main && git push origin main
+
+3. Process all PRs before stopping.
+   Do NOT modify source files. Do NOT merge or close PRs.
+   Do NOT write to plan.md, memory/, or any agent config file.
+"
+  run_agent "qa" "$_QA_PROMPT" "$LOG_FILE"
+
+  log "QA finished for ${GAME}."
+done
+
 # ─── Step 3: Reporter — Morning Report ───────────────────────────────────────
 
 log ""
