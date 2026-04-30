@@ -124,9 +124,12 @@ task_list:
     assigned_agent: builder
     depends_on:
       - it-001
-    status: pending
-    attempt_count: 0
-    worker_id: null
+    status: done
+    attempt_count: 1
+    worker_id: default
+    worker_started_at: "2026-04-29T23:10:00Z"
+    completed_at: "2026-04-29T23:30:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/13"
 
   - task_id: it-012
     title: "Implement team wallet server module"
