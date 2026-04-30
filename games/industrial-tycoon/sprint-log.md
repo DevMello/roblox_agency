@@ -178,9 +178,12 @@ task_list:
     assigned_agent: builder
     depends_on:
       - it-001
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-04-29T23:47:00Z"
+    completed_at: "2026-04-30T00:10:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/10"
 
   - task_id: it-004
     title: "Teams service auto-balance and wallet data structure"

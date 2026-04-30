@@ -4,6 +4,13 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-003: Player data schema and DataStore module
+PR: #10 (https://github.com/DevMello/roblox_agency/pull/10)
+Status: done
+Notes: PlayerDataService ModuleScript in ServerScriptService. Schema: money, boostBucks, upgradesPurchased, cosmeticsOwned, cosmetic_tickets. DataStore load on PlayerAdded with 3 retries and task.wait(2) gaps. Merge-with-defaults ensures schema evolution safety. All 7 public API functions typed. Cache cleared on PlayerRemoving. DataStore saves deferred to it-019. Source at games/industrial-tycoon/src/ServerScriptService/PlayerDataService.lua.
+
+---
+
 ## 2026-04-29 — it-002: Declare RemoteEvents and RemoteFunctions
 PR: #9 (https://github.com/DevMello/roblox_agency/pull/9)
 Status: done
