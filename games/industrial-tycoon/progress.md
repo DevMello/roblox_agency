@@ -4,6 +4,20 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-05-01 — it-019: Implement player data save and load via DataStoreService
+PR: #34 (https://github.com/DevMello/roblox_agency/pull/34)
+Status: done
+Notes: PlayerDataService ModuleScript at ServerScriptService.PlayerDataService extended with
+  full DataStore save/load. SavePlayer uses UpdateAsync with 3-attempt, 2s-backoff retry loop.
+  SaveAllPlayers() iterates Players:GetPlayers() and task.spawns each save concurrently.
+  PlayerRemoving now calls SavePlayer before clearing the cache entry.
+  Periodic auto-save task.spawn loop fires every 300 seconds (task.wait(300)).
+  RoundManager (it-017) calls SaveAllPlayers() at round end via the same API.
+  Load path (on PlayerAdded) unchanged from it-003: 3 retries, mergeWithDefaults schema forward-compat.
+  All DataStore calls pcall-wrapped; failures warn() but do not crash.
+
+---
+
 ## 2026-04-30 — it-015: Create Upgrade Shop ScreenGui
 PR: #27 (https://github.com/DevMello/roblox_agency/pull/27)
 Status: done
