@@ -4,6 +4,21 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-05-01 — it-020: Implement leaderboard data publisher server script
+PR: #36 (https://github.com/DevMello/roblox_agency/pull/36)
+Status: done
+Notes: LeaderboardPublisher Script at ServerScriptService.LeaderboardPublisher.
+  Event-driven: connects to TeamWalletUpdated and RoundStateChangedServer BindableEvents
+  in ServerStorage.BindableEvents folder (created by this task). On TeamWalletUpdated:
+  fires LeaderboardUpdated RemoteEvent to all clients with current wallet totals from TeamService.
+  On RoundStateChangedServer "waiting": fires LeaderboardUpdated { teamA=0, teamB=0 } for UI reset.
+  KNOWN LIMITATION: TeamService.AddToTeamWallet and RoundManager.setState must be updated to fire
+  the new BindableEvents for this publisher to receive events. Until wired, SellDepotService
+  still fires LeaderboardUpdated directly (covering the main deposit path). Follow-up wiring
+  needed in PRs #14 (TeamService) and #35 (RoundManager).
+
+---
+
 ## 2026-05-01 — it-018: Implement win condition and bonus drop distribution
 PR: #35 (https://github.com/DevMello/roblox_agency/pull/35)
 Status: done

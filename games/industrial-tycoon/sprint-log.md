@@ -162,9 +162,12 @@ task_list:
     depends_on:
       - it-002
       - it-012
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-05-01T23:48:00Z"
+    completed_at: "2026-05-02T00:00:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/36"
 
   - task_id: it-024
     title: "Implement Boost Bucks developer product purchase and spending"
