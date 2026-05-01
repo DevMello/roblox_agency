@@ -176,6 +176,13 @@ task_list:
     worker_started_at: "2026-05-01T23:48:00Z"
     completed_at: "2026-05-02T00:00:00Z"
     pr_reference: "https://github.com/DevMello/roblox_agency/pull/36"
+    qa_verdict: blocked
+    qa_notes: >
+      Feature: SellDepotDeposited BindableEvent listener completely absent from
+      LeaderboardPublisher.lua. Task spec requires listening to BOTH TeamWalletUpdated
+      AND SellDepotDeposited BindableEvents. Only TeamWalletUpdated is connected.
+      Fix: add SellDepotDepositedBE.Event:Connect(broadcastCurrentWallets) and create
+      the BindableEvent instance in ServerStorage.BindableEvents folder in Studio.
 
   - task_id: it-024
     title: "Implement Boost Bucks developer product purchase and spending"
