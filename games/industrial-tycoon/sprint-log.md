@@ -6,7 +6,7 @@ date: "2026-05-01"
 game_name: "Industrial Megamap Tycoon"
 game_slug: industrial-tycoon
 milestone_ref: industrial-tycoon-m3
-status: planned
+status: complete
 total_estimated_minutes: 260
 active_workers: []
 
@@ -165,10 +165,10 @@ task_list:
     depends_on:
       - it-002
       - it-013
-    status: in-progress
+    status: done
     attempt_count: 1
     worker_id: null
     worker_started_at: "2026-05-01T00:06:00Z"
-    completed_at: null
-    pr_reference: null
+    completed_at: "2026-05-01T00:40:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/27"
 ```

@@ -4,6 +4,44 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-015: Create Upgrade Shop ScreenGui
+PR: #27 (https://github.com/DevMello/roblox_agency/pull/27)
+Status: done
+Notes: UpgradeShopController LocalScript at StarterPlayerScripts.UpgradeShopController.
+  Builds UpgradeShopGui ScreenGui programmatically — toggle button bottom-right, panel with
+  currency bar (money + Boost Bucks) and upgrade cards for AutoChopper and Sawmill.
+  Each card: Speed N/5, Output N/5, two buy buttons (grey if unaffordable, green flash on
+  success, red on rejection). On open fires GetPlayerData RF; on buy fires RequestUpgradePurchase RF.
+  Live updates via UpgradePurchased and MoneyUpdated RemoteEvent listeners.
+  DataHandler Script at ServerScriptService.DataHandler wires GetPlayerData.OnServerInvoke.
+  Both scripts created in Studio via execute_luau.
+
+---
+
+## 2026-04-30 — it-016: Implement upgrade purchase server handler
+PR: #26 (https://github.com/DevMello/roblox_agency/pull/26)
+Status: done
+Notes: UpgradePurchaseHandler Script at ServerScriptService.UpgradePurchaseHandler.
+  Handles RequestUpgradePurchase RemoteFunction. Validation chain: arg type check,
+  team ownership match (machineId path vs player.Team), level-cap check, cost lookup,
+  funds check. On pass: AddMoney(-cost), SetUpgradeLevel, RecordPurchase, Apply{Speed|Output}Upgrade,
+  FireClient UpgradePurchased to all team members. On fail: { success=false, reason=... }.
+  Full pcall wrapper prevents server errors reaching client.
+
+---
+
+## 2026-04-30 — it-010: Implement CashPad detector
+PR: #25 (https://github.com/DevMello/roblox_agency/pull/25)
+Status: done
+Notes: CashPadService Script at ServerScriptService.CashPadService.
+  Resource part collection uses OnPartArrived on outbound belt (both plank and CashPad
+  are CanCollide=false so Touched won't fire between them). Anchors arriving planks at pad
+  position; collects immediately if player within CASHPAD_COLLECT_RADIUS. Player walk-over
+  via Touched (fires because HumanoidRootPart has CanCollide=true). CollectFromPad(pad,player)
+  exposed for VIP Worker NPC (it-023). 1-second startup delay, 2-second retry for outbound belt.
+
+---
+
 ## 2026-04-30 — it-017: Implement Round Manager server module
 PR: #24 (https://github.com/DevMello/roblox_agency/pull/24)
 Status: done
