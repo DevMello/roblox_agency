@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #0A0A0F;
+    --surface: #111118;
+    --border: #1E1E2E;
+    --accent: #7C6FFF;
+    --danger: #FF4A6E;
+    --success: #00E5A0;
+    --warning: #FFB547;
+    --text-primary: #F0EEF8;
+    --text-muted: #6E6C85;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: #0A0A0F;
+    color: #F0EEF8;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #111118;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1E1E2E;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a2a3e;
+  }
+
+  /* CodeMirror dark theme overrides */
+  .cm-editor {
+    height: 100%;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13px;
+  }
+
+  .cm-editor .cm-content {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  /* Markdown prose */
+  .prose-agency {
+    @apply text-text-primary;
+  }
+
+  .prose-agency h1 {
+    @apply text-2xl font-display font-bold text-text-primary mb-4 mt-6;
+  }
+
+  .prose-agency h2 {
+    @apply text-xl font-display font-semibold text-text-primary mb-3 mt-5;
+  }
+
+  .prose-agency h3 {
+    @apply text-lg font-semibold text-text-primary mb-2 mt-4;
+  }
+
+  .prose-agency p {
+    @apply text-text-primary leading-relaxed mb-3;
+  }
+
+  .prose-agency code {
+    @apply font-mono text-sm bg-surface px-1.5 py-0.5 rounded text-accent;
+  }
+
+  .prose-agency pre {
+    @apply bg-surface border border-border rounded-lg p-4 overflow-x-auto mb-4;
+  }
+
+  .prose-agency pre code {
+    @apply bg-transparent p-0 text-text-primary;
+  }
+
+  .prose-agency table {
+    @apply w-full border-collapse mb-4;
+  }
+
+  .prose-agency th {
+    @apply text-left text-text-muted text-sm font-medium border-b border-border pb-2 pr-4;
+  }
+
+  .prose-agency td {
+    @apply text-text-primary text-sm border-b border-border py-2 pr-4;
+  }
+
+  .prose-agency ul {
+    @apply list-disc list-inside mb-3 space-y-1;
+  }
+
+  .prose-agency ol {
+    @apply list-decimal list-inside mb-3 space-y-1;
+  }
+
+  .prose-agency li {
+    @apply text-text-primary;
+  }
+
+  .prose-agency a {
+    @apply text-accent underline underline-offset-2 hover:text-accent/80;
+  }
+
+  .prose-agency blockquote {
+    @apply border-l-2 border-accent pl-4 italic text-text-muted;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-pending   { @apply bg-surface text-text-muted border border-border; }
+  .badge-running   { @apply bg-accent/20 text-accent border border-accent/30; }
+  .badge-done      { @apply bg-success/20 text-success border border-success/30; }
+  .badge-failed    { @apply bg-danger/20 text-danger border border-danger/30; }
+  .badge-blocked   { @apply bg-warning/20 text-warning border border-warning/30; }
+}
