@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 async def _start_file_watcher() -> None:
     """Launch watchdog observer in a thread."""
-    from webui.server.services.repo import repo_watcher
+    from webui.server.services.file_watcher import repo_watcher
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, repo_watcher.start)
 
