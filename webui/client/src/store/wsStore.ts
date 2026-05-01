@@ -1,14 +1,22 @@
-// Stub — full implementation provided by frontend-stores-hooks worker
 import { create } from 'zustand'
 
-type WSStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
-
 interface WSStore {
-  status: WSStatus
-  setStatus: (status: WSStatus) => void
+  connected: boolean
+  reconnectAttempts: number
+  lastEventType: string | null
+  setConnected: (connected: boolean) => void
+  incrementReconnect: () => void
+  resetReconnect: () => void
+  setLastEventType: (eventType: string | null) => void
 }
 
-export const useWSStore = create<WSStore>((set) => ({
-  status: 'disconnected',
-  setStatus: (status) => set({ status }),
+export const useWsStore = create<WSStore>((set) => ({
+  connected: false,
+  reconnectAttempts: 0,
+  lastEventType: null,
+  setConnected: (connected) => set({ connected }),
+  incrementReconnect: () =>
+    set((s) => ({ reconnectAttempts: s.reconnectAttempts + 1 })),
+  resetReconnect: () => set({ reconnectAttempts: 0 }),
+  setLastEventType: (lastEventType) => set({ lastEventType }),
 }))
