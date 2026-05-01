@@ -137,12 +137,29 @@ function PlayerDataService.SpendBoostBucks(player: Player, amount: number): bool
 	return false
 end
 
+-- Save one player's data to DataStore (basic version — it-019 adds retry, periodic, PlayerRemoving hook)
+function PlayerDataService.SavePlayer(player: Player): ()
+	local data = cache[cacheKey(player)]
+	if not data then
+		return
+	end
+	local key = Constants.DATASTORE_KEY_PREFIX .. tostring(player.UserId)
+	local ok, err = pcall(function()
+		dataStore:UpdateAsync(key, function(_old: unknown): PlayerData
+			return data
+		end)
+	end)
+	if not ok then
+		warn("PlayerDataService.SavePlayer: failed for", player.Name, tostring(err))
+	end
+end
+
 -- Load data on join
 Players.PlayerAdded:Connect(function(player: Player)
 	loadDataForPlayer(player)
 end)
 
--- Remove from cache on leave (save is triggered by it-019)
+-- Remove from cache on leave (full save-on-leave implemented by it-019)
 Players.PlayerRemoving:Connect(function(player: Player)
 	cache[cacheKey(player)] = nil
 end)
