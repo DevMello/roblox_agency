@@ -1,8 +1,8 @@
 # Industrial Megamap Tycoon — Plan
 
 ## Status
-Active milestone: industrial-tycoon-m3 (Lumber Production Chain)
-Last updated: 2026-04-30
+Active milestone: industrial-tycoon-m4 (Team Wallets, Sell Depot, and Round Manager)
+Last updated: 2026-05-01
 
 ---
 
@@ -70,7 +70,8 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 **Goal:** A player can click a tree or chopper machine, watch a log travel the conveyor to the Sawmill, receive a plank, and walk over the Cash Pad to earn money.
 **Estimated nights:** 2
 **Critical path:** Yes
-**Status:** in-progress
+**Status:** complete
+**Completed:** 2026-05-01
 **Tasks (execution order):** it-007, it-008, it-009, it-010
 
 **Success criteria:**
@@ -102,7 +103,8 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 **Goal:** A player can spend earned money in the Upgrade Shop to buy per-machine Speed or Output upgrades that immediately affect that machine's behaviour.
 **Estimated nights:** 2
 **Critical path:** Yes
-**Status:** in-progress
+**Status:** complete
+**Completed:** 2026-05-01
 **Tasks (execution order):** it-013, it-014, it-016, it-015
 
 **Success criteria:**
@@ -156,14 +158,14 @@ The following spec features are **explicitly out of scope for MVP** and have NOT
 | it-007 | Implement ConveyorBelt server module | scripting | high | 80 | m3 | done | it-001 (hard) |
 | it-008 | Implement ClickDetector chopper machine activation | game-mechanic | medium | 50 | m3 | done | it-006 (hard), it-007 (hard) |
 | it-009 | Implement Sawmill processor script | scripting | medium | 50 | m3 | done | it-006 (hard), it-007 (hard) |
-| it-010 | Implement CashPad detector | game-mechanic | medium | 50 | m3 | pending | it-006 (hard), it-009 (hard), it-012 (hard) |
+| it-010 | Implement CashPad detector | game-mechanic | medium | 50 | m3 | done | it-006 (hard), it-009 (hard), it-012 (hard) |
 | it-011 | Implement Sell Depot goods conversion server logic | scripting | medium | 50 | m4 | done | it-005 (hard), it-012 (hard) |
 | it-012 | Implement team wallet server module | scripting | medium | 50 | m4 | done | it-004 (hard) |
 | it-013 | Implement per-machine upgrade state server module | scripting | medium | 50 | m5 | done | it-001 (hard), it-003 (hard) |
 | it-014 | Implement upgrade effect application to machines | scripting | medium | 50 | m5 | done | it-013 (hard) |
-| it-015 | Create Upgrade Shop ScreenGui | ui | high | 80 | m5 | pending | it-002 (hard), it-013 (hard) |
-| it-016 | Implement upgrade purchase server handler | scripting | medium | 50 | m5 | pending | it-002 (hard), it-003 (hard), it-013 (hard), it-014 (hard) |
-| it-017 | Implement Round Manager server module | game-mechanic | high | 80 | m4 | pending | it-001 (hard), it-004 (hard), it-012 (hard) |
+| it-015 | Create Upgrade Shop ScreenGui | ui | high | 80 | m5 | done | it-002 (hard), it-013 (hard) |
+| it-016 | Implement upgrade purchase server handler | scripting | medium | 50 | m5 | done | it-002 (hard), it-003 (hard), it-013 (hard), it-014 (hard) |
+| it-017 | Implement Round Manager server module | game-mechanic | high | 80 | m4 | done | it-001 (hard), it-004 (hard), it-012 (hard) |
 | it-018 | Implement win condition and bonus drop distribution | game-mechanic | medium | 50 | m4 | pending | it-012 (hard), it-017 (hard) |
 | it-019 | Implement player data save and load via DataStoreService | data | high | 80 | m6 | pending | it-003 (hard), it-013 (hard), it-017 (hard) |
 | it-020 | Implement leaderboard data publisher server script | scripting | medium | 50 | m6 | pending | it-002 (hard), it-012 (hard) |
@@ -641,3 +643,4 @@ None. All open questions (Boost Bucks conversion rate, VIP server pricing) have 
 | 2026-04-29 | Initial plan created from spec `specs/industrial-tycoon/spec.md`. 24 tasks across 7 milestones. Mining, Oil, Sabotage, Steal, Anti-Sabotage, and Cosmetics Store deferred per spec out-of-scope list. | Architect |
 | 2026-04-29 | M1 complete (it-001 through it-004 done). it-005 (first M2 task) completed in same sprint. Active milestone advanced to M2. Task statuses updated. | Planner |
 | 2026-04-30 | M2 complete (it-006 done). M3 in-progress (it-007, it-008, it-009 done). M4 in-progress (it-011, it-012 done). M5 in-progress (it-013, it-014 done). M7 in-progress (it-022 done). Active milestone advanced to M3. Stale PR #14 (it-012) still open — code included in main via PR #11 (it-004). | Planner |
+| 2026-05-01 | M3 complete (it-010 done). M4 in-progress (it-017 done; it-018 pending). M5 complete (it-015, it-016 done). Active milestone advanced to M4. Tonight's sprint targets it-018 (completes M4), it-019/it-020/it-021 (M6), it-024 (M7). it-023 deferred (budget). | Planner |

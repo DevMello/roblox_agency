@@ -5,170 +5,234 @@ sprint_id: industrial-tycoon-2026-05-01
 date: "2026-05-01"
 game_name: "Industrial Megamap Tycoon"
 game_slug: industrial-tycoon
-milestone_ref: industrial-tycoon-m3
-status: complete
-total_estimated_minutes: 260
+milestone_ref: industrial-tycoon-m4
+status: planned
+total_estimated_minutes: 280
 active_workers: []
 
 skipped_due_to_blocker: []
 skipped_due_to_override: []
 
 conflict_report:
-  checked: "2026-04-30T23:00:00Z"
+  checked: "2026-05-01T23:00:00Z"
   conflicts_found: []
   no_conflict_confirmation:
-    tasks_reviewed: 4
+    tasks_reviewed: 5
     message: >
       Override check ran against memory/human-overrides.md.
-      No active overrides exist. All 4 candidate tasks cleared with no conflicts.
+      No active overrides exist. All 5 candidate tasks cleared with no conflicts.
 
 notes:
-  - timestamp: "2026-04-30T23:00:00Z"
-    type: info
-    message: >
-      Pre-flight checks passed: GitHub CLI authenticated, Roblox Studio MCP batch file
-      present at %LOCALAPPDATA%\Roblox\mcp.bat.
-  - timestamp: "2026-04-30T23:00:00Z"
+  - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >
       Override check completed. memory/human-overrides.md contains no active entries.
       All candidate tasks are clear to schedule.
-  - timestamp: "2026-04-30T23:00:00Z"
+  - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >
       Blocker check completed. memory/blockers.md contains no active blockers.
-  - timestamp: "2026-04-30T23:00:00Z"
+  - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >
-      TBD PR triage: No PRs labelled tbd-human found. One stale open PR noted:
-      PR #14 (it-012 TeamService wallet API) is open but code is already in main via PR #11
-      (it-004). No action required; flagging for human awareness in morning report.
-  - timestamp: "2026-04-30T23:00:00Z"
+      TBD PR triage: gh pr list --label tbd-human --state open returned empty. No TBD PRs to process.
+  - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >
       Worker mode: single-machine (no entries in memory/workers.md). All tasks
       assigned worker_id: null. Builder executes all tasks sequentially.
-  - timestamp: "2026-04-30T23:00:00Z"
+  - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >
-      Eligible tasks this sprint (all hard deps satisfied and merged to main):
-        it-017 (M4, game-mechanic, 80 min) — depends on it-001 (done), it-004 (done), it-012 (done)
-        it-010 (M3, game-mechanic, 50 min) — depends on it-006 (done), it-009 (done), it-012 (done)
-        it-016 (M5, scripting, 50 min)     — depends on it-002 (done), it-003 (done), it-013 (done), it-014 (done)
-        it-015 (M5, ui, 80 min)            — depends on it-002 (done), it-013 (done)
+      Milestone status after 2026-05-01 morning sprint completion:
+        M3 (Lumber Production Chain): complete — it-007, it-008, it-009, it-010 all done.
+        M4 (Team Wallets, Sell Depot, Round Manager): in-progress — it-018 pending.
+        M5 (Upgrade System): complete — it-013, it-014, it-015, it-016 all done.
+        M6 (DataStore Persistence and Leaderboard): pending — it-019, it-020, it-021 all pending.
+        M7 (Monetisation): in-progress — it-022 done; it-023, it-024 pending.
+  - timestamp: "2026-05-01T23:00:00Z"
+    type: info
+    message: >
+      Eligible tasks tonight (all hard deps satisfied and merged to main):
+        it-018 (M4, game-mechanic, 50 min) — completes M4; deps: it-012 (done), it-017 (done)
+        it-019 (M6, data,         80 min)  — deps: it-003 (done), it-013 (done), it-017 (done)
+        it-020 (M6, scripting,    50 min)  — deps: it-002 (done), it-012 (done)
+        it-021 (M6, ui,           50 min)  — deps: it-002 (done), it-020 (tonight)
+        it-024 (M7, game-mechanic,50 min)  — deps: it-013 (done), it-022 (done), it-016 (done)
 
-      Excluded from this sprint (would overflow budget):
-        it-020 (M6, scripting, 50 min)     — excluded; budget at 260/288 after selected tasks
+      Deferred to tomorrow (budget exhausted):
+        it-023 (M7, game-mechanic, 80 min) — deps satisfied but 280+80=360 min exceeds 288 min cap.
 
-      Budget: 4x tasks = 80+50+50+80 = 260 min against 288 min available (28 min headroom).
+      Budget: 5 tasks = 80+50+50+50+50 = 280 min against 288 min available (8 min headroom).
 
-      Priority ordering: it-017 first (critical path — blocks M4 completion, it-018, it-019);
-      it-010 second (completes M3, unblocks it-023); it-016 third (server logic before UI);
-      it-015 last (UI task). Completing it-016 + it-015 tonight finishes M5 end-to-end.
+      Execution order (Step-5 type rules: data → scripting/game-mechanic → ui, with dep constraints):
+        1. it-019 (data)              → 2. it-018 (game-mechanic, M4 critical)
+        → 3. it-020 (scripting)       → 4. it-024 (game-mechanic, M7)
+        → 5. it-021 (ui, after it-020 satisfies its hard dep)
 
 task_list:
 
-  - task_id: it-017
-    title: "Implement Round Manager server module"
-    type: game-mechanic
+  - task_id: it-019
+    title: "Implement player data save and load via DataStoreService"
+    type: data
     description: >
-      Create RoundManager Script in ServerScriptService. States: waiting → active → ended → waiting (loop).
-      Waiting: hold until min players (from Constants), broadcast RoundStateChanged {state="waiting"}.
-      Active: call TeamService:ResetWallets() + UpgradeStateService:ResetAllUpgrades(), start
-      countdown loop (task.wait(1) per tick), fire RoundTimerTick each second.
-      Ended: fire RoundStateChanged {state="ended"}, call TeamService:GetWinningTeam(),
-      save all player data via PlayerDataService, wait intermissionDuration then restart.
-      No wait()/spawn()/delay() — use task.*.
+      Implement the full DataStore save and load flow in PlayerDataService
+      (it-003 defined the schema; this task implements the actual DataStore calls).
+
+      Load (on player join):
+        DataStoreService:GetDataStore("PlayerData"):GetAsync("Player_" .. userId) with retry
+        logic — 3 attempts, 2-second backoff via task.wait(2). If nil (new player): write default
+        schema. Merge loaded data with current schema defaults to handle new fields added after a
+        player last played (forward-compatibility).
+
+      Save (triggered explicitly — NOT on every data change):
+        Triggers: Players.PlayerRemoving, round end (RoundManager calls the save hook registered
+        in PlayerDataService), and a periodic auto-save loop every 5 minutes (task.wait(300)).
+        Use :UpdateAsync() to prevent race conditions from two servers writing the same key.
+        On save failure: log via DEBUG_MODE-guarded warn, do not crash the script.
+
+      All DataStore calls must be wrapped in pcall. Use game:GetService("DataStoreService").
+      Script starts with --!strict. No bare print() statements.
     estimated_minutes: 80
     assigned_agent: builder
     depends_on:
-      - it-001
-      - it-004
-      - it-012
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T23:05:00Z"
-    completed_at: "2026-04-30T23:25:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/24"
-
-  - task_id: it-010
-    title: "Implement CashPad detector"
-    type: game-mechanic
-    description: >
-      Create CashPadService Script in ServerScriptService.
-      For each CashPad Part under any team LumberZone > Machines:
-        - Connect Touched event server-side.
-        - On resource part touch: if ResourceType attribute exists and OwnerTeam matches
-          this pad's team, calculate dollar value (PLANK_VALUE from Constants),
-          call PlayerDataService:AddMoney on nearest player within 10 studs,
-          call TeamService:AddToTeamWallet, fire MoneyUpdated to credited player, destroy part.
-        - On HumanoidRootPart touch: collect all resource parts currently on the pad surface.
-      Both triggers must be implemented (walk-over and arrival). Server-side only.
-      Expose a CollectFromPad(pad, player) function for VIP Worker NPC (it-023) to call directly.
-    estimated_minutes: 50
-    assigned_agent: builder
-    depends_on:
-      - it-006
-      - it-009
-      - it-012
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T23:26:00Z"
-    completed_at: "2026-04-30T23:45:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/25"
-
-  - task_id: it-016
-    title: "Implement upgrade purchase server handler"
-    type: scripting
-    description: >
-      Implement the server side of the RequestUpgradePurchase RemoteFunction declared in it-002.
-      Validation chain (all server-side):
-        1. Player team matches machineId team.
-        2. Current upgrade level < max level (from Constants).
-        3. Player money >= cost (from Constants cost table).
-      On pass: deduct cost via PlayerDataService:AddMoney(player, -cost),
-        call UpgradeStateService:SetUpgradeLevel, call UpgradeEffectService:Apply{Speed|Output}Upgrade,
-        fire UpgradePurchased RemoteEvent to all clients on team,
-        return { success = true, newLevel = n }.
-      On fail: return { success = false, reason = "..." }. Never throw errors.
-    estimated_minutes: 50
-    assigned_agent: builder
-    depends_on:
-      - it-002
       - it-003
       - it-013
-      - it-014
-    status: done
-    attempt_count: 1
+      - it-017
+    status: pending
+    attempt_count: 0
     worker_id: null
-    worker_started_at: "2026-04-30T23:46:00Z"
-    completed_at: "2026-05-01T00:05:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/26"
 
-  - task_id: it-015
-    title: "Create Upgrade Shop ScreenGui"
-    type: ui
+  - task_id: it-018
+    title: "Implement win condition and bonus drop distribution"
+    type: game-mechanic
     description: >
-      Create UpgradeShopGui ScreenGui in StarterGui. LocalScript UpgradeShopController in StarterPlayerScripts.
-      Layout: toggle button (bottom-right), main panel with vertical list of upgrade cards
-      (one per team machine), currency display at top showing money + Boost Bucks balance.
-      Each card: machine name, Speed level (N/5), Output level (N/5), buy buttons with cost.
-      Buy button greyed if unaffordable; green flash on success.
-      Behavior: on open fire GetPlayerData RemoteFunction; on buy press fire
-      RequestUpgradePurchase RemoteFunction {machineId, upgradeType}; on response update
-      displayed levels + currency; show error text if rejected.
-      All state changes go through RemoteFunction — never direct server mutation from client.
-    estimated_minutes: 80
+      Extend the Round Manager's ended phase via a WinHandler module (or directly in RoundManager
+      if clean to do so). Completes M4.
+
+      - Retrieve winning team from TeamService:GetWinningTeam().
+      - If a winner exists (no tie): fire BonusDropFired RemoteEvent to all players on the
+        winning team with payload { rewardType = "cosmetic_ticket", amount = 1 }.
+        (Cosmetics store is post-launch per decision-2026-04-29-0004; ticket stored in player
+        data and redeemable when cosmetics store launches.)
+      - If tie: fire BonusDropFired to nobody — no reward on a tie.
+      - Broadcast RoundStateChanged { state = "ended", winnerTeam = teamName, isTie = boolean }
+        to all clients.
+      - Log round result (winner, teamA wallet total, teamB wallet total) to an OrderedDataStore
+        named "RoundHistory" for future analytics. This is a best-effort write — wrap in pcall
+        and do not block round reset if it fails.
+
+      Builder must verify the player data schema (it-003) includes a cosmetic_ticket counter in
+      cosmeticsOwned and add it if missing before implementing the award logic.
+      Script starts with --!strict. Use task.* APIs only. Use game:GetService() for all services.
+    estimated_minutes: 50
+    assigned_agent: builder
+    depends_on:
+      - it-012
+      - it-017
+    status: pending
+    attempt_count: 0
+    worker_id: null
+
+  - task_id: it-020
+    title: "Implement leaderboard data publisher server script"
+    type: scripting
+    description: >
+      Create LeaderboardPublisher Script in ServerScriptService. Responsible for broadcasting
+      team wallet totals to all clients whenever they change.
+
+      - Listen for TeamWalletUpdated BindableEvent (fired by TeamService) and
+        SellDepotDeposited BindableEvent (fired by SellDepotService).
+      - On each event: fire LeaderboardUpdated RemoteEvent to all players with payload
+        { teamA = TeamService:GetTeamWallet("Team A"), teamB = TeamService:GetTeamWallet("Team B") }.
+      - Also listen for RoundStateChanged and fire LeaderboardUpdated with { teamA = 0, teamB = 0 }
+        when state transitions to "waiting", so the client leaderboard resets at round start.
+      - Event-driven only — no polling loops.
+
+      Script starts with --!strict. Use game:GetService() for all services.
+      Use task.* APIs only. No bare print() statements.
+    estimated_minutes: 50
     assigned_agent: builder
     depends_on:
       - it-002
-      - it-013
-    status: done
-    attempt_count: 1
+      - it-012
+    status: pending
+    attempt_count: 0
     worker_id: null
-    worker_started_at: "2026-05-01T00:06:00Z"
-    completed_at: "2026-05-01T00:40:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/27"
+
+  - task_id: it-024
+    title: "Implement Boost Bucks developer product purchase and spending"
+    type: game-mechanic
+    description: >
+      Extend MonetisationService (it-022) to handle Boost Bucks developer product purchases:
+        - In ProcessReceipt for a Boost Bucks product ID (from Constants): call
+          PlayerDataService:AddBoostBucks(player, amount) where amount is the tier amount
+          defined in Constants.
+        - Fire BoostBucksUpdated RemoteEvent to the purchasing player with their new balance.
+
+      Extend UpgradeShopGui/UpgradeShopController (it-015) to show Boost Bucks balance and
+      allow spending:
+        - Add a "Pay with Boost Bucks" secondary button on each upgrade card alongside the
+          existing money-pay button.
+        - On press: fire RequestUpgradePurchase RemoteFunction with
+          { machineId = machineId, upgradeType = upgradeType, payWithBoostBucks = true }.
+        - Update the displayed Boost Bucks balance on success.
+
+      Extend the upgrade purchase server handler (it-016):
+        - If payWithBoostBucks == true: validate player has sufficient boostBucks balance
+          (PlayerDataService:GetData(player).boostBucks >= cost), then deduct via
+          PlayerDataService:SpendBoostBucks(player, cost).
+        - All other validation (team ownership, level cap) is identical to the money path.
+        - Return { success = false, reason = "insufficient_boost_bucks" } on failure.
+
+      Note per decision-2026-04-29-0005: the Boost Bucks conversion rate is a placeholder
+      constant (1 Boost Buck ≈ 0.80 Robux at cheapest tier). Builder must document the
+      placeholder value in progress.md and flag it for human review before launch.
+
+      All server scripts start with --!strict. Use game:GetService() for all services.
+      Use task.* APIs only. Validate all RemoteFunction arguments server-side.
+    estimated_minutes: 50
+    assigned_agent: builder
+    depends_on:
+      - it-013
+      - it-022
+      - it-016
+    status: pending
+    attempt_count: 0
+    worker_id: null
+
+  - task_id: it-021
+    title: "Create Real-Time Team Leaderboard ScreenGui"
+    type: ui
+    description: >
+      Create LeaderboardGui ScreenGui in StarterGui and a LeaderboardController LocalScript
+      in StarterPlayerScripts.
+
+      Layout:
+        - Persistent top-center HUD (always visible, not toggleable by the player).
+        - Two columns: Team A (red accent) on left, Team B (blue accent) on right.
+        - Each column shows: team name label, team color icon/swatch, current Sell Depot total
+          formatted as currency (e.g. "$12,400").
+        - Round timer displayed centered between the two columns (MM:SS format).
+        - Round state label below timer
+          (e.g. "ROUND IN PROGRESS", "WAITING FOR PLAYERS", "TEAM A WINS!").
+
+      Behavior:
+        - On LeaderboardUpdated event: tween the displayed wallet numbers from old to new value
+          over 0.3 seconds using TweenService for visual polish.
+        - On RoundStateChanged event: update the state label. If state == "waiting", reset both
+          team totals to "$0".
+        - On RoundTimerTick event: update the timer display with seconds remaining.
+        - Never reads game state directly — all data comes from RemoteEvents declared in it-002.
+
+      LocalScript starts with --!strict. Use game:GetService() for all services.
+      No bare print() statements. All UI state driven by RemoteEvents only.
+    estimated_minutes: 50
+    assigned_agent: builder
+    depends_on:
+      - it-002
+      - it-020
+    status: pending
+    attempt_count: 0
+    worker_id: null
 ```
