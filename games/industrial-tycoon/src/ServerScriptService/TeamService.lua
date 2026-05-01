@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
--- Team wallets — reset to 0 at module load and at round start
+-- Team wallets -- reset to 0 at module load and at round start
 local TeamWallets: { [string]: number } = {
 	[Constants.TEAM_NAMES[1]] = 0,
 	[Constants.TEAM_NAMES[2]] = 0,
@@ -20,7 +20,7 @@ local function assignTeam(player: Player): ()
 	local teamB = Teams:FindFirstChild(Constants.TEAM_NAMES[2]) :: Team?
 
 	if not teamA or not teamB then
-		warn("TeamService: Teams not found in Teams service — ensure Teams are created before PlayerAdded fires")
+		warn("TeamService: Teams not found in Teams service -- ensure Teams are created before PlayerAdded fires")
 		return
 	end
 
@@ -50,8 +50,9 @@ function TeamService.GetTeamWallet(teamName: string): number
 	return TeamWallets[teamName] or 0
 end
 
+-- Atomically increments the team wallet and fires the update event.
+-- Must not yield between read and write (Lua is single-threaded within a sync sequence).
 function TeamService.AddToTeamWallet(teamName: string, amount: number): ()
-	-- Must not yield between read and write
 	TeamWallets[teamName] = (TeamWallets[teamName] or 0) + amount
 	fireWalletUpdate()
 end
@@ -62,6 +63,7 @@ function TeamService.ResetWallets(): ()
 	fireWalletUpdate()
 end
 
+-- Returns the team name with a strictly higher wallet total, or nil if tied.
 function TeamService.GetWinningTeam(): string?
 	local aWallet = TeamWallets[Constants.TEAM_NAMES[1]]
 	local bWallet = TeamWallets[Constants.TEAM_NAMES[2]]
