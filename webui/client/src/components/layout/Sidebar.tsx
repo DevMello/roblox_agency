@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { useWSStore } from '../../store/wsStore'
+import { useWsStore } from '../../store/wsStore'
 import { ROUTES } from '../../router'
 
 const NAV_ITEMS = [
@@ -54,8 +54,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [expanded, setExpanded] = useState(false)
-  const status = useWSStore((s) => s.status)
-  const connected = status === 'connected'
+  const connected = useWsStore((s: any) => s.connected)
 
   return (
     <aside
