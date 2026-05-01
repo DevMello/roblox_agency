@@ -4,6 +4,22 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-05-01 — it-018: Implement win condition and bonus drop distribution
+PR: #35 (https://github.com/DevMello/roblox_agency/pull/35)
+Status: done
+Notes: WinHandler ModuleScript at ServerScriptService.WinHandler. Awards cosmetic_ticket (+1)
+  to each player on winning team via PlayerDataService.GetData reference mutation and fires
+  BonusDropFired RemoteEvent { rewardType="cosmetic_ticket", amount=1 } per player.
+  On tie: no awards, no BonusDropFired fired. Round result logged to RoundHistory DataStore
+  via best-effort task.spawn (failure warns but does not block round reset).
+  RoundManager Script at ServerScriptService.RoundManager updated: endedPhase now calls
+  WinHandler.HandleRoundEnd(winner, teamAWallet, teamBWallet) after setState("ended").
+  Note: spec requested OrderedDataStore for RoundHistory but regular DataStore used since
+  OrderedDataStore requires integer-only values; complex record (winner+wallets) requires regular DS.
+  cosmetic_tickets field verified present in PlayerDataService schema (it-003).
+
+---
+
 ## 2026-05-01 — it-019: Implement player data save and load via DataStoreService
 PR: #34 (https://github.com/DevMello/roblox_agency/pull/34)
 Status: done
