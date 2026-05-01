@@ -1,13 +1,13 @@
 # Sprint Log — Industrial Megamap Tycoon
 
 ```yaml
-sprint_id: industrial-tycoon-2026-04-30
-date: "2026-04-30"
+sprint_id: industrial-tycoon-2026-05-01
+date: "2026-05-01"
 game_name: "Industrial Megamap Tycoon"
 game_slug: industrial-tycoon
 milestone_ref: industrial-tycoon-m3
-status: complete
-total_estimated_minutes: 265
+status: planned
+total_estimated_minutes: 260
 active_workers: []
 
 skipped_due_to_blocker: []
@@ -17,12 +17,17 @@ conflict_report:
   checked: "2026-04-30T23:00:00Z"
   conflicts_found: []
   no_conflict_confirmation:
-    tasks_reviewed: 6
+    tasks_reviewed: 4
     message: >
       Override check ran against memory/human-overrides.md.
-      No active overrides exist. All 6 candidate tasks cleared with no conflicts.
+      No active overrides exist. All 4 candidate tasks cleared with no conflicts.
 
 notes:
+  - timestamp: "2026-04-30T23:00:00Z"
+    type: info
+    message: >
+      Pre-flight checks passed: GitHub CLI authenticated, Roblox Studio MCP batch file
+      present at %LOCALAPPDATA%\Roblox\mcp.bat.
   - timestamp: "2026-04-30T23:00:00Z"
     type: info
     message: >
@@ -35,153 +40,135 @@ notes:
   - timestamp: "2026-04-30T23:00:00Z"
     type: info
     message: >
-      Morning report action item addressed: Teams micro-task (it-teams) added to
-      create Team A and Team B Team objects in the Roblox Teams service.
-      Teams existed but with swapped colors; corrected to match Constants.TEAM_COLORS.
-      Required before it-017 (Round Manager) can work. Not blocking M3 tasks.
+      TBD PR triage: No PRs labelled tbd-human found. One stale open PR noted:
+      PR #14 (it-012 TeamService wallet API) is open but code is already in main via PR #11
+      (it-004). No action required; flagging for human awareness in morning report.
   - timestamp: "2026-04-30T23:00:00Z"
     type: info
     message: >
-      Eligible tasks this sprint (all hard deps satisfied):
-        it-teams (micro, setup, 15 min)    — morning report action item
-        it-008 (M3, game-mechanic, 50 min) — depends on it-006 (done), it-007 (done)
-        it-009 (M3, scripting, 50 min)     — depends on it-006 (done), it-007 (done)
-        it-011 (M4, scripting, 50 min)     — depends on it-005 (done), it-012 (done)
-        it-014 (M5, scripting, 50 min)     — depends on it-013 (done)
-        it-022 (M7, scripting, 50 min)     — depends on it-001 (done), it-003 (done)
+      Worker mode: single-machine (no entries in memory/workers.md). All tasks
+      assigned worker_id: null. Builder executes all tasks sequentially.
+  - timestamp: "2026-04-30T23:00:00Z"
+    type: info
+    message: >
+      Eligible tasks this sprint (all hard deps satisfied and merged to main):
+        it-017 (M4, game-mechanic, 80 min) — depends on it-001 (done), it-004 (done), it-012 (done)
+        it-010 (M3, game-mechanic, 50 min) — depends on it-006 (done), it-009 (done), it-012 (done)
+        it-016 (M5, scripting, 50 min)     — depends on it-002 (done), it-003 (done), it-013 (done), it-014 (done)
+        it-015 (M5, ui, 80 min)            — depends on it-002 (done), it-013 (done)
 
-      Budget: 15 + 5x50 = 265 min against 288 min available (23 min headroom).
-      it-010 depends on it-009 — eligible next sprint after it-009 merges.
+      Excluded from this sprint (would overflow budget):
+        it-020 (M6, scripting, 50 min)     — excluded; budget at 260/288 after selected tasks
 
-      Ordering: micro-task first, then M3 (it-008, it-009), then cross-milestone
-      scripting (it-011, it-014, it-022).
+      Budget: 4x tasks = 80+50+50+80 = 260 min against 288 min available (28 min headroom).
+
+      Priority ordering: it-017 first (critical path — blocks M4 completion, it-018, it-019);
+      it-010 second (completes M3, unblocks it-023); it-016 third (server logic before UI);
+      it-015 last (UI task). Completing it-016 + it-015 tonight finishes M5 end-to-end.
 
 task_list:
 
-  - task_id: it-teams
-    title: "Create Team A and Team B objects in Roblox Teams service"
-    type: setup
-    description: >
-      Morning report noted Team objects must exist in Teams service before player
-      assignment works. Fixed colors (were swapped) and added setup script.
-    estimated_minutes: 15
-    assigned_agent: builder
-    depends_on: []
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T23:00:00Z"
-    completed_at: "2026-04-30T23:15:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/18"
-
-  - task_id: it-008
-    title: "Implement ClickDetector chopper machine activation"
+  - task_id: it-017
+    title: "Implement Round Manager server module"
     type: game-mechanic
     description: >
-      Create ChopperService Script in ServerScriptService.
-      For each AutoChopper under any team LumberZone > Machines:
-        - Attach ClickDetector listener server-side.
-        - On click: validate player team matches machine team (server-side).
-        - Spawn Log Part at OutputPoint, tag ResourceType="Log", OwnerTeam=teamName.
-        - Register with ConveyorBelt:AddPart() on the team's conveyor.
-        - Enforce per-player cooldown (CLICK_COOLDOWN from Constants, 0.5s).
-      No spawn()/wait()/delay() — use task.*.
-    estimated_minutes: 50
-    assigned_agent: builder
-    depends_on:
-      - it-006
-      - it-007
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T23:16:00Z"
-    completed_at: "2026-04-30T23:30:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/19"
-
-  - task_id: it-009
-    title: "Implement Sawmill processor script"
-    type: scripting
-    description: >
-      Create SawmillService Script in ServerScriptService.
-      For each Sawmill under any team LumberZone > Machines:
-        - Register ConveyorBelt arrival callback on LogInput region.
-        - On log arrival: destroy log, wait SAWMILL_PROCESS_TIME (2s),
-          spawn Plank Part at PlankOutput, tag ResourceType="Plank" + OwnerTeam.
-        - Register Plank with outbound ConveyorBelt segment.
-        - Process logs FIFO. One log at a time per Sawmill.
-    estimated_minutes: 50
-    assigned_agent: builder
-    depends_on:
-      - it-006
-      - it-007
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T23:31:00Z"
-    completed_at: "2026-04-30T23:50:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/20"
-
-  - task_id: it-011
-    title: "Implement Sell Depot goods conversion server logic"
-    type: scripting
-    description: >
-      Create SellDepotService Script in ServerScriptService.
-      Wire the DepositZone Part in the center SellDepot:
-        - On resource Part touching DepositZone: call TeamService:AddToTeamWallet.
-          Fire SellDepotDeposited + LeaderboardUpdated RemoteEvents. Destroy part.
-        - Server-side only. All validation server-side.
-    estimated_minutes: 50
-    assigned_agent: builder
-    depends_on:
-      - it-005
-      - it-012
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T23:51:00Z"
-    completed_at: "2026-04-31T00:05:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/21"
-
-  - task_id: it-014
-    title: "Implement upgrade effect application to machines"
-    type: scripting
-    description: >
-      Create UpgradeEffectService ModuleScript in ServerScriptService.
-      ApplySpeedUpgrade(machineId, level): calls ConveyorBelt:SetSpeed with
-        SPEED_MULTIPLIER[level] * CONVEYOR_BASE_SPEED[1] on associated conveyor.
-      ApplyOutputUpgrade(machineId, level): sets OutputMultiplier attribute on
-        the Sawmill model. Called by upgrade purchase handler (it-016).
-    estimated_minutes: 50
-    assigned_agent: builder
-    depends_on:
-      - it-013
-    status: done
-    attempt_count: 1
-    worker_id: null
-    worker_started_at: "2026-04-30T00:06:00Z"
-    completed_at: "2026-04-30T00:20:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/22"
-
-  - task_id: it-022
-    title: "Implement MarketplaceService framework"
-    type: scripting
-    description: >
-      Create MonetisationService ModuleScript in ServerScriptService.
-      - ProcessReceipt callback: identify product, route to handler,
-        return PurchaseGranted or NotProcessedYet. Mark receipt in DataStore.
-      - UserOwnsGamePassAsync wrapper with pcall.
-      - Expose CheckGamePass(player, passId): boolean.
-      - Expose HandleDevProduct(player, productId).
-      - Product/pass IDs from Constants. Writes to player data on grant.
-    estimated_minutes: 50
+      Create RoundManager Script in ServerScriptService. States: waiting → active → ended → waiting (loop).
+      Waiting: hold until min players (from Constants), broadcast RoundStateChanged {state="waiting"}.
+      Active: call TeamService:ResetWallets() + UpgradeStateService:ResetAllUpgrades(), start
+      countdown loop (task.wait(1) per tick), fire RoundTimerTick each second.
+      Ended: fire RoundStateChanged {state="ended"}, call TeamService:GetWinningTeam(),
+      save all player data via PlayerDataService, wait intermissionDuration then restart.
+      No wait()/spawn()/delay() — use task.*.
+    estimated_minutes: 80
     assigned_agent: builder
     depends_on:
       - it-001
-      - it-003
-    status: done
-    attempt_count: 1
+      - it-004
+      - it-012
+    status: pending
+    attempt_count: 0
     worker_id: null
-    worker_started_at: "2026-04-30T00:21:00Z"
-    completed_at: "2026-04-30T00:40:00Z"
-    pr_reference: "https://github.com/DevMello/roblox_agency/pull/23"
+    worker_started_at: null
+    completed_at: null
+    pr_reference: null
+
+  - task_id: it-010
+    title: "Implement CashPad detector"
+    type: game-mechanic
+    description: >
+      Create CashPadService Script in ServerScriptService.
+      For each CashPad Part under any team LumberZone > Machines:
+        - Connect Touched event server-side.
+        - On resource part touch: if ResourceType attribute exists and OwnerTeam matches
+          this pad's team, calculate dollar value (PLANK_VALUE from Constants),
+          call PlayerDataService:AddMoney on nearest player within 10 studs,
+          call TeamService:AddToTeamWallet, fire MoneyUpdated to credited player, destroy part.
+        - On HumanoidRootPart touch: collect all resource parts currently on the pad surface.
+      Both triggers must be implemented (walk-over and arrival). Server-side only.
+      Expose a CollectFromPad(pad, player) function for VIP Worker NPC (it-023) to call directly.
+    estimated_minutes: 50
+    assigned_agent: builder
+    depends_on:
+      - it-006
+      - it-009
+      - it-012
+    status: pending
+    attempt_count: 0
+    worker_id: null
+    worker_started_at: null
+    completed_at: null
+    pr_reference: null
+
+  - task_id: it-016
+    title: "Implement upgrade purchase server handler"
+    type: scripting
+    description: >
+      Implement the server side of the RequestUpgradePurchase RemoteFunction declared in it-002.
+      Validation chain (all server-side):
+        1. Player team matches machineId team.
+        2. Current upgrade level < max level (from Constants).
+        3. Player money >= cost (from Constants cost table).
+      On pass: deduct cost via PlayerDataService:AddMoney(player, -cost),
+        call UpgradeStateService:SetUpgradeLevel, call UpgradeEffectService:Apply{Speed|Output}Upgrade,
+        fire UpgradePurchased RemoteEvent to all clients on team,
+        return { success = true, newLevel = n }.
+      On fail: return { success = false, reason = "..." }. Never throw errors.
+    estimated_minutes: 50
+    assigned_agent: builder
+    depends_on:
+      - it-002
+      - it-003
+      - it-013
+      - it-014
+    status: pending
+    attempt_count: 0
+    worker_id: null
+    worker_started_at: null
+    completed_at: null
+    pr_reference: null
+
+  - task_id: it-015
+    title: "Create Upgrade Shop ScreenGui"
+    type: ui
+    description: >
+      Create UpgradeShopGui ScreenGui in StarterGui. LocalScript UpgradeShopController in StarterPlayerScripts.
+      Layout: toggle button (bottom-right), main panel with vertical list of upgrade cards
+      (one per team machine), currency display at top showing money + Boost Bucks balance.
+      Each card: machine name, Speed level (N/5), Output level (N/5), buy buttons with cost.
+      Buy button greyed if unaffordable; green flash on success.
+      Behavior: on open fire GetPlayerData RemoteFunction; on buy press fire
+      RequestUpgradePurchase RemoteFunction {machineId, upgradeType}; on response update
+      displayed levels + currency; show error text if rejected.
+      All state changes go through RemoteFunction — never direct server mutation from client.
+    estimated_minutes: 80
+    assigned_agent: builder
+    depends_on:
+      - it-002
+      - it-013
+    status: pending
+    attempt_count: 0
+    worker_id: null
+    worker_started_at: null
+    completed_at: null
+    pr_reference: null
 ```
