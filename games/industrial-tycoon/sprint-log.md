@@ -140,12 +140,12 @@ task_list:
       - it-003
       - it-013
       - it-014
-    status: in-progress
+    status: done
     attempt_count: 1
     worker_id: null
     worker_started_at: "2026-04-30T23:46:00Z"
-    completed_at: null
-    pr_reference: null
+    completed_at: "2026-05-01T00:05:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/26"
 
   - task_id: it-015
     title: "Create Upgrade Shop ScreenGui"
@@ -165,10 +165,10 @@ task_list:
     depends_on:
       - it-002
       - it-013
-    status: pending
-    attempt_count: 0
+    status: in-progress
+    attempt_count: 1
     worker_id: null
-    worker_started_at: null
+    worker_started_at: "2026-05-01T00:06:00Z"
     completed_at: null
     pr_reference: null
 ```
