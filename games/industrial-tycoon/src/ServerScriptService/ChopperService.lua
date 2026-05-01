@@ -6,12 +6,10 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Constants    = require(ReplicatedStorage:WaitForChild("Constants"))
 local ConveyorBelt = require(ServerScriptService:WaitForChild("ConveyorBelt"))
+local BeltRegistry = require(ServerScriptService:WaitForChild("BeltRegistry"))
 
-type BeltMap = { [string]: any } -- team folder name -> ConveyorBeltInstance
-
--- Build one ConveyorBelt instance per team from ordered Conveyors folder
-local function buildBelts(): BeltMap
-	local belts: BeltMap = {}
+-- Build one ConveyorBelt instance per team from ordered Conveyors folder and register it
+local function buildBelts(): ()
 	local map = workspace:WaitForChild("Map")
 
 	for _, teamFolder in map:GetChildren() do
@@ -39,10 +37,9 @@ local function buildBelts(): BeltMap
 			segments = reversed
 		end
 
-		belts[teamFolder.Name] = ConveyorBelt.new(segments, Constants.CONVEYOR_BASE_SPEED[1])
+		local belt = ConveyorBelt.new(segments, Constants.CONVEYOR_BASE_SPEED[1])
+		BeltRegistry.Register(teamFolder.Name, belt)
 	end
-
-	return belts
 end
 
 -- Walk up the instance hierarchy to find the team folder name ("TeamA" / "TeamB")
@@ -75,7 +72,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 end)
 
 local function setup()
-	local belts = buildBelts()
+	buildBelts()
 	local map = workspace:WaitForChild("Map")
 
 	for _, teamFolder in map:GetChildren() do
@@ -86,7 +83,7 @@ local function setup()
 
 		local chopper = machines:FindFirstChild("AutoChopper")
 		local tree    = machines:FindFirstChild("Tree")
-		local belt    = belts[teamFolder.Name]
+		local belt    = BeltRegistry.Get(teamFolder.Name)
 
 		if not belt then
 			warn("ChopperService: no belt found for " .. teamFolder.Name)
@@ -95,9 +92,9 @@ local function setup()
 
 		local function spawnLog(player: Player, source: BasePart)
 			-- Server-side team validation: strip spaces to compare "TeamA" with "Team A"
-			local machineTeam  = getTeamFolderName(source)
+			local machineTeam   = getTeamFolderName(source)
 			local playerTeamRaw = player.Team and player.Team.Name or nil
-			local playerTeam   = playerTeamRaw and playerTeamRaw:gsub(" ", "") or nil
+			local playerTeam    = playerTeamRaw and playerTeamRaw:gsub(" ", "") or nil
 			if playerTeam ~= machineTeam then
 				if Constants.DEBUG_MODE then
 					print("ChopperService: team mismatch — player on", playerTeamRaw, "tried chopper for", machineTeam)

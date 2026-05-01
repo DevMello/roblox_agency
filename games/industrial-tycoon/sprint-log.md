@@ -6,7 +6,7 @@ date: "2026-04-30"
 game_name: "Industrial Megamap Tycoon"
 game_slug: industrial-tycoon
 milestone_ref: industrial-tycoon-m3
-status: in-progress
+status: complete
 total_estimated_minutes: 265
 active_workers: []
 
@@ -91,12 +91,12 @@ task_list:
     depends_on:
       - it-006
       - it-007
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T23:16:00Z"
+    completed_at: "2026-04-30T23:30:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/19"
 
   - task_id: it-009
     title: "Implement Sawmill processor script"
@@ -114,12 +114,12 @@ task_list:
     depends_on:
       - it-006
       - it-007
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T23:31:00Z"
+    completed_at: "2026-04-30T23:50:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/20"
 
   - task_id: it-011
     title: "Implement Sell Depot goods conversion server logic"
@@ -135,12 +135,12 @@ task_list:
     depends_on:
       - it-005
       - it-012
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T23:51:00Z"
+    completed_at: "2026-04-31T00:05:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/21"
 
   - task_id: it-014
     title: "Implement upgrade effect application to machines"
@@ -155,12 +155,12 @@ task_list:
     assigned_agent: builder
     depends_on:
       - it-013
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T00:06:00Z"
+    completed_at: "2026-04-30T00:20:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/22"
 
   - task_id: it-022
     title: "Implement MarketplaceService framework"
@@ -178,10 +178,10 @@ task_list:
     depends_on:
       - it-001
       - it-003
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: ""
-    completed_at: ""
-    pr_reference: ""
+    worker_started_at: "2026-04-30T00:21:00Z"
+    completed_at: "2026-04-30T00:40:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/23"
 ```
