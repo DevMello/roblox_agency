@@ -99,9 +99,12 @@ task_list:
       - it-003
       - it-013
       - it-017
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-05-01T23:05:00Z"
+    completed_at: "2026-05-01T23:25:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/34"
 
   - task_id: it-018
     title: "Implement win condition and bonus drop distribution"
