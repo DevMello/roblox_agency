@@ -47,7 +47,10 @@ export function useWebSocket() {
     function connect(attempt: number) {
       if (isUnmountedRef.current) return
 
-      const url = `ws://${window.location.host}/ws`
+      // Try to determine the backend URL
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const backendHost = window.location.hostname === 'localhost' ? 'localhost:7432' : '127.0.0.1:7432'
+      const url = `${protocol}//${backendHost}/ws`
       const ws = new WebSocket(url)
       wsRef.current = ws
 
