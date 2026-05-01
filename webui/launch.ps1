@@ -17,12 +17,9 @@ function Find-RepoRoot {
   throw "Could not find repo root"
 }
 
-# Setup
 Clear-Host
 Write-Host ""
-Write-Host "╔═══════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "║         ROBLOX AGENCY WEBUI LAUNCHER              ║" -ForegroundColor Magenta
-Write-Host "╚═══════════════════════════════════════════════════╝" -ForegroundColor Magenta
+Write-Host "ROBLOX AGENCY WEBUI LAUNCHER" -ForegroundColor Magenta
 Write-Host ""
 
 Write-Host "Checking environment..." -ForegroundColor Cyan
@@ -33,58 +30,54 @@ $serverDir = "$webuiDir\server"
 $clientDir = "$webuiDir\client"
 
 # Validate directories
-$dirs = @(
-  @{ name = "Repo root"; path = $repoRoot }
-  @{ name = "WebUI"; path = $webuiDir }
-  @{ name = "Backend"; path = $serverDir }
-  @{ name = "Frontend"; path = $clientDir }
-)
-
-foreach ($dir in $dirs) {
-  if (Test-Path $dir.path) {
-    Write-Host "  ✓ $($dir.name)" -ForegroundColor Green
-  } else {
-    Write-Host "  ✗ $($dir.name) not found: $($dir.path)" -ForegroundColor Red
-    exit 1
-  }
+if (-not (Test-Path $repoRoot)) {
+  Write-Host "  ERROR: Repo root not found" -ForegroundColor Red
+  exit 1
 }
+Write-Host "  OK: Repo root" -ForegroundColor Green
+
+if (-not (Test-Path $webuiDir)) {
+  Write-Host "  ERROR: WebUI not found" -ForegroundColor Red
+  exit 1
+}
+Write-Host "  OK: WebUI" -ForegroundColor Green
+
+if (-not (Test-Path $serverDir)) {
+  Write-Host "  ERROR: Backend not found" -ForegroundColor Red
+  exit 1
+}
+Write-Host "  OK: Backend" -ForegroundColor Green
+
+if (-not (Test-Path $clientDir)) {
+  Write-Host "  ERROR: Frontend not found" -ForegroundColor Red
+  exit 1
+}
+Write-Host "  OK: Frontend" -ForegroundColor Green
 
 # Check Python
-try {
-  $pythonVer = & python --version 2>&1
-  if ($LASTEXITCODE -eq 0) {
-    Write-Host "  ✓ Python: $pythonVer" -ForegroundColor Green
-  } else {
-    throw "Python check failed"
-  }
-} catch {
-  Write-Host "  ✗ Python not found" -ForegroundColor Red
+$pythonVer = & python --version 2>&1
+if ($LASTEXITCODE -eq 0) {
+  Write-Host "  OK: Python $pythonVer" -ForegroundColor Green
+} else {
+  Write-Host "  ERROR: Python not found" -ForegroundColor Red
   exit 1
 }
 
 # Check Node
-try {
-  $nodeVer = & node --version 2>&1
-  if ($LASTEXITCODE -eq 0) {
-    Write-Host "  ✓ Node.js: $nodeVer" -ForegroundColor Green
-  } else {
-    throw "Node check failed"
-  }
-} catch {
-  Write-Host "  ✗ Node.js not found" -ForegroundColor Red
+$nodeVer = & node --version 2>&1
+if ($LASTEXITCODE -eq 0) {
+  Write-Host "  OK: Node.js $nodeVer" -ForegroundColor Green
+} else {
+  Write-Host "  ERROR: Node.js not found" -ForegroundColor Red
   exit 1
 }
 
 # Check npm
-try {
-  $npmVer = & npm --version 2>&1
-  if ($LASTEXITCODE -eq 0) {
-    Write-Host "  ✓ npm: $npmVer" -ForegroundColor Green
-  } else {
-    throw "npm check failed"
-  }
-} catch {
-  Write-Host "  ✗ npm not found" -ForegroundColor Red
+$npmVer = & npm --version 2>&1
+if ($LASTEXITCODE -eq 0) {
+  Write-Host "  OK: npm $npmVer" -ForegroundColor Green
+} else {
+  Write-Host "  ERROR: npm not found" -ForegroundColor Red
   exit 1
 }
 
@@ -92,7 +85,7 @@ Write-Host ""
 Write-Host "Starting servers..." -ForegroundColor Cyan
 
 # Start backend
-Write-Host "  → Backend on http://127.0.0.1:$Port" -ForegroundColor Cyan
+Write-Host "  Starting Backend on http://127.0.0.1:$Port" -ForegroundColor Cyan
 $backendProc = Start-Process `
   -FilePath python `
   -ArgumentList "-m uvicorn webui.server.main:app --host 127.0.0.1 --port $Port --reload" `
@@ -102,19 +95,18 @@ $backendProc = Start-Process `
   -ErrorAction SilentlyContinue
 
 if (-not $backendProc) {
-  Write-Host "  ✗ Failed to start backend" -ForegroundColor Red
+  Write-Host "  ERROR: Failed to start backend" -ForegroundColor Red
   exit 1
 }
 
-Write-Host "  ✓ Backend started (PID: $($backendProc.Id))" -ForegroundColor Green
+Write-Host "  OK: Backend started (PID: $($backendProc.Id))" -ForegroundColor Green
 
-# Wait for backend ready
+# Wait for backend
 Write-Host "  Waiting for backend..." -NoNewline
-$maxWait = 10
-for ($i = 0; $i -lt $maxWait; $i++) {
+for ($i = 0; $i -lt 10; $i++) {
   try {
     $null = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/v1/games/" -TimeoutSec 1 -ErrorAction SilentlyContinue
-    Write-Host " ✓" -ForegroundColor Green
+    Write-Host " OK" -ForegroundColor Green
     break
   } catch {
     Write-Host "." -NoNewline
@@ -122,12 +114,8 @@ for ($i = 0; $i -lt $maxWait; $i++) {
   }
 }
 
-if ($i -eq $maxWait) {
-  Write-Host " ⚠" -ForegroundColor Yellow
-}
-
 # Start frontend
-Write-Host "  → Frontend on http://127.0.0.1:$FrontendPort" -ForegroundColor Cyan
+Write-Host "  Starting Frontend on http://127.0.0.1:$FrontendPort" -ForegroundColor Cyan
 $frontendProc = Start-Process `
   -FilePath npm `
   -ArgumentList "run dev -- --host 127.0.0.1 --port $FrontendPort" `
@@ -137,23 +125,21 @@ $frontendProc = Start-Process `
   -ErrorAction SilentlyContinue
 
 if (-not $frontendProc) {
-  Write-Host "  ✗ Failed to start frontend" -ForegroundColor Red
+  Write-Host "  ERROR: Failed to start frontend" -ForegroundColor Red
   Stop-Process -Id $backendProc.Id -Force
   exit 1
 }
 
-Write-Host "  ✓ Frontend started (PID: $($frontendProc.Id))" -ForegroundColor Green
+Write-Host "  OK: Frontend started (PID: $($frontendProc.Id))" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "╔═══════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "║              SERVERS RUNNING                      ║" -ForegroundColor Magenta
-Write-Host "╚═══════════════════════════════════════════════════╝" -ForegroundColor Magenta
+Write-Host "SERVERS RUNNING" -ForegroundColor Magenta
 Write-Host ""
-Write-Host "  Backend API:    http://127.0.0.1:$Port/api/v1/" -ForegroundColor Cyan
-Write-Host "  Frontend:       http://127.0.0.1:$FrontendPort" -ForegroundColor Cyan
-Write-Host "  WebSocket:      ws://127.0.0.1:$Port/ws" -ForegroundColor Cyan
+Write-Host "  Backend:  http://127.0.0.1:$Port/api/v1/" -ForegroundColor Cyan
+Write-Host "  Frontend: http://127.0.0.1:$FrontendPort" -ForegroundColor Cyan
+Write-Host "  WebSocket: ws://127.0.0.1:$Port/ws" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Press Ctrl+C to stop gracefully" -ForegroundColor Yellow
+Write-Host "  Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
 # Open browser
@@ -161,25 +147,24 @@ if (-not $NoBrowser) {
   Write-Host "  Opening browser..." -NoNewline
   Start-Sleep -Seconds 2
   Start-Process "http://127.0.0.1:$FrontendPort" -ErrorAction SilentlyContinue
-  Write-Host " ✓" -ForegroundColor Green
+  Write-Host " OK" -ForegroundColor Green
   Write-Host ""
 }
 
-# Monitor
+# Monitor processes
 while ($true) {
-  if (-not (Get-Process -Id $backendProc.Id -ErrorAction SilentlyContinue)) {
+  $backendAlive = Get-Process -Id $backendProc.Id -ErrorAction SilentlyContinue
+  $frontendAlive = Get-Process -Id $frontendProc.Id -ErrorAction SilentlyContinue
+  
+  if (-not $backendAlive -or -not $frontendAlive) {
     Write-Host ""
-    Write-Host "Backend stopped." -ForegroundColor Yellow
-    Stop-Process -Id $frontendProc.Id -Force -ErrorAction SilentlyContinue
+    Write-Host "Server stopped." -ForegroundColor Yellow
+    if ($backendAlive) { Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue }
+    if ($frontendAlive) { Stop-Process -Id $frontendProc.Id -Force -ErrorAction SilentlyContinue }
     break
   }
-  if (-not (Get-Process -Id $frontendProc.Id -ErrorAction SilentlyContinue)) {
-    Write-Host ""
-    Write-Host "Frontend stopped." -ForegroundColor Yellow
-    Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue
-    break
-  }
+  
   Start-Sleep -Seconds 1
 }
 
-Write-Host "Goodbye! 👋" -ForegroundColor Green
+Write-Host "Done." -ForegroundColor Green
