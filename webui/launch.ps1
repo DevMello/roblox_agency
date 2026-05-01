@@ -95,8 +95,7 @@ $backendProc = Start-Process `
   -ArgumentList "-m uvicorn webui.server.main:app --host 127.0.0.1 --port $Port --reload" `
   -WorkingDirectory $repoRoot `
   -PassThru `
-  -WindowStyle Normal `
-  -ErrorAction SilentlyContinue
+  -NoNewWindow
 
 if (-not $backendProc) {
   Write-Host "  ERROR: Failed to start backend" -ForegroundColor Red
@@ -121,12 +120,11 @@ for ($i = 0; $i -lt 10; $i++) {
 # Start frontend
 Write-Host "  Starting Frontend on http://127.0.0.1:$FrontendPort" -ForegroundColor Cyan
 $frontendProc = Start-Process `
-  -FilePath npm `
-  -ArgumentList "run dev -- --host 127.0.0.1 --port $FrontendPort" `
+  -FilePath cmd.exe `
+  -ArgumentList "/c npm run dev -- --host 127.0.0.1 --port $FrontendPort" `
   -WorkingDirectory $clientDir `
   -PassThru `
-  -WindowStyle Normal `
-  -ErrorAction SilentlyContinue
+  -NoNewWindow
 
 if (-not $frontendProc) {
   Write-Host "  ERROR: Failed to start frontend" -ForegroundColor Red
@@ -155,20 +153,23 @@ if (-not $NoBrowser) {
   Write-Host ""
 }
 
-# Monitor processes
+# Keep processes running
 while ($true) {
-  $backendAlive = Get-Process -Id $backendProc.Id -ErrorAction SilentlyContinue
-  $frontendAlive = Get-Process -Id $frontendProc.Id -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 2
   
-  if (-not $backendAlive -or -not $frontendAlive) {
+  $backendAlive = Get-Process -Id $backendProc.Id -ErrorAction SilentlyContinue
+  if (-not $backendAlive) {
     Write-Host ""
-    Write-Host "Server stopped." -ForegroundColor Yellow
-    if ($backendAlive) { Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue }
-    if ($frontendAlive) { Stop-Process -Id $frontendProc.Id -Force -ErrorAction SilentlyContinue }
-    break
+    Write-Host "ERROR: Backend process stopped unexpectedly!" -ForegroundColor Red
+    if ($frontendProc) { Stop-Process -Id $frontendProc.Id -Force -ErrorAction SilentlyContinue }
+    exit 1
   }
   
-  Start-Sleep -Seconds 1
+  $frontendAlive = Get-Process -Id $frontendProc.Id -ErrorAction SilentlyContinue
+  if (-not $frontendAlive) {
+    Write-Host ""
+    Write-Host "ERROR: Frontend process stopped unexpectedly!" -ForegroundColor Red
+    if ($backendProc) { Stop-Process -Id $backendProc.Id -Force -ErrorAction SilentlyContinue }
+    exit 1
+  }
 }
-
-Write-Host "Done." -ForegroundColor Green
