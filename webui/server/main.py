@@ -61,7 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(specs.router, prefix=f"{prefix}/specs", tags=["specs"])
     app.include_router(runs.router, prefix=f"{prefix}/runs", tags=["runs"])
     app.include_router(edits.router, prefix=f"{prefix}/edits", tags=["edits"])
-    app.include_router(files.router, prefix=prefix, tags=["files"])  # No extra /files prefix
+    app.include_router(files.router, prefix=f"{prefix}/files", tags=["files"])
     app.include_router(git.router, prefix=f"{prefix}/git", tags=["git"])
     app.include_router(schedule.router, prefix=f"{prefix}/schedule", tags=["schedule"])
     app.include_router(cfg.router, prefix=f"{prefix}/config", tags=["config"])
