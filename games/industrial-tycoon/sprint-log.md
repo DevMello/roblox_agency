@@ -244,7 +244,10 @@ task_list:
     depends_on:
       - it-002
       - it-020
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-05-02T00:25:00Z"
+    completed_at: "2026-05-02T00:50:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/47"
 ```

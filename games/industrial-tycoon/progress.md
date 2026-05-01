@@ -4,6 +4,26 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-05-02 — it-021: Create Real-Time Team Leaderboard ScreenGui
+PR: #47 (https://github.com/DevMello/roblox_agency/pull/47)
+Status: done
+Notes: LeaderboardGui ScreenGui (ResetOnSpawn=false, DisplayOrder=10) in StarterGui.
+  LeaderboardController LocalScript in StarterPlayerScripts builds all UI elements
+  programmatically: 500×80 semi-transparent dark panel top-center, Team A (red) column left,
+  Team B (blue) column right, center panel with timer + state label.
+  tweenWallet() uses a NumberValue proxy with TweenService (0.3s Quad Out) to animate
+  wallet values; proxy destroyed on Completed to avoid leaks.
+  formatCurrency() inserts commas every 3 digits (e.g. $12,400).
+  formatTime() formats seconds as MM:SS, clamped to 0.
+  Handles LeaderboardUpdated, RoundStateChanged (waiting/active/ended), RoundTimerTick.
+  On waiting: both wallets tween to $0 and state label resets.
+  On ended: shows "{WINNER} WINS!" / "IT'S A TIE!" depending on payload.
+  All state from RemoteEvents only — no direct game reads.
+  FOLLOW-UP NEEDED: RoundManager (PR #35) does not yet fire RoundTimerTick; add a 1-second
+  countdown loop in RoundManager active phase to wire up the timer display.
+
+---
+
 ## 2026-05-02 — it-024: Implement Boost Bucks developer product purchase and spending
 PR: #41 (https://github.com/DevMello/roblox_agency/pull/41)
 Status: done
