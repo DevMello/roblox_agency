@@ -7,3 +7,6 @@ config/worker-id
 # Local AI tool configuration — copy .env.example to .env and fill in values
 .env
 temp.md
+webui/client/dist/
+webui/client/node_modules/
+webui/server/db/agency.db
