@@ -227,6 +227,12 @@ task_list:
     worker_started_at: "2026-05-02T00:05:00Z"
     completed_at: "2026-05-02T00:20:00Z"
     pr_reference: "https://github.com/DevMello/roblox_agency/pull/41"
+    qa_verdict: blocked
+    qa_notes: >
+      Lint LU-24: UpgradeShopController.lua is 437 lines (limit 400). No justification
+      comment present. Feature: MonetisationService.lua ProcessReceipt extension for
+      Boost Bucks product ID completely absent from PR diff — Robux-to-BB purchase
+      flow will never credit player balance without it.
 
   - task_id: it-021
     title: "Create Real-Time Team Leaderboard ScreenGui"
