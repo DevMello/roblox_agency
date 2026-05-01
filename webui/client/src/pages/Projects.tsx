@@ -150,6 +150,7 @@ function RightSidebar() {
     queryKey: ['dirs', 'reports/morning'],
     queryFn: () =>
       fetch('/api/v1/dirs/reports/morning').then((r) => {
+        if (r.status === 404) return { files: [] } // No reports yet, that's OK
         if (!r.ok) throw new Error('Failed to fetch morning reports')
         return r.json()
       }),
