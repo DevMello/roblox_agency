@@ -6,7 +6,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Constants"))
 
--- Canonical player data schema
 type PlayerData = {
 	money: number,
 	boostBucks: number,
@@ -137,14 +136,59 @@ function PlayerDataService.SpendBoostBucks(player: Player, amount: number): bool
 	return false
 end
 
--- Load data on join
-Players.PlayerAdded:Connect(function(player: Player)
-	loadDataForPlayer(player)
+-- Save one player's data using UpdateAsync to prevent race conditions.
+-- Retries up to 3 times with 2-second backoff on DataStore failure.
+function PlayerDataService.SavePlayer(player: Player): ()
+	local data = cache[cacheKey(player)]
+	if not data then
+		return
+	end
+	local key = Constants.DATASTORE_KEY_PREFIX .. tostring(player.UserId)
+	local snapshot: PlayerData = data
+
+	local attempts = 0
+	while attempts < 3 do
+		attempts += 1
+		local ok, err = pcall(function()
+			dataStore:UpdateAsync(key, function(_old: unknown): PlayerData
+				return snapshot
+			end)
+		end)
+		if ok then
+			return
+		end
+		warn("PlayerDataService.SavePlayer: attempt " .. attempts .. " failed for " .. player.Name .. ": " .. tostring(err))
+		if attempts < 3 then
+			task.wait(2)
+		end
+	end
+	warn("PlayerDataService.SavePlayer: all 3 attempts failed for " .. player.Name)
+end
+
+-- Save all currently online players concurrently.
+function PlayerDataService.SaveAllPlayers(): ()
+	for _, player in ipairs(Players:GetPlayers()) do
+		task.spawn(PlayerDataService.SavePlayer, player)
+	end
+end
+
+-- Save on leave, then clear from cache.
+Players.PlayerRemoving:Connect(function(player: Player)
+	PlayerDataService.SavePlayer(player)
+	cache[cacheKey(player)] = nil
 end)
 
--- Remove from cache on leave (save is triggered by it-019)
-Players.PlayerRemoving:Connect(function(player: Player)
-	cache[cacheKey(player)] = nil
+-- Periodic auto-save every 5 minutes.
+task.spawn(function()
+	while true do
+		task.wait(300)
+		PlayerDataService.SaveAllPlayers()
+	end
+end)
+
+-- Load data on join.
+Players.PlayerAdded:Connect(function(player: Player)
+	loadDataForPlayer(player)
 end)
 
 return PlayerDataService
