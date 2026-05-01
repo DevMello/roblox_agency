@@ -7,12 +7,16 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Find-RepoRoot {
-  $current = Get-Location
-  while ($current -ne $null) {
+  $current = Get-Location | Select-Object -ExpandProperty Path
+  while ($true) {
     if (Test-Path "$current\.git") {
       return $current
     }
-    $current = $current.Parent
+    $parent = Split-Path -Parent $current
+    if ($parent -eq $current) {
+      break
+    }
+    $current = $parent
   }
   throw "Could not find repo root"
 }
