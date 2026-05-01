@@ -223,8 +223,8 @@ export default function RepoExplorer() {
     // Try directory first, then file
     const encodedPath = currentPath ? encodeURIComponent(currentPath) : ''
     const dirUrl = currentPath
-      ? `/api/v1/dirs/${encodedPath}`
-      : `/api/v1/dirs/`
+      ? `/api/v1/files/dirs/${encodedPath}`
+      : `/api/v1/files/dirs/`
 
     try {
       const dirRes = await fetch(dirUrl)
