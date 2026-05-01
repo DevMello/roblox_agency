@@ -85,12 +85,12 @@ task_list:
       - it-001
       - it-004
       - it-012
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
-    worker_started_at: null
-    completed_at: null
-    pr_reference: null
+    worker_started_at: "2026-04-30T23:05:00Z"
+    completed_at: "2026-04-30T23:25:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/24"
 
   - task_id: it-010
     title: "Implement CashPad detector"
@@ -112,10 +112,10 @@ task_list:
       - it-006
       - it-009
       - it-012
-    status: pending
-    attempt_count: 0
+    status: in-progress
+    attempt_count: 1
     worker_id: null
-    worker_started_at: null
+    worker_started_at: "2026-04-30T23:26:00Z"
     completed_at: null
     pr_reference: null
 
