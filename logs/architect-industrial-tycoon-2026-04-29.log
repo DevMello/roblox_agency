@@ -1,0 +1,36 @@
+The Architect run is complete. Here's a summary of what was produced:
+
+---
+
+## Architect Run — Industrial Megamap Tycoon
+
+**Files written:**
+- `games/industrial-tycoon/plan.md` — full milestone plan
+- `memory/decisions.md` — 9 architectural decisions appended
+- `memory/game-states/industrial-tycoon.md` — initial game state snapshot
+
+---
+
+### Plan Overview
+
+**24 tasks** across **7 milestones**, ~10 nights on the critical path:
+
+| Milestone | Name | Nights | Critical Path |
+|-----------|------|--------|--------------|
+| M1 | Infrastructure Foundation | 1 | Yes |
+| M2 | Megamap Layout & Lumber Zone Assets | 1 | Yes |
+| M3 | Lumber Production Chain | 2 | Yes |
+| M4 | Team Wallets, Sell Depot & Round Manager | 2 | Yes |
+| M5 | Upgrade System | 2 | Yes |
+| M6 | DataStore Persistence & Real-Time Leaderboard | 1 | Yes |
+| M7 | Monetisation Layer | 1 | No |
+
+### Key architectural decisions made:
+1. **ConveyorBelt is server-side physical parts** (not client tweens) — required for post-launch steal mechanic
+2. **Upgrade state is round-scoped** (resets each round) — preserves competitive balance
+3. **CashPad → personal wallet; Sell Depot → team wallet** — resolves spec ambiguity about dual income flows
+4. **Win bonus drop = cosmetic ticket** stored in DataStore (cosmetics store is post-launch)
+5. **Boost Bucks ratio** is a tunable constant with placeholder value — OQ flagged for human review before launch
+
+### Out-of-scope items correctly excluded:
+Mining, Oil, Sabotage, Steal, Anti-Sabotage Defenses, Cosmetics Store, cross-server features, VIP servers

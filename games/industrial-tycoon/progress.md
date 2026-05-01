@@ -4,6 +4,127 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-teams: Create Team A and Team B objects in Roblox Teams service
+PR: #18 (https://github.com/DevMello/roblox_agency/pull/18)
+Status: done
+Notes: Teams already existed in Studio but with swapped colors (Team A was Bright blue,
+  Team B was Bright red). Corrected to match Constants.TEAM_COLORS: Team A = Bright red,
+  Team B = Bright blue. AutoAssignable set to false — TeamService owns player assignment.
+  Setup script at games/industrial-tycoon/src/Setup/teams-setup.lua.
+  Addresses morning report action item from 2026-04-30.
+
+---
+
+## 2026-04-30 — it-022: Implement MarketplaceService framework
+PR: #23 (https://github.com/DevMello/roblox_agency/pull/23)
+Status: done
+Notes: MonetisationService ModuleScript at ServerScriptService.MonetisationService.
+  ProcessReceipt: idempotent via in-memory session cache + ProcessedReceipts DataStore
+  (best-effort async persistence). Routes Boost Bucks product IDs from Constants.BOOST_BUCKS_PRODUCT_IDS;
+  fires BoostBucksUpdated RemoteEvent after grant. Returns NotProcessedYet if player offline
+  (Roblox retries on rejoin). CheckGamePass: pcall-wrapped UserOwnsGamePassAsync; returns
+  false for placeholder passId=0. HandleDevProduct: explicit server-side grant path.
+  IMPORTANT: BOOST_BUCKS_PRODUCT_IDS, BOOST_BUCKS_AMOUNTS, and VIP_PASS_ID in Constants
+  are all placeholder-zeroed. Human must populate these before launch.
+  Source at games/industrial-tycoon/src/ServerScriptService/MonetisationService.lua.
+
+---
+
+## 2026-04-30 — it-014: Implement upgrade effect application to machines
+PR: #22 (https://github.com/DevMello/roblox_agency/pull/22)
+Status: done
+Notes: UpgradeEffectService ModuleScript at ServerScriptService.UpgradeEffectService.
+  ApplySpeedUpgrade: extracts team folder name from machineId path string, retrieves belt
+  from BeltRegistry, calls belt:SetSpeed(CONVEYOR_BASE_SPEED[1] * SPEED_MULTIPLIER[level]).
+  ApplyOutputUpgrade: finds Sawmill Part in Workspace, sets OutputMultiplier attribute;
+  SawmillService will read this to control planks-per-log (requires future SawmillService
+  update to respect the attribute).
+  Source at games/industrial-tycoon/src/ServerScriptService/UpgradeEffectService.lua.
+
+---
+
+## 2026-04-30 — it-011: Implement Sell Depot goods conversion server logic
+PR: #21 (https://github.com/DevMello/roblox_agency/pull/21)
+Status: done
+Notes: SellDepotService Script at ServerScriptService.SellDepotService. Wires Touched on
+  DepositZone (workspace.Map.Center.SellDepot.DepositZone). Validates ResourceType and
+  OwnerTeam attributes on touching Part. Converts folder name (TeamA/TeamB) to team display
+  name via lookup table. Calls TeamService:AddToTeamWallet then fires SellDepotDeposited
+  and LeaderboardUpdated RemoteEvents. Destruction before wallet credit (part gone before
+  any re-fire). Server-side only.
+  Source at games/industrial-tycoon/src/ServerScriptService/SellDepotService.lua.
+
+---
+
+## 2026-04-30 — it-009: Implement Sawmill processor script
+PR: #20 (https://github.com/DevMello/roblox_agency/pull/20)
+Status: done
+Notes: SawmillService Script at ServerScriptService.SawmillService. FIFO log queue
+  per team; processes one log at a time via task.spawn loop with SAWMILL_PROCESS_TIME (2s)
+  delay. Spawns Plank (ResourceType=Plank, OwnerTeam) at PlankOutput; adds to outbound
+  2-waypoint ConveyorBelt (PlankOutput→CashPad).
+  Also created BeltRegistry ModuleScript (ServerScriptService.BeltRegistry) — shared
+  registry for ConveyorBelt instances. ChopperService updated to register inbound belts
+  there; SawmillService registers outbound belts under "<team>_outbound" key.
+  Source at games/industrial-tycoon/src/ServerScriptService/SawmillService.lua and BeltRegistry.lua.
+
+---
+
+## 2026-04-30 — it-008: Implement ClickDetector chopper machine activation
+PR: #19 (https://github.com/DevMello/roblox_agency/pull/19)
+Status: done
+Notes: ChopperService Script created at ServerScriptService.ChopperService.
+  Wires ClickDetector on AutoChopper and Tree for both TeamA and TeamB.
+  Server-side team validation: player.Team.Name (spaces stripped) vs team folder name.
+  Log Part spawned at OutputPoint attachment position; tagged ResourceType=Log, OwnerTeam=<folder>.
+  CLICK_COOLDOWN (0.5 s) enforced via os.clock() per UserId; cleared on PlayerRemoving.
+  ConveyorBelt built from Conveyors folder segments, sorted by X (TeamB reversed).
+  Source at games/industrial-tycoon/src/ServerScriptService/ChopperService.lua.
+
+---
+
+## 2026-04-30 — it-006: Place Lumber zone machine assets on both team halves
+PR: #16 (https://github.com/DevMello/roblox_agency/pull/16)
+Status: done
+Notes: All Lumber zone assets placed in Studio via execute_luau for both team halves.
+  Final world positions (Team A / Team B mirrored at x=0):
+    Tree (4×20×4):      x=±350, y=10, z=0
+    AutoChopper (6×8×6): x=±342, y=4,  z=0  — OutputPoint at local (∓3,0,0)
+    ConveyorSegments×18: x=±338→±202, y=0.25, z=0 (8-stud spacing)
+    Sawmill (20×15×20):  x=±200, y=7.5, z=0
+    LogInput (4×0.5×4):  x=±210, y=0.25 — IsLogInput=true, CanCollide=false
+    PlankOutput (4×0.5×4): x=±190, y=0.25 — IsPlankOutput=true, CanCollide=false
+    CashPad (8×0.5×8):   x=±185, y=0.25 — IsCashPad=true, Neon yellow, CanCollide=false
+  18 segments used (exceeds minimum 5) for full visual coverage and dense waypoints.
+  Tree is single blocky Part (no detailed mesh — deferred to Blender MCP asset pass).
+  Script idempotent. Source at games/industrial-tycoon/src/Assets/lumber-zone-assets.lua.
+  Completes Milestone M2. M3 tasks it-008 and it-009 are now eligible.
+
+---
+
+## 2026-04-29 — it-013: Implement per-machine upgrade state server module
+PR: #15 (https://github.com/DevMello/roblox_agency/pull/15)
+Status: done
+Notes: UpgradeStateService ModuleScript created at ServerScriptService.UpgradeStateService.
+  Round-scoped in-memory table keyed by Workspace path. Exposes GetUpgradeLevel,
+  SetUpgradeLevel (clamped to UPGRADE_MAX_LEVEL), GetAllUpgrades (shallow copy),
+  ResetAllUpgrades (table.clear), RecordPurchase (delegates to PlayerDataService).
+  Known limitation: RecordPurchase stores by machineId only (no speed/output distinction
+  in DataStore schema yet — schema extension deferred to future task).
+  Source at games/industrial-tycoon/src/ServerScriptService/UpgradeStateService.lua.
+
+---
+
+## 2026-04-29 — it-012: Implement team wallet server module
+PR: #14 (https://github.com/DevMello/roblox_agency/pull/14)
+Status: done
+Notes: TeamService wallet API (AddToTeamWallet, GetTeamWallet, ResetWallets, GetWinningTeam)
+  was already fully implemented in Studio from it-004. This task committed the source to git
+  and verified compliance. Wallet mutations fire TeamWalletUpdated RemoteEvent synchronously.
+  Source at games/industrial-tycoon/src/ServerScriptService/TeamService.lua.
+
+---
+
 ## 2026-04-29 — it-007: Implement ConveyorBelt server module
 PR: #13 (https://github.com/DevMello/roblox_agency/pull/13)
 Status: done
