@@ -105,6 +105,13 @@ task_list:
     worker_started_at: "2026-05-01T23:05:00Z"
     completed_at: "2026-05-01T23:25:00Z"
     pr_reference: "https://github.com/DevMello/roblox_agency/pull/34"
+    qa_verdict: blocked
+    qa_notes: >
+      Playtest: PlayerDataService:188 syntax error "Expected <eof>, got 'local'" —
+      code was placed after the return statement in Studio. Cascades to CashPadService,
+      DataHandler, UpgradePurchaseHandler, UpgradeStateService, RoundManager all failing
+      to load. Fix: ensure return PlayerDataService is the final line with
+      Players.PlayerAdded:Connect block immediately preceding it.
 
   - task_id: it-018
     title: "Implement win condition and bonus drop distribution"
