@@ -206,9 +206,12 @@ task_list:
       - it-013
       - it-022
       - it-016
-    status: pending
-    attempt_count: 0
+    status: done
+    attempt_count: 1
     worker_id: null
+    worker_started_at: "2026-05-02T00:05:00Z"
+    completed_at: "2026-05-02T00:20:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/41"
 
   - task_id: it-021
     title: "Create Real-Time Team Leaderboard ScreenGui"

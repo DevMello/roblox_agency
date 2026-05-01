@@ -4,6 +4,25 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-05-02 — it-024: Implement Boost Bucks developer product purchase and spending
+PR: #41 (https://github.com/DevMello/roblox_agency/pull/41)
+Status: done
+Notes: UpgradePurchaseHandler Script at ServerScriptService.UpgradePurchaseHandler extended with
+  payWithBoostBucks boolean path on RequestUpgradePurchase RemoteFunction. Server validates
+  boostBucks balance via PlayerDataService.GetData(player).boostBucks >= cost, deducts via
+  SpendBoostBucks. Returns { success=false, reason="insufficient_boost_bucks" } on low balance.
+  All other validation (team ownership, level cap, arg types) identical to money path.
+  MonetisationService ProcessReceipt handler for BOOST_BUCKS_PRODUCT_ID calls
+  PlayerDataService.AddBoostBucks and fires BoostBucksUpdated RemoteEvent to buyer.
+  UpgradeShopController extended: each upgrade card has a secondary "BB" button (TextButton),
+  BoostBucksUpdated listener updates displayed BB balance, onBuyBBPressed fires
+  RequestUpgradePurchase with payWithBoostBucks=true. Card height increased 110→170, panel 320→440.
+  PLACEHOLDER: BOOST_BUCKS_CONVERSION_RATE = 0.80 (1 BB ≈ 0.80 Robux at cheapest tier) per
+  decision-2026-04-29-0005. FLAG FOR HUMAN REVIEW before launch — rate must be confirmed
+  against Roblox DevEx rates and monetisation strategy before going live.
+
+---
+
 ## 2026-05-01 — it-020: Implement leaderboard data publisher server script
 PR: #36 (https://github.com/DevMello/roblox_agency/pull/36)
 Status: done
