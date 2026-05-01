@@ -4,6 +4,19 @@ Append-only. Builder adds one entry per completed task. Never edit previous entr
 
 ---
 
+## 2026-04-30 — it-017: Implement Round Manager server module
+PR: #24 (https://github.com/DevMello/roblox_agency/pull/24)
+Status: done
+Notes: RoundManager Script at ServerScriptService.RoundManager. Three-state loop:
+  waiting (polls #Players:GetPlayers() < MIN_PLAYER_COUNT each second, fires RoundStateChanged),
+  active (ResetWallets + ResetAllUpgrades, ROUND_DURATION countdown with RoundTimerTick each second),
+  ended (GetWinningTeam → RoundStateChanged with winnerTeam/isTie, saveAllPlayers, INTERMISSION_DURATION wait).
+  All timing via task.wait(). PCalled saveAllPlayers uses task.spawn per player.
+  Also added PlayerDataService.SavePlayer(player) — basic UpdateAsync with pcall guard.
+  Full retry logic, periodic auto-save, and PlayerRemoving hook deferred to it-019.
+
+---
+
 ## 2026-04-30 — it-teams: Create Team A and Team B objects in Roblox Teams service
 PR: #18 (https://github.com/DevMello/roblox_agency/pull/18)
 Status: done

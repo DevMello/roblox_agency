@@ -112,12 +112,12 @@ task_list:
       - it-006
       - it-009
       - it-012
-    status: in-progress
+    status: done
     attempt_count: 1
     worker_id: null
     worker_started_at: "2026-04-30T23:26:00Z"
-    completed_at: null
-    pr_reference: null
+    completed_at: "2026-04-30T23:45:00Z"
+    pr_reference: "https://github.com/DevMello/roblox_agency/pull/25"
 
   - task_id: it-016
     title: "Implement upgrade purchase server handler"
@@ -140,10 +140,10 @@ task_list:
       - it-003
       - it-013
       - it-014
-    status: pending
-    attempt_count: 0
+    status: in-progress
+    attempt_count: 1
     worker_id: null
-    worker_started_at: null
+    worker_started_at: "2026-04-30T23:46:00Z"
     completed_at: null
     pr_reference: null
 
