@@ -1,20 +1,10 @@
 #!/bin/bash
-# WebUI Launcher Script
-# Usage: ./launch.sh [--no-browser] [--port PORT] [--frontend-port PORT]
+# WebUI Launcher for macOS/Linux
 
 set -e
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m' # No Color
-
-# Defaults
 NO_BROWSER=false
-BACKEND_PORT=7432
+PORT=7432
 FRONTEND_PORT=5173
 
 # Parse arguments
@@ -25,7 +15,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --port)
-      BACKEND_PORT="$2"
+      PORT="$2"
       shift 2
       ;;
     --frontend-port)
@@ -39,64 +29,117 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Get repo root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-WEBUI_DIR="$SCRIPT_DIR"
+# Find repo root
+find_repo_root() {
+  local current="$(pwd)"
+  while [[ "$current" != "/" ]]; do
+    if [[ -d "$current/.git" ]]; then
+      echo "$current"
+      return
+    fi
+    current="$(dirname "$current")"
+  done
+  echo ""
+}
+
+REPO_ROOT=$(find_repo_root)
+if [[ -z "$REPO_ROOT" ]]; then
+  echo "Error: Could not find repo root"
+  exit 1
+fi
+
+WEBUI_DIR="$REPO_ROOT/webui"
 SERVER_DIR="$WEBUI_DIR/server"
 CLIENT_DIR="$WEBUI_DIR/client"
 
-# Clear screen
-clear
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+NC='\033[0m' # No Color
 
-# Header
+echo ""
 echo -e "${MAGENTA}╔═══════════════════════════════════════════════════╗${NC}"
 echo -e "${MAGENTA}║         ROBLOX AGENCY WEBUI LAUNCHER              ║${NC}"
 echo -e "${MAGENTA}╚═══════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Validate environment
 echo -e "${CYAN}Checking environment...${NC}"
 
-check_dir() {
-  if [ ! -d "$1" ]; then
-    echo -e "  ${RED}✗ $2 not found: $1${NC}"
+# Check directories
+for name path in \
+  "Repo root" "$REPO_ROOT" \
+  "WebUI" "$WEBUI_DIR" \
+  "Backend" "$SERVER_DIR" \
+  "Frontend" "$CLIENT_DIR"
+do
+  if [[ -d "$path" ]]; then
+    echo -e "  ${GREEN}✓${NC} $name"
+  else
+    echo -e "  ${RED}✗${NC} $name not found: $path"
     exit 1
   fi
-  echo -e "  ${GREEN}✓ $2${NC}"
-}
+done
 
-check_cmd() {
-  if ! command -v "$1" &> /dev/null; then
-    echo -e "  ${RED}✗ $1 not found${NC}"
-    exit 1
-  fi
-  VERSION=$($1 --version 2>&1 | head -n1)
-  echo -e "  ${GREEN}✓ $2: $VERSION${NC}"
-}
+# Check Python
+if python3 --version > /dev/null 2>&1; then
+  PYTHON_VER=$(python3 --version 2>&1)
+  echo -e "  ${GREEN}✓${NC} Python: $PYTHON_VER"
+else
+  echo -e "  ${RED}✗${NC} Python not found"
+  exit 1
+fi
 
-check_dir "$REPO_ROOT" "Repo root"
-check_dir "$WEBUI_DIR" "WebUI"
-check_dir "$SERVER_DIR" "Backend"
-check_dir "$CLIENT_DIR" "Frontend"
-check_cmd python "Python"
-check_cmd node "Node.js"
-check_cmd npm "npm"
+# Check Node
+if node --version > /dev/null 2>&1; then
+  NODE_VER=$(node --version 2>&1)
+  echo -e "  ${GREEN}✓${NC} Node.js: $NODE_VER"
+else
+  echo -e "  ${RED}✗${NC} Node.js not found"
+  exit 1
+fi
+
+# Check npm
+if npm --version > /dev/null 2>&1; then
+  NPM_VER=$(npm --version 2>&1)
+  echo -e "  ${GREEN}✓${NC} npm: $NPM_VER"
+else
+  echo -e "  ${RED}✗${NC} npm not found"
+  exit 1
+fi
 
 echo ""
 echo -e "${CYAN}Starting servers...${NC}"
 
-# Start backend
-echo -e "  ${CYAN}→ Backend on http://127.0.0.1:$BACKEND_PORT${NC}"
-cd "$REPO_ROOT"
-python -m uvicorn webui.server.main:app --host 127.0.0.1 --port $BACKEND_PORT --reload &
-BACKEND_PID=$!
-echo -e "  ${GREEN}✓ Backend started (PID: $BACKEND_PID)${NC}"
+# Cleanup function
+cleanup() {
+  echo ""
+  echo -e "${YELLOW}Shutting down servers...${NC}"
+  if [[ ! -z "$BACKEND_PID" ]]; then
+    kill $BACKEND_PID 2>/dev/null || true
+  fi
+  if [[ ! -z "$FRONTEND_PID" ]]; then
+    kill $FRONTEND_PID 2>/dev/null || true
+  fi
+  echo -e "${GREEN}Goodbye! 👋${NC}"
+  exit 0
+}
 
-# Wait for backend
-echo -n "  Waiting for backend to be ready..."
+trap cleanup SIGINT SIGTERM
+
+# Start backend
+echo -e "  ${CYAN}→${NC} Backend on http://127.0.0.1:$PORT"
+cd "$REPO_ROOT"
+python3 -m uvicorn webui.server.main:app --host 127.0.0.1 --port $PORT --reload > /tmp/webui-backend.log 2>&1 &
+BACKEND_PID=$!
+echo -e "  ${GREEN}✓${NC} Backend started (PID: $BACKEND_PID)"
+
+# Wait for backend ready
+echo -n "  Waiting for backend..."
 for i in {1..10}; do
-  if curl -s http://127.0.0.1:$BACKEND_PORT/api/v1/games/ > /dev/null 2>&1; then
+  if curl -s http://127.0.0.1:$PORT/api/v1/games/ > /dev/null 2>&1; then
     echo -e " ${GREEN}✓${NC}"
     break
   fi
@@ -105,48 +148,48 @@ for i in {1..10}; do
 done
 
 # Start frontend
-echo -e "  ${CYAN}→ Frontend on http://127.0.0.1:$FRONTEND_PORT${NC}"
+echo -e "  ${CYAN}→${NC} Frontend on http://127.0.0.1:$FRONTEND_PORT"
 cd "$CLIENT_DIR"
-npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT &
+npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT > /tmp/webui-frontend.log 2>&1 &
 FRONTEND_PID=$!
-echo -e "  ${GREEN}✓ Frontend started (PID: $FRONTEND_PID)${NC}"
+echo -e "  ${GREEN}✓${NC} Frontend started (PID: $FRONTEND_PID)"
 
 echo ""
 echo -e "${MAGENTA}╔═══════════════════════════════════════════════════╗${NC}"
 echo -e "${MAGENTA}║              SERVERS RUNNING                      ║${NC}"
 echo -e "${MAGENTA}╚═══════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${CYAN}Backend API:    http://127.0.0.1:$BACKEND_PORT/api/v1/${NC}"
+echo -e "  ${CYAN}Backend API:    http://127.0.0.1:$PORT/api/v1/${NC}"
 echo -e "  ${CYAN}Frontend:       http://127.0.0.1:$FRONTEND_PORT${NC}"
-echo -e "  ${CYAN}WebSocket:      ws://127.0.0.1:$BACKEND_PORT/ws${NC}"
+echo -e "  ${CYAN}WebSocket:      ws://127.0.0.1:$PORT/ws${NC}"
 echo ""
 echo -e "  ${YELLOW}Press Ctrl+C to stop gracefully${NC}"
 echo ""
 
-# Open browser if not suppressed
-if [ "$NO_BROWSER" = false ]; then
-  echo "  Opening browser..."
-  sleep 2
-  if command -v xdg-open &> /dev/null; then
-    xdg-open "http://127.0.0.1:$FRONTEND_PORT" &
-  elif command -v open &> /dev/null; then
-    open "http://127.0.0.1:$FRONTEND_PORT" &
+# Open browser (macOS only)
+if [[ "$NO_BROWSER" != "true" ]]; then
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo -n "  Opening browser..."
+    sleep 2
+    open "http://127.0.0.1:$FRONTEND_PORT"
+    echo -e " ${GREEN}✓${NC}"
+    echo ""
   fi
-  echo -e "  ${GREEN}✓${NC}"
 fi
 
-echo ""
+# Wait for processes
+while true; do
+  if ! kill -0 $BACKEND_PID 2>/dev/null; then
+    echo -e "${YELLOW}Backend stopped.${NC}"
+    kill $FRONTEND_PID 2>/dev/null || true
+    break
+  fi
+  if ! kill -0 $FRONTEND_PID 2>/dev/null; then
+    echo -e "${YELLOW}Frontend stopped.${NC}"
+    kill $BACKEND_PID 2>/dev/null || true
+    break
+  fi
+  sleep 1
+done
 
-# Cleanup on exit
-trap "
-  echo ''
-  echo -e '${YELLOW}Shutting down servers...${NC}'
-  kill $BACKEND_PID 2>/dev/null || true
-  kill $FRONTEND_PID 2>/dev/null || true
-  wait 2>/dev/null || true
-  echo -e '${GREEN}Goodbye! 👋${NC}'
-  exit 0
-" SIGINT SIGTERM
-
-# Wait for both processes
-wait
+cleanup

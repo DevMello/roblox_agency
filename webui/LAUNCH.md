@@ -21,7 +21,7 @@ Both scripts will:
 1. ✓ Validate your environment (Python, Node.js, npm)
 2. ✓ Start the FastAPI backend on `http://127.0.0.1:7432`
 3. ✓ Start the Vite frontend dev server on `http://127.0.0.1:5173`
-4. ✓ Automatically open your browser
+4. ✓ Automatically open your browser (Windows/macOS)
 5. ✓ Display connection URLs and status
 6. ✓ Handle graceful shutdown (Ctrl+C)
 
@@ -91,11 +91,11 @@ The script will:
 
 | Problem | Solution |
 |---------|----------|
-| **Port already in use** | Use `--port` or `--frontend-port` to specify different ports, or kill the process: `lsof -ti:7432 \| xargs kill -9` (macOS/Linux) |
+| **Port already in use** | Use `--port` or `--frontend-port` to specify different ports |
 | **Python not found** | Ensure Python 3.10+ is installed: `python --version` |
 | **Node/npm not found** | Ensure Node.js 18+ is installed: `node --version` |
 | **npm modules missing** | Run `npm install` in `webui/client/` first |
-| **Backend won't start** | Check if dependencies are installed: `pip list \| grep uvicorn` |
+| **Backend won't start** | Check Python dependencies: `pip list | grep uvicorn` |
 | **Frontend won't load** | Check browser console (F12) for errors; verify backend is running |
 | **WebSocket connection fails** | Ensure backend is fully started; check Network tab in DevTools |
 
@@ -149,7 +149,7 @@ npm run preview      # Serves production build locally
 - Waits for backend to be ready (healthcheck)
 - Starts frontend dev server
 - Monitors both processes
-- Opens browser automatically (unless `--NoBrowser`)
+- Opens browser automatically (unless `-NoBrowser`)
 - Handles graceful shutdown
 
 ### Bash (`launch.sh`)
@@ -157,14 +157,6 @@ npm run preview      # Serves production build locally
 - Uses standard bash/sh (POSIX-compatible)
 - Cross-platform (macOS, Linux, WSL)
 - Uses standard signals (SIGINT, SIGTERM)
-
-## Logs
-
-Logs from both servers appear in the terminal:
-- **Backend logs**: From FastAPI/Uvicorn
-- **Frontend logs**: From Vite dev server
-
-Press Ctrl+C to stop and see exit messages.
 
 ## Tips
 
@@ -195,7 +187,7 @@ Checking environment...
 Starting servers...
   → Backend on http://127.0.0.1:7432
   ✓ Backend started (PID: 12345)
-  Waiting for backend to be ready... ✓
+  Waiting for backend... ✓
   → Frontend on http://127.0.0.1:5173
   ✓ Frontend started (PID: 12346)
 
