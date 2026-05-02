@@ -35,7 +35,9 @@ notes:
   - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >
-      TBD PR triage: gh pr list --label tbd-human --state open returned empty. No TBD PRs to process.
+      TBD PR triage: gh pr list --label tbd-human --state open was attempted but blocked by
+      the local sandbox network policy. GitHub connector search for open PRs labelled tbd-human
+      returned empty. No TBD PRs to process.
   - timestamp: "2026-05-01T23:00:00Z"
     type: info
     message: >

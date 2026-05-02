@@ -113,10 +113,10 @@ _invoke_tool() {
       cmd+=(-p "$prompt")
       ;;
     codex)
-      # OpenAI Codex CLI — full-auto suppresses interactive approval prompts
-      cmd=(codex --approval-mode full-auto)
+      # OpenAI Codex CLI — -a never suppresses interactive approval prompts
+      cmd=(codex -a never exec)
       [[ -n "${CODEX_MODEL:-}" ]] && cmd+=(--model "$CODEX_MODEL")
-      cmd+=(-q "$prompt")
+      cmd+=("$prompt")
       ;;
     gemini)
       # Google Gemini CLI

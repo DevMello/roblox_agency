@@ -6,7 +6,9 @@
       "Bash(git checkout *)",
       "Bash(git fetch *)",
       "Bash(git branch *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(mv \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon/.claude\" \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/games/tycoon-game/.claude\")",
+      "Bash(rm -rf \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon\")"
     ]
   }
 }
