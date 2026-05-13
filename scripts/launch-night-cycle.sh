@@ -99,12 +99,12 @@ gh auth status >/dev/null 2>&1 && GITHUB_OK=yes || true
 
 # ─── Check for new specs that still need Architect ───────────────────────────
 
-for spec_dir in specs/*/; do
-  slug=$(basename "$spec_dir")
-  [[ "$slug" == "template.md" ]] && continue
-  spec_file="${spec_dir}spec.md"
+for spec_file in games/*/spec.md; do
+  [[ -f "$spec_file" ]] || continue
+  slug="${spec_file#games/}"
+  slug="${slug%/spec.md}"
   plan_file="games/${slug}/plan.md"
-  if [[ -f "$spec_file" && ! -f "$plan_file" ]]; then
+  if [[ ! -f "$plan_file" ]]; then
     log "New spec detected for '${slug}' — running Architect first..."
     bash "${REPO_ROOT}/scripts/run-architect.sh" "$slug" \
       || log "WARNING: Architect failed for '${slug}'. Skipping this game."
