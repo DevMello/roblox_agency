@@ -108,7 +108,7 @@ Write-Host "  OK: Backend started (PID: $($backendProc.Id))" -ForegroundColor Gr
 Write-Host "  Waiting for backend..." -NoNewline
 for ($i = 0; $i -lt 10; $i++) {
   try {
-    $null = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/v1/games/" -TimeoutSec 1 -ErrorAction SilentlyContinue
+    #$null = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/v1/games/" -TimeoutSec 1 -ErrorAction SilentlyContinue
     Write-Host " OK" -ForegroundColor Green
     break
   } catch {

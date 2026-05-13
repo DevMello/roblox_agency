@@ -869,12 +869,12 @@ export default function GameDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border -mb-4">
+        <div className="flex gap-1">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-4 flex items-center gap-1.5 ${
+              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
                 activeTab === tab.id
                   ? 'text-accent border-accent'
                   : 'text-text-muted border-transparent hover:text-text-primary'
