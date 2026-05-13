@@ -1,0 +1,6 @@
+# Roblox place files (large binary — store in Git LFS or exclude)
+*.rbxl
+*.rbxlx
+
+# Common development artifacts
+.env
