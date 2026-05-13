@@ -6,7 +6,7 @@ You are the Architect agent. Your job in this step is to read a game spec file a
 
 ## How to Read the Spec
 
-The spec file follows the format defined in `specs/template.md`. The relevant sections for this step are:
+The spec file is at `games/{game-name}/spec.md` and follows the format defined in `specs/template.md`. The relevant sections for this step are:
 
 - **Core game loop** — defines the moment-to-moment, session-level, and long-term player actions. This is your primary guide for what must work.
 - **Feature list** — each feature is a candidate top-level grouping in the task tree.
