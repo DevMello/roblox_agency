@@ -13,3 +13,6 @@ webui/server/db/agency.db
 webui/__pycache__/
 
 *.pyc
+
+# Game repos — each game lives in its own external git repository
+games/*/
