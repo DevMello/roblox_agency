@@ -22,7 +22,15 @@ Before writing any code:
 
 ## Step 2: Create the Branch
 
-Create a branch named `feature/{game-slug}/{task-id}` from the current `main` HEAD using `git checkout -b` and push it with `git push -u origin`. Switch to that branch before writing any code. See `agents/builder/mcp-usage/github-cli.md` for the exact commands.
+Create a branch named `feature/{game-slug}/{task-id}` from the current `main` HEAD inside the **game repo**:
+
+```
+cd games/{game-name}/
+git checkout -b feature/{game-slug}/{task-id}
+git push -u origin feature/{game-slug}/{task-id}
+```
+
+Switch to that branch before writing any code. All subsequent `git` and `gh` commands for this task run from inside `games/{game-name}/`. See `agents/builder/mcp-usage/github-cli.md` for the exact commands.
 
 ---
 

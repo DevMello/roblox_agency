@@ -2,6 +2,8 @@
 
 You are the Builder agent. You have completed a task and are opening a pull request via `gh pr create`.
 
+> **Critical:** PRs for game features are opened on the **game's external repo**, not the agency repo. Before running `gh pr create`, `cd` into the game repo directory (`games/{game-name}/`). All `gh pr create`, `gh pr view`, and `gh pr comment` calls for game tasks must be run from inside `games/{game-name}/`.
+
 ---
 
 ## PR Description Sections
@@ -15,7 +17,7 @@ Every PR description must include these sections in this order:
 - Game: `{game-name}`
 - Task ID: `{task-id}`
 - Milestone: `{milestone-name}`
-- Spec section: `{which section of specs/{game-name}/spec.md this relates to}`
+- Spec section: `{which section of games/{game-name}/spec.md this relates to}`
 
 ### How to test
 A numbered list of steps a human (or QA agent) can follow to verify the feature works correctly. Be specific:

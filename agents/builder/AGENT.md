@@ -39,24 +39,40 @@ Builder reads the sprint once at the start of the night, then re-reads it at the
 
 ## Git Workflow
 
+> **Critical:** Game work is committed to the **game's external repo**, not the agency repo. Always `cd` into the game repo directory (`games/{game-name}/`) before running any game-related `git` command. Agency-level files (sprint logs, heartbeats) are committed in the agency repo as before.
+
 For every task, the mandatory workflow is:
 
-1. **Pull latest from main** before starting: `git pull --rebase origin main`
+1. **Pull latest from main** before starting — run from inside the game repo:
+   ```
+   cd games/{game-name}/
+   git pull --rebase origin main
+   ```
+   Then pull the agency repo as well:
+   ```
+   cd <agency-root>/
+   git pull --rebase origin main
+   ```
    This picks up task completions from other workers and any Planner replan updates.
 2. **Set `worker_started_at`** on the task in the sprint log to the current timestamp.
-3. **Create branch** from the current `main` HEAD.
+3. **Create branch** from the current `main` HEAD — inside the game repo:
+   ```
+   cd games/{game-name}/
+   git checkout -b feature/{game-slug}/{task-id}
+   git push -u origin feature/{game-slug}/{task-id}
+   ```
    - Branch name: `feature/{game-slug}/{task-id}` (e.g. `feature/sword-game/sg-001`)
    - Exception for bug fixes: `fix/{game-slug}/{pr-number}` (e.g. `fix/sword-game/pr-42`)
 4. **Implement** the task on that branch.
-5. **Commit** all changes with the correct message format (see below).
-6. **Open a PR** against `main` using the `pr-creation` prompt.
-7. **Update the sprint log**: set task status to `done`, fill in `completed_at` and `pr_reference`.
-8. **Push the sprint log update immediately**: commit the sprint log change and push to `main`.
+5. **Commit** all game source changes from inside the game repo with the correct message format (see below).
+6. **Open a PR on the game repo** against `main` using the `pr-creation` prompt. Run `gh pr create` from inside `games/{game-name}/`.
+7. **Update the sprint log** (agency repo): set task status to `done`, fill in `completed_at` and `pr_reference`.
+8. **Push the sprint log update immediately** from the agency repo:
    - `git add games/{game}/sprint-log.md`
    - `git commit -m "[{game-slug}] status: task {task-id} done (worker: {worker-id})"`
    - `git push origin main`
    - If push is rejected (another worker pushed first): `git pull --rebase origin main && git push origin main`
-9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` with the current timestamp and the task just completed. Also update the `Last seen:` line for this worker in `memory/workers.md` (use `sed -i` or a Python one-liner targeting only that worker's block). Commit and push both files.
+9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` in the **agency repo** with the current timestamp and the task just completed. Also update the `Last seen:` line for this worker in `memory/workers.md`. Commit and push both files from the agency repo.
 
 Never commit directly to `main`. Never force-push. Never merge your own PRs.
 
@@ -149,15 +165,14 @@ This is append-only. Builder does not edit previous entries.
 Builder must never modify these files, even if a task description implies it should:
 
 - `games/{game-name}/plan.md`
-- `memory/human-overrides.md`
-- `memory/decisions.md`
-- `memory/blockers.md`
-- `memory/game-states/*.md`
+- `games/{game-name}/memory/human-overrides.md`
+- `games/{game-name}/memory/decisions.md`
+- `games/{game-name}/memory/blockers.md`
 - `agents/*/AGENT.md`
 - `agents/*/prompts/*.md`
 - `agents/*/schemas/*.json`
 - `config/*.md`
 - `workflows/*.md`
-- `specs/**/*.md`
+- `games/{game-name}/spec.md`
 
 If a task seems to require editing these files, Builder flags the task as blocked and notifies Planner via the sprint log.

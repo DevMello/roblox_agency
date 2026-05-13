@@ -32,7 +32,7 @@ The fix must be the **minimum change required** to correct the root cause. Rules
 
 ## Step 3: Branch and Fix
 
-1. Create a branch named `fix/{game-slug}/{pr-number}` where `{pr-number}` is the PR or issue that reported the bug. If there is no PR number, use a short description: `fix/{game-slug}/{feature-short-name}`.
+1. Create a branch inside the **game repo** (`cd games/{game-name}/` first) named `fix/{game-slug}/{pr-number}` where `{pr-number}` is the PR or issue that reported the bug. If there is no PR number, use a short description: `fix/{game-slug}/{feature-short-name}`.
 2. Implement the minimum fix.
 3. Verify the fix:
    - Confirm the original trigger condition no longer produces the incorrect behaviour (manually trace through the logic or trigger a playtest via Roblox Studio MCP).
@@ -47,7 +47,7 @@ If the root cause of the bug reveals a deeper architectural problem — for exam
 Instead:
 1. Fix only the immediate symptom if it is a blocker (e.g. crash or data loss).
 2. Flag the architectural problem in the PR description under "Architectural concern".
-3. Add a note to `memory/blockers.md` with type `spec-ambiguity` (or `implementation-failure` if it was a design mistake) so Architect can address it.
+3. Add a note to `games/{game-name}/memory/blockers.md` with type `spec-ambiguity` (or `implementation-failure` if it was a design mistake) so Architect can address it.
 4. Update the sprint log with a `morning_report_flag` of type `human-input-required` if the architectural problem requires a design decision.
 
 ---
