@@ -20,7 +20,7 @@ Aggregate these into weekly totals.
 
 ## Step 2: Per-Game Progress Summary
 
-For each active game, read `games/{game-name}/plan.md`. Extract:
+Read `games/registry.md` to get the authoritative list of active games. For each active game listed there, read `games/{game-name}/plan.md`. Extract:
 - Current milestone name.
 - Milestone completion percentage at the start vs end of this week.
 - Any milestone completed this week.
