@@ -6,6 +6,7 @@ import re
 from fastapi import APIRouter, HTTPException
 
 from webui.server.services.repo import repo_service  # type: ignore[attr-defined]
+from webui.server.services.markdown import markdown_service
 
 router = APIRouter(tags=["games"])
 
@@ -17,16 +18,14 @@ async def list_games():
         from webui.server.services.git_service import git_service
         names = repo_service.game_names()
         prs = git_service.open_prs()
-        
+
         result = []
         for name in names:
             try:
                 state = repo_service.game_state(name)
-                # Estimate open PRs for this game by checking branch names or PR titles
-                # This is a heuristic: match if 'name' (slug) is in headRefName or title
                 game_prs = [
-                    pr for pr in prs 
-                    if name in (pr.get("headRefName") or "").lower() 
+                    pr for pr in prs
+                    if name in (pr.get("headRefName") or "").lower()
                     or name in (pr.get("title") or "").lower()
                 ]
                 state["open_pr_count"] = len(game_prs)
@@ -45,8 +44,8 @@ async def get_game(game: str):
         state = repo_service.game_state(game)
         prs = git_service.open_prs()
         game_prs = [
-            pr for pr in prs 
-            if game in (pr.get("headRefName") or "").lower() 
+            pr for pr in prs
+            if game in (pr.get("headRefName") or "").lower()
             or game in (pr.get("title") or "").lower()
         ]
         state["open_pr_count"] = len(game_prs)
@@ -57,37 +56,55 @@ async def get_game(game: str):
 
 @router.get("/{game}/sprint-log")
 async def get_sprint_log(game: str):
+    """Return structured sprint log data parsed from sprint-log.md."""
     try:
         content = repo_service.read_file(f"games/{game}/sprint-log.md")
-        state = repo_service.game_state(game)
-        return {"content": content, "tasks": state.get("tasks", [])}
+        parsed = markdown_service.parse_sprint_log(content)
+        # Attach raw content for fallback rendering
+        parsed["raw"] = content
+        return parsed
     except FileNotFoundError:
         raise HTTPException(404)
 
 
 @router.get("/{game}/plan")
 async def get_plan(game: str):
+    """Return structured plan data parsed from plan.md."""
     try:
-        return {"content": repo_service.read_file(f"games/{game}/plan.md")}
+        content = repo_service.read_file(f"games/{game}/plan.md")
+        parsed = markdown_service.parse_plan(content)
+        parsed["raw"] = content
+        return parsed
     except FileNotFoundError:
         raise HTTPException(404)
 
 
 @router.get("/{game}/progress")
 async def get_progress(game: str):
+    """Return structured progress log entries parsed from progress.md."""
     try:
-        return {"content": repo_service.read_file(f"games/{game}/progress.md")}
+        content = repo_service.read_file(f"games/{game}/progress.md")
+        entries = markdown_service.parse_progress_log(content)
+        return {"entries": entries, "raw": content}
     except FileNotFoundError:
         raise HTTPException(404)
 
 
 @router.get("/{game}/overrides")
 async def get_overrides(game: str):
+    """Return structured overrides for this game from memory/human-overrides.md."""
     try:
         content = repo_service.read_file("memory/human-overrides.md")
-        return {"content": content}
+        entries = markdown_service.parse_overrides(content, game_filter=game)
+        # Also return all entries if game-specific is empty
+        all_entries = markdown_service.parse_overrides(content)
+        return {
+            "entries": entries if entries else all_entries,
+            "filtered": bool(entries),
+            "raw": content,
+        }
     except FileNotFoundError:
-        return {"content": ""}
+        return {"entries": [], "filtered": False, "raw": ""}
 
 
 @router.post("/{game}/overrides")
@@ -111,12 +128,16 @@ async def get_blockers(game: str):
             id_match = re.search(r"ID:\s*(\S+)", s)
             status_match = re.search(r"Status:\s*(\S+)", s)
             title_match = re.match(r"## Blocker:\s*(.+)", s)
+            game_match = re.search(r"Game:\s*(\S+)", s)
+            desc_match = re.search(r"Description:\s*(.+)", s, re.DOTALL)
             if id_match and status_match and status_match.group(1) == "open":
                 blockers.append(
                     {
                         "id": id_match.group(1),
-                        "title": title_match.group(1) if title_match else "",
+                        "title": title_match.group(1).strip() if title_match else "",
                         "status": status_match.group(1),
+                        "game": game_match.group(1) if game_match else game,
+                        "description": desc_match.group(1).strip()[:200] if desc_match else "",
                     }
                 )
         return blockers
