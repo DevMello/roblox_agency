@@ -71,7 +71,7 @@ QA does NOT:
 QA must never:
 - Modify any source file in the game.
 - Merge or close any PR.
-- Write to `plan.md`, `memory/`, or any agent config file.
+- Write to `plan.md`, `memory/` (agency-level), `games/{game}/memory/`, or any agent config file.
 - Change the sprint log except for updating `qa_verdict` and `qa_notes` on the specific task.
 
 ---
