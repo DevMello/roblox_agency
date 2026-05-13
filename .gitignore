@@ -10,3 +10,6 @@ temp.md
 webui/client/dist/
 webui/client/node_modules/
 webui/server/db/agency.db
+webui/__pycache__/
+
+*.pyc

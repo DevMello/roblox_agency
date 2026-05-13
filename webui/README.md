@@ -37,6 +37,15 @@ npm run dev
 # Open http://localhost:5173
 ```
 
+**Note on WebSocket connection**: By default, the frontend proxies the WebSocket connection through Vite (recommended). If you need to connect directly to a different backend URL, create a `.env` file in `webui/client/`:
+
+```env
+# webui/client/.env
+VITE_BACKEND_URL=http://127.0.0.1:7432
+```
+
+This is useful if you're running the backend on a different machine or port during development.
+
 ## Architecture
 
 ```

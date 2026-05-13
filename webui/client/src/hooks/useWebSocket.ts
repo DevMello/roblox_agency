@@ -7,6 +7,32 @@ import { useWsStore } from '../store/wsStore'
 const PING_INTERVAL_MS = 25_000
 const MAX_RECONNECT_DELAY_MS = 30_000
 
+// Get the backend URL from environment or construct it
+function getBackendUrl(): string {
+  // Support environment variable for custom backend URL (useful for development)
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return import.meta.env.VITE_BACKEND_URL
+  }
+
+  // Use the same origin for the backend (works in production where app is served by FastAPI)
+  return window.location.origin
+}
+
+// Get the WebSocket URL
+function getWebSocketUrl(): string {
+  const backendUrl = getBackendUrl()
+  const protocol = backendUrl.startsWith('https') ? 'wss:' : 'ws:'
+  
+  try {
+    const url = new URL(backendUrl)
+    return `${protocol}//${url.host}/ws`
+  } catch {
+    // Fallback if URL parsing fails
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}/ws`
+  }
+}
+
 export function useWebSocket() {
   const queryClient = useQueryClient()
   const wsRef = useRef<WebSocket | null>(null)
@@ -47,10 +73,12 @@ export function useWebSocket() {
     function connect(attempt: number) {
       if (isUnmountedRef.current) return
 
-      // Try to determine the backend URL
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const backendHost = window.location.hostname === 'localhost' ? 'localhost:7432' : '127.0.0.1:7432'
-      const url = `${protocol}//${backendHost}/ws`
+      const url = getWebSocketUrl()
+      
+      if (attempt === 0) {
+        console.log('[WebSocket] Connecting to', url)
+      }
+      
       const ws = new WebSocket(url)
       wsRef.current = ws
 
@@ -59,6 +87,7 @@ export function useWebSocket() {
           ws.close()
           return
         }
+        console.log('[WebSocket] Connected')
         setConnected(true)
         resetReconnect()
         startPing(ws)
@@ -69,6 +98,7 @@ export function useWebSocket() {
         try {
           parsed = JSON.parse(event.data as string) as WSEvent
         } catch {
+          console.warn('[WebSocket] Failed to parse message:', event.data)
           return
         }
 
@@ -89,6 +119,10 @@ export function useWebSocket() {
           case 'file.changed':
             void queryClient.invalidateQueries()
             break
+          case 'ping':
+            // Server ping - respond with pong
+            ws.send(JSON.stringify({ type: 'pong' }))
+            break
           default:
             break
         }
@@ -96,17 +130,20 @@ export function useWebSocket() {
 
       ws.onclose = () => {
         if (isUnmountedRef.current) return
+        console.log('[WebSocket] Disconnected (attempt', attempt, ')')
         setConnected(false)
         clearPing()
         incrementReconnect()
 
         const delay = Math.min(1000 * Math.pow(2, attempt), MAX_RECONNECT_DELAY_MS)
+        console.log('[WebSocket] Reconnecting in', delay, 'ms')
         reconnectTimerRef.current = setTimeout(() => {
           connect(attempt + 1)
         }, delay)
       }
 
-      ws.onerror = () => {
+      ws.onerror = (event) => {
+        console.error('[WebSocket] Error:', event)
         ws.close()
       }
     }

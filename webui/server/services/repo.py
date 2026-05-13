@@ -129,12 +129,23 @@ class RepoService:
     # Plan.md milestone parser
     # ------------------------------------------------------------------
 
-    def _parse_plan_milestones(self, content: str) -> list[str]:
-        """Return list of ## header names from plan.md."""
-        return [
-            m.group(1).strip()
-            for m in re.finditer(r"^##\s+(.+)$", content, re.MULTILINE)
-        ]
+    def _parse_plan_milestones(self, content: str) -> list[dict[str, Any]]:
+        """Return list of milestone objects from plan.md."""
+        # Match "### M1 — Infrastructure Foundation" and then the fields below it
+        sections = re.split(r"(?=^### M\d+ — )", content, flags=re.MULTILINE)
+        milestones = []
+        for s in sections:
+            if not s.strip() or not s.startswith("### M"):
+                continue
+            title_line = s.splitlines()[0]
+            title = title_line.replace("### ", "").strip()
+            status_match = re.search(r"\*\*Status:\*\*\s*([\w-]+)", s)
+            status = status_match.group(1).lower() if status_match else "pending"
+            milestones.append({
+                "title": title,
+                "status": status
+            })
+        return milestones
 
     # ------------------------------------------------------------------
     # Blockers parser
@@ -190,7 +201,7 @@ class RepoService:
                         )
 
         # --- plan.md ---
-        plan_milestones: list[str] = []
+        plan_milestones: list[dict[str, Any]] = []
         plan_path = base / "plan.md"
         if plan_path.exists():
             plan_content = plan_path.read_text(encoding="utf-8")
@@ -208,12 +219,25 @@ class RepoService:
 
         return {
             "name": name,
+            "slug": name,
             "sprint_id": sprint_id,
+            "current_sprint": int(sprint_id) if sprint_id and str(sprint_id).isdigit() else None,
             "sprint_status": sprint_status,
             "tasks": tasks,
+            "task_count": len(tasks),
+            "tasks_done": sum(1 for t in tasks if t.get("status") == "done"),
             "open_blockers": open_blockers,
+            "blocker_count": open_blockers,
             "plan_milestones": plan_milestones,
+            "milestone_count": len(plan_milestones),
+            "milestones_done": sum(1 for m in plan_milestones if m.get("status") == "complete"),
             "recent_progress": recent_progress,
+            "spec_path": f"specs/{name}/spec.md",
+            "plan_path": f"games/{name}/plan.md",
+            "sprint_log_path": f"games/{name}/sprint-log.md",
+            "progress_path": f"games/{name}/progress.md",
+            "open_pr_count": 0,  # Populated in routes if needed
+            "last_run_at": None,
         }
 
     # ------------------------------------------------------------------

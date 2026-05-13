@@ -130,9 +130,12 @@ export interface FileNode {
 
 // WebSocket event types
 export type WSEvent =
-  | { type: 'run.log'; run_id: string; line: string; agent: string }
-  | { type: 'run.task'; run_id: string; task: Partial<Task> }
-  | { type: 'run.status'; run_id: string; status: RunStatus }
+  | { type: 'connected'; status: 'ok' }
+  | { type: 'ping' }
+  | { type: 'pong' }
+  | { type: 'run.log'; run_id?: string; line: string; agent?: string }
+  | { type: 'run.task'; run_id?: string; task: Partial<Task> }
+  | { type: 'run.status'; run_id?: string; status: RunStatus }
   | { type: 'git.pr'; action: 'opened' | 'merged' | 'closed'; pr: PR }
   | { type: 'git.commit'; commit: Commit }
   | { type: 'file.changed'; path: string }

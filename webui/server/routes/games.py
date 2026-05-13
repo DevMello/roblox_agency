@@ -12,28 +12,27 @@ router = APIRouter(tags=["games"])
 
 @router.get("/")
 async def list_games():
-    """Returns [{name, sprint_id, sprint_status, done_tasks, total_tasks, open_blockers}]"""
+    """Returns list of Game objects as expected by the frontend."""
     try:
+        from webui.server.services.git_service import git_service
         names = repo_service.game_names()
+        prs = git_service.open_prs()
+        
         result = []
         for name in names:
             try:
                 state = repo_service.game_state(name)
-                tasks = state.get("tasks", [])
-                result.append(
-                    {
-                        "name": name,
-                        "sprint_id": state.get("sprint_id"),
-                        "sprint_status": state.get("sprint_status"),
-                        "done_tasks": sum(
-                            1 for t in tasks if t.get("status") == "done"
-                        ),
-                        "total_tasks": len(tasks),
-                        "open_blockers": state.get("open_blockers", 0),
-                    }
-                )
+                # Estimate open PRs for this game by checking branch names or PR titles
+                # This is a heuristic: match if 'name' (slug) is in headRefName or title
+                game_prs = [
+                    pr for pr in prs 
+                    if name in (pr.get("headRefName") or "").lower() 
+                    or name in (pr.get("title") or "").lower()
+                ]
+                state["open_pr_count"] = len(game_prs)
+                result.append(state)
             except Exception as e:
-                result.append({"name": name, "error": str(e)})
+                result.append({"name": name, "slug": name, "error": str(e)})
         return result
     except Exception:
         return []
@@ -42,7 +41,16 @@ async def list_games():
 @router.get("/{game}")
 async def get_game(game: str):
     try:
-        return repo_service.game_state(game)
+        from webui.server.services.git_service import git_service
+        state = repo_service.game_state(game)
+        prs = git_service.open_prs()
+        game_prs = [
+            pr for pr in prs 
+            if game in (pr.get("headRefName") or "").lower() 
+            or game in (pr.get("title") or "").lower()
+        ]
+        state["open_pr_count"] = len(game_prs)
+        return state
     except FileNotFoundError:
         raise HTTPException(404, f"Game '{game}' not found")
 

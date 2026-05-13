@@ -50,10 +50,19 @@ async def websocket_endpoint(ws: WebSocket):
         while True:
             try:
                 data = await asyncio.wait_for(ws.receive_text(), timeout=30)
-                if data == "ping":
-                    await ws.send_text(json.dumps({"type": "pong"}))
+                try:
+                    parsed = json.loads(data)
+                    if isinstance(parsed, dict) and parsed.get("type") == "ping":
+                        await ws.send_text(json.dumps({"type": "pong"}))
+                    elif isinstance(parsed, dict) and parsed.get("type") == "pong":
+                        # Client acknowledging our ping - no action needed
+                        pass
+                except (json.JSONDecodeError, ValueError):
+                    # Not JSON, try plain string for backwards compatibility
+                    if data == "ping":
+                        await ws.send_text(json.dumps({"type": "pong"}))
             except asyncio.TimeoutError:
-                # Send keepalive ping
+                # Send keepalive ping from server
                 await ws.send_text(json.dumps({"type": "ping"}))
     except WebSocketDisconnect:
         pass
