@@ -12,7 +12,7 @@ Before selecting any tasks, run the `override-check` prompt. Any task that confl
 
 ## Step 2: Check Blockers
 
-Read `memory/blockers.md`. For each active (unresolved) blocker:
+Read `memory/blockers.md` (agency-level blockers) AND `games/{game-name}/memory/blockers.md` (game-level blockers) for each active game. For each active (unresolved) blocker in either file:
 - Identify which task(s) it affects.
 - Remove those tasks from tonight's candidate pool.
 - Note them in the sprint log under `skipped_due_to_blocker`.
