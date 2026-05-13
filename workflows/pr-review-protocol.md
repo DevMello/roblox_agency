@@ -4,6 +4,8 @@ How every type of pull request in the system is handled — from creation throug
 
 ---
 
+> **Note:** Feature, fix, and asset PRs are opened on the **game's external repository** (e.g. `games/{game-name}/`), not the agency repo. Live-edit PRs follow the same rule. The agency repo only receives PRs that change agency-level files (workflows, config, agents, scripts).
+
 ## Four PR Types
 
 ### 1. Feature PR

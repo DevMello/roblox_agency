@@ -1,6 +1,8 @@
+> **Note:** This is the reference template kept in the agency. Actual game specs live in each game's repo at `games/{game-name}/spec.md`. Use `scripts/new-game.sh` to create a new game.
+
 # Game Spec Template
 
-Copy this file to `specs/{your-game-name}/spec.md` and fill in all sections. Architect uses this exact structure to parse the spec. Do not rename sections or change their order.
+Copy this file to `games/{your-game-name}/spec.md` and fill in all sections. Architect uses this exact structure to parse the spec. Do not rename sections or change their order.
 
 ---
 

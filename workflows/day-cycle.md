@@ -94,7 +94,7 @@ To mark a blocker as resolved: add a `resolved` timestamp to the blocker entry i
 
 **Never commit directly to `main`.** All changes go through PRs. Committing to main bypasses QA and breaks the system's PR-based traceability.
 
-**Never edit `plan.md` by hand.** If you want to change the plan, edit the spec file (`specs/{game-name}/spec.md`) and add `REPLAN_REQUESTED` at the top of the spec. Architect will regenerate the plan on the next night cycle.
+**Never edit `plan.md` by hand.** If you want to change the plan, edit the spec file (`games/{game-name}/spec.md`) and add `REPLAN_REQUESTED` at the top of the spec. Architect will regenerate the plan on the next night cycle.
 
 **Never edit `memory/` files by hand (except `human-overrides.md`).** Memory files are agent-managed. If you need to register a decision, use the live-edit script or add an entry to `memory/human-overrides.md` following the format defined in that file.
 
