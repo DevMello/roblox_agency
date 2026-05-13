@@ -2,20 +2,18 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 
-local RemoteEventsFolder = ReplicatedStorage:WaitForChild("RemoteEvents")
+local RemoteEventsFolder    = ReplicatedStorage:WaitForChild("RemoteEvents")
 local RemoteFunctionsFolder = ReplicatedStorage:WaitForChild("RemoteFunctions")
 
-local MoneyUpdated = RemoteEventsFolder:WaitForChild("MoneyUpdated") :: RemoteEvent
-local UpgradePurchased = RemoteEventsFolder:WaitForChild("UpgradePurchased") :: RemoteEvent
+local MoneyUpdated           = RemoteEventsFolder:WaitForChild("MoneyUpdated") :: RemoteEvent
+local UpgradePurchased       = RemoteEventsFolder:WaitForChild("UpgradePurchased") :: RemoteEvent
+local BoostBucksUpdated      = RemoteEventsFolder:WaitForChild("BoostBucksUpdated") :: RemoteEvent
 local RequestUpgradePurchase = RemoteFunctionsFolder:WaitForChild("RequestUpgradePurchase") :: RemoteFunction
-local GetPlayerData = RemoteFunctionsFolder:WaitForChild("GetPlayerData") :: RemoteFunction
-
--- ── Constants ──────────────────────────────────────────────────────────────
+local GetPlayerData          = RemoteFunctionsFolder:WaitForChild("GetPlayerData") :: RemoteFunction
 
 local MAX_LEVEL = 5
 local UPGRADE_COSTS: { [string]: { number } } = {
@@ -23,31 +21,24 @@ local UPGRADE_COSTS: { [string]: { number } } = {
 	output = { 150, 350, 700, 1400, 2800 },
 }
 
--- Machines shown per team (machineId suffix after team folder)
 type MachineSpec = { name: string, suffix: string, upgrades: { string } }
 local MACHINES: { MachineSpec } = {
 	{ name = "Auto Chopper", suffix = "LumberZone.Machines.AutoChopper", upgrades = { "speed", "output" } },
 	{ name = "Sawmill",      suffix = "LumberZone.Machines.Sawmill",     upgrades = { "speed", "output" } },
 }
 
--- ── GUI State ──────────────────────────────────────────────────────────────
-
 local panelOpen = false
 local cachedMoney = 0
 local cachedBoostBucks = 0
-
--- upgrade level cache keyed by machineId then upgradeType
 local cachedLevels: { [string]: { speed: number, output: number } } = {}
 
--- UI element references updated on refresh
 local moneyLabel: TextLabel
 local boostBucksLabel: TextLabel
 local errorLabel: TextLabel
 local mainPanel: Frame
 local cardFrames: { { machineId: string, speedBtn: TextButton, outputBtn: TextButton,
+	speedBBBtn: TextButton, outputBBBtn: TextButton,
 	speedLabel: TextLabel, outputLabel: TextLabel } } = {}
-
--- ── Helpers ────────────────────────────────────────────────────────────────
 
 local function getTeamFolder(): string?
 	local team = localPlayer.Team
@@ -76,36 +67,27 @@ local function formatMoney(n: number): string
 	return "$" .. tostring(math.floor(n))
 end
 
--- ── UI Update ──────────────────────────────────────────────────────────────
-
 local function refreshCurrency(): ()
-	if moneyLabel then
-		moneyLabel.Text = "Money: " .. formatMoney(cachedMoney)
-	end
-	if boostBucksLabel then
-		boostBucksLabel.Text = "Boost Bucks: " .. tostring(math.floor(cachedBoostBucks))
-	end
+	if moneyLabel then moneyLabel.Text = "Money: " .. formatMoney(cachedMoney) end
+	if boostBucksLabel then boostBucksLabel.Text = "Boost Bucks: " .. tostring(math.floor(cachedBoostBucks)) end
 end
 
 local function refreshCard(info: { machineId: string, speedBtn: TextButton,
-	outputBtn: TextButton, speedLabel: TextLabel, outputLabel: TextLabel }): ()
+	outputBtn: TextButton, speedBBBtn: TextButton, outputBBBtn: TextButton,
+	speedLabel: TextLabel, outputLabel: TextLabel }): ()
 	local mid = info.machineId
-
 	local sLevel = levelOf(mid, "speed")
-	local oCost  = costFor("output", levelOf(mid, "output"))
-	local sCost  = costFor("speed", sLevel)
 	local oLevel = levelOf(mid, "output")
+	local sCost = costFor("speed", sLevel)
+	local oCost = costFor("output", oLevel)
 
 	info.speedLabel.Text = "Speed: " .. sLevel .. "/" .. MAX_LEVEL
 	info.outputLabel.Text = "Output: " .. oLevel .. "/" .. MAX_LEVEL
 
-	-- Speed button
 	if sCost then
 		info.speedBtn.Text = "Upgrade Speed\n" .. formatMoney(sCost)
 		local canAfford = cachedMoney >= sCost
-		info.speedBtn.BackgroundColor3 = canAfford
-			and Color3.fromRGB(60, 120, 60)
-			or Color3.fromRGB(80, 80, 80)
+		info.speedBtn.BackgroundColor3 = canAfford and Color3.fromRGB(60, 120, 60) or Color3.fromRGB(80, 80, 80)
 		info.speedBtn.AutoButtonColor = canAfford
 	else
 		info.speedBtn.Text = "Speed MAX"
@@ -113,18 +95,37 @@ local function refreshCard(info: { machineId: string, speedBtn: TextButton,
 		info.speedBtn.AutoButtonColor = false
 	end
 
-	-- Output button
 	if oCost then
 		info.outputBtn.Text = "Upgrade Output\n" .. formatMoney(oCost)
 		local canAfford = cachedMoney >= oCost
-		info.outputBtn.BackgroundColor3 = canAfford
-			and Color3.fromRGB(60, 80, 160)
-			or Color3.fromRGB(80, 80, 80)
+		info.outputBtn.BackgroundColor3 = canAfford and Color3.fromRGB(60, 80, 160) or Color3.fromRGB(80, 80, 80)
 		info.outputBtn.AutoButtonColor = canAfford
 	else
 		info.outputBtn.Text = "Output MAX"
 		info.outputBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 		info.outputBtn.AutoButtonColor = false
+	end
+
+	if sCost then
+		info.speedBBBtn.Text = "BB Speed\n" .. tostring(math.floor(sCost)) .. " BB"
+		local canBB = cachedBoostBucks >= sCost
+		info.speedBBBtn.BackgroundColor3 = canBB and Color3.fromRGB(0, 140, 100) or Color3.fromRGB(60, 60, 60)
+		info.speedBBBtn.AutoButtonColor = canBB
+	else
+		info.speedBBBtn.Text = "BB MAX"
+		info.speedBBBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		info.speedBBBtn.AutoButtonColor = false
+	end
+
+	if oCost then
+		info.outputBBBtn.Text = "BB Output\n" .. tostring(math.floor(oCost)) .. " BB"
+		local canBB = cachedBoostBucks >= oCost
+		info.outputBBBtn.BackgroundColor3 = canBB and Color3.fromRGB(0, 80, 160) or Color3.fromRGB(60, 60, 60)
+		info.outputBBBtn.AutoButtonColor = canBB
+	else
+		info.outputBBBtn.Text = "BB MAX"
+		info.outputBBBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		info.outputBBBtn.AutoButtonColor = false
 	end
 end
 
@@ -135,13 +136,9 @@ local function refreshAll(): ()
 	end
 end
 
--- ── Data Fetch ─────────────────────────────────────────────────────────────
-
 local function fetchAndRefresh(): ()
 	task.spawn(function()
-		local ok, result = pcall(function()
-			return GetPlayerData:InvokeServer()
-		end)
+		local ok, result = pcall(function() return GetPlayerData:InvokeServer() end)
 		if not ok then
 			if errorLabel then
 				errorLabel.Text = "Could not load data"
@@ -152,40 +149,71 @@ local function fetchAndRefresh(): ()
 		local data = result :: { [string]: unknown }
 		cachedMoney = (data.money :: number?) or 0
 		cachedBoostBucks = (data.boostBucks :: number?) or 0
-
 		local upgrades = data.upgrades :: { [string]: { speedLevel: number, outputLevel: number } }?
 		if upgrades then
 			for mid, entry in pairs(upgrades) do
 				cachedLevels[mid] = { speed = entry.speedLevel, output = entry.outputLevel }
 			end
 		end
-
 		refreshAll()
 	end)
 end
 
--- ── Buy Handler ────────────────────────────────────────────────────────────
+-- Forward-declare flashButton so onBuyBBPressed can reference it before its definition.
+local flashButton: (btn: TextButton, success: boolean) -> ()
 
-local function flashButton(btn: TextButton, success: boolean): ()
+local function onBuyBBPressed(mid: string, upgradeType: string, btn: TextButton): ()
+	if errorLabel then errorLabel.Visible = false end
+	task.spawn(function()
+		local ok, result = pcall(function()
+			return RequestUpgradePurchase:InvokeServer({ machineId = mid, upgradeType = upgradeType, payWithBoostBucks = true })
+		end)
+		if not ok then
+			flashButton(btn, false)
+			if errorLabel then
+				errorLabel.Text = "BB request failed"
+				errorLabel.Visible = true
+			end
+			return
+		end
+		local response = result :: { success: boolean, newLevel: number?, reason: string?, newBoostBucks: number? }
+		if response.success then
+			local newLevel = response.newLevel or 0
+			if not cachedLevels[mid] then cachedLevels[mid] = { speed = 0, output = 0 } end
+			if upgradeType == "speed" then
+				cachedLevels[mid].speed = newLevel
+			else
+				cachedLevels[mid].output = newLevel
+			end
+			if response.newBoostBucks then
+				cachedBoostBucks = response.newBoostBucks
+			end
+			flashButton(btn, true)
+			refreshAll()
+		else
+			flashButton(btn, false)
+			if errorLabel then
+				errorLabel.Text = response.reason or "BB purchase failed"
+				errorLabel.Visible = true
+			end
+		end
+	end)
+end
+
+flashButton = function(btn: TextButton, success: boolean): ()
 	local original = btn.BackgroundColor3
-	btn.BackgroundColor3 = success
-		and Color3.fromRGB(0, 220, 80)
-		or Color3.fromRGB(220, 60, 60)
+	btn.BackgroundColor3 = success and Color3.fromRGB(0, 220, 80) or Color3.fromRGB(220, 60, 60)
 	task.delay(0.4, function()
 		btn.BackgroundColor3 = original
 	end)
 end
 
 local function onBuyPressed(mid: string, upgradeType: string, btn: TextButton): ()
-	if errorLabel then
-		errorLabel.Visible = false
-	end
-
+	if errorLabel then errorLabel.Visible = false end
 	task.spawn(function()
 		local ok, result = pcall(function()
 			return RequestUpgradePurchase:InvokeServer({ machineId = mid, upgradeType = upgradeType })
 		end)
-
 		if not ok then
 			flashButton(btn, false)
 			if errorLabel then
@@ -194,14 +222,10 @@ local function onBuyPressed(mid: string, upgradeType: string, btn: TextButton): 
 			end
 			return
 		end
-
 		local response = result :: { success: boolean, newLevel: number?, reason: string? }
-
 		if response.success then
 			local newLevel = response.newLevel or 0
-			if not cachedLevels[mid] then
-				cachedLevels[mid] = { speed = 0, output = 0 }
-			end
+			if not cachedLevels[mid] then cachedLevels[mid] = { speed = 0, output = 0 } end
 			if upgradeType == "speed" then
 				cachedLevels[mid].speed = newLevel
 			else
@@ -219,8 +243,6 @@ local function onBuyPressed(mid: string, upgradeType: string, btn: TextButton): 
 	end)
 end
 
--- ── GUI Construction ───────────────────────────────────────────────────────
-
 local function buildGui(): ()
 	local teamFolder = getTeamFolder()
 	if not teamFolder then
@@ -234,12 +256,9 @@ local function buildGui(): ()
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.Parent = playerGui
 
-	-- Toggle button (bottom-right)
 	local toggleBtn = Instance.new("TextButton")
-	toggleBtn.Name = "ToggleBtn"
 	toggleBtn.Size = UDim2.new(0, 120, 0, 40)
 	toggleBtn.Position = UDim2.new(1, -130, 1, -50)
-	toggleBtn.AnchorPoint = Vector2.new(0, 0)
 	toggleBtn.Text = "SHOP"
 	toggleBtn.Font = Enum.Font.GothamBold
 	toggleBtn.TextSize = 16
@@ -249,10 +268,9 @@ local function buildGui(): ()
 	toggleBtn.Parent = screenGui
 	Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
 
-	-- Main panel (above toggle)
 	local panel = Instance.new("Frame")
 	panel.Name = "MainPanel"
-	panel.Size = UDim2.new(0, 320, 0, 0)  -- height set after building cards
+	panel.Size = UDim2.new(0, 320, 0, 440)
 	panel.Position = UDim2.new(1, -330, 1, -60)
 	panel.AnchorPoint = Vector2.new(0, 1)
 	panel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
@@ -261,25 +279,25 @@ local function buildGui(): ()
 	panel.Parent = screenGui
 	mainPanel = panel
 	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 8)
-	Instance.new("UIPadding", panel).PaddingLeft = UDim.new(0, 8)
 
-	local layout = Instance.new("UIListLayout")
+	local pad = Instance.new("UIPadding", panel)
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.PaddingRight = UDim.new(0, 8)
+	pad.PaddingTop = UDim.new(0, 6)
+	pad.PaddingBottom = UDim.new(0, 6)
+
+	local layout = Instance.new("UIListLayout", panel)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, 6)
-	layout.Parent = panel
 
-	-- Currency bar
-	local currencyBar = Instance.new("Frame")
-	currencyBar.Name = "CurrencyBar"
-	currencyBar.Size = UDim2.new(1, -16, 0, 50)
+	local currencyBar = Instance.new("Frame", panel)
+	currencyBar.Size = UDim2.new(1, 0, 0, 50)
 	currencyBar.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 	currencyBar.BorderSizePixel = 0
 	currencyBar.LayoutOrder = 1
-	currencyBar.Parent = panel
 	Instance.new("UICorner", currencyBar).CornerRadius = UDim.new(0, 6)
 
-	local ml = Instance.new("TextLabel")
-	ml.Name = "MoneyLabel"
+	local ml = Instance.new("TextLabel", currencyBar)
 	ml.Size = UDim2.new(1, 0, 0.5, 0)
 	ml.Position = UDim2.new(0, 8, 0, 0)
 	ml.BackgroundTransparency = 1
@@ -288,11 +306,9 @@ local function buildGui(): ()
 	ml.TextSize = 14
 	ml.TextXAlignment = Enum.TextXAlignment.Left
 	ml.Text = "Money: $0"
-	ml.Parent = currencyBar
 	moneyLabel = ml
 
-	local bbl = Instance.new("TextLabel")
-	bbl.Name = "BoostBucksLabel"
+	local bbl = Instance.new("TextLabel", currencyBar)
 	bbl.Size = UDim2.new(1, 0, 0.5, 0)
 	bbl.Position = UDim2.new(0, 8, 0.5, 0)
 	bbl.BackgroundTransparency = 1
@@ -301,13 +317,10 @@ local function buildGui(): ()
 	bbl.TextSize = 12
 	bbl.TextXAlignment = Enum.TextXAlignment.Left
 	bbl.Text = "Boost Bucks: 0"
-	bbl.Parent = currencyBar
 	boostBucksLabel = bbl
 
-	-- Error text
-	local errLabel = Instance.new("TextLabel")
-	errLabel.Name = "ErrorLabel"
-	errLabel.Size = UDim2.new(1, -16, 0, 22)
+	local errLabel = Instance.new("TextLabel", panel)
+	errLabel.Size = UDim2.new(1, 0, 0, 20)
 	errLabel.BackgroundTransparency = 1
 	errLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
 	errLabel.Font = Enum.Font.Gotham
@@ -316,56 +329,50 @@ local function buildGui(): ()
 	errLabel.Text = ""
 	errLabel.Visible = false
 	errLabel.LayoutOrder = 2
-	errLabel.Parent = panel
 	errorLabel = errLabel
 
-	-- Machine cards
 	for idx, spec in ipairs(MACHINES) do
 		local mid = machineId(teamFolder, spec.suffix)
 
-		local card = Instance.new("Frame")
+		local card = Instance.new("Frame", panel)
 		card.Name = "Card_" .. spec.name:gsub(" ", "")
-		card.Size = UDim2.new(1, -16, 0, 110)
+		card.Size = UDim2.new(1, 0, 0, 170)
 		card.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
 		card.BorderSizePixel = 0
 		card.LayoutOrder = idx + 2
-		card.Parent = panel
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
 
-		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size = UDim2.new(1, 0, 0, 22)
-		nameLabel.Position = UDim2.new(0, 8, 0, 4)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-		nameLabel.Font = Enum.Font.GothamBold
-		nameLabel.TextSize = 14
-		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		nameLabel.Text = spec.name
-		nameLabel.Parent = card
+		local nL = Instance.new("TextLabel", card)
+		nL.Size = UDim2.new(1, 0, 0, 22)
+		nL.Position = UDim2.new(0, 8, 0, 4)
+		nL.BackgroundTransparency = 1
+		nL.TextColor3 = Color3.fromRGB(255, 255, 255)
+		nL.Font = Enum.Font.GothamBold
+		nL.TextSize = 14
+		nL.TextXAlignment = Enum.TextXAlignment.Left
+		nL.Text = spec.name
 
-		local sLevelLbl = Instance.new("TextLabel")
-		sLevelLbl.Size = UDim2.new(0.5, -4, 0, 18)
-		sLevelLbl.Position = UDim2.new(0, 8, 0, 28)
-		sLevelLbl.BackgroundTransparency = 1
-		sLevelLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-		sLevelLbl.Font = Enum.Font.Gotham
-		sLevelLbl.TextSize = 12
-		sLevelLbl.TextXAlignment = Enum.TextXAlignment.Left
-		sLevelLbl.Text = "Speed: 0/5"
-		sLevelLbl.Parent = card
+		local sLL = Instance.new("TextLabel", card)
+		sLL.Size = UDim2.new(0.5, -4, 0, 18)
+		sLL.Position = UDim2.new(0, 8, 0, 28)
+		sLL.BackgroundTransparency = 1
+		sLL.TextColor3 = Color3.fromRGB(200, 200, 200)
+		sLL.Font = Enum.Font.Gotham
+		sLL.TextSize = 12
+		sLL.TextXAlignment = Enum.TextXAlignment.Left
+		sLL.Text = "Speed: 0/5"
 
-		local oLevelLbl = Instance.new("TextLabel")
-		oLevelLbl.Size = UDim2.new(0.5, -4, 0, 18)
-		oLevelLbl.Position = UDim2.new(0.5, 0, 0, 28)
-		oLevelLbl.BackgroundTransparency = 1
-		oLevelLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
-		oLevelLbl.Font = Enum.Font.Gotham
-		oLevelLbl.TextSize = 12
-		oLevelLbl.TextXAlignment = Enum.TextXAlignment.Left
-		oLevelLbl.Text = "Output: 0/5"
-		oLevelLbl.Parent = card
+		local oLL = Instance.new("TextLabel", card)
+		oLL.Size = UDim2.new(0.5, -4, 0, 18)
+		oLL.Position = UDim2.new(0.5, 0, 0, 28)
+		oLL.BackgroundTransparency = 1
+		oLL.TextColor3 = Color3.fromRGB(200, 200, 200)
+		oLL.Font = Enum.Font.Gotham
+		oLL.TextSize = 12
+		oLL.TextXAlignment = Enum.TextXAlignment.Left
+		oLL.Text = "Output: 0/5"
 
-		local sBtn = Instance.new("TextButton")
+		local sBtn = Instance.new("TextButton", card)
 		sBtn.Size = UDim2.new(0.5, -12, 0, 48)
 		sBtn.Position = UDim2.new(0, 4, 0, 54)
 		sBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 60)
@@ -374,10 +381,9 @@ local function buildGui(): ()
 		sBtn.TextSize = 11
 		sBtn.BorderSizePixel = 0
 		sBtn.Text = "Upgrade Speed"
-		sBtn.Parent = card
 		Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 4)
 
-		local oBtn = Instance.new("TextButton")
+		local oBtn = Instance.new("TextButton", card)
 		oBtn.Size = UDim2.new(0.5, -12, 0, 48)
 		oBtn.Position = UDim2.new(0.5, 4, 0, 54)
 		oBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 160)
@@ -386,15 +392,38 @@ local function buildGui(): ()
 		oBtn.TextSize = 11
 		oBtn.BorderSizePixel = 0
 		oBtn.Text = "Upgrade Output"
-		oBtn.Parent = card
 		Instance.new("UICorner", oBtn).CornerRadius = UDim.new(0, 4)
 
+		local sBBBtn = Instance.new("TextButton", card)
+		sBBBtn.Size = UDim2.new(0.5, -12, 0, 46)
+		sBBBtn.Position = UDim2.new(0, 4, 0, 108)
+		sBBBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 100)
+		sBBBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		sBBBtn.Font = Enum.Font.Gotham
+		sBBBtn.TextSize = 10
+		sBBBtn.BorderSizePixel = 0
+		sBBBtn.Text = "BB Speed"
+		Instance.new("UICorner", sBBBtn).CornerRadius = UDim.new(0, 4)
+
+		local oBBBtn = Instance.new("TextButton", card)
+		oBBBtn.Size = UDim2.new(0.5, -12, 0, 46)
+		oBBBtn.Position = UDim2.new(0.5, 4, 0, 108)
+		oBBBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 160)
+		oBBBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		oBBBtn.Font = Enum.Font.Gotham
+		oBBBtn.TextSize = 10
+		oBBBtn.BorderSizePixel = 0
+		oBBBtn.Text = "BB Output"
+		Instance.new("UICorner", oBBBtn).CornerRadius = UDim.new(0, 4)
+
 		local info = {
-			machineId = mid,
-			speedBtn = sBtn,
-			outputBtn = oBtn,
-			speedLabel = sLevelLbl,
-			outputLabel = oLevelLbl,
+			machineId   = mid,
+			speedBtn    = sBtn,
+			outputBtn   = oBtn,
+			speedBBBtn  = sBBBtn,
+			outputBBBtn = oBBBtn,
+			speedLabel  = sLL,
+			outputLabel = oLL,
 		}
 		table.insert(cardFrames, info)
 
@@ -405,13 +434,14 @@ local function buildGui(): ()
 		oBtn.MouseButton1Click:Connect(function()
 			onBuyPressed(capturedMid, "output", oBtn)
 		end)
+		sBBBtn.MouseButton1Click:Connect(function()
+			onBuyBBPressed(capturedMid, "speed", sBBBtn)
+		end)
+		oBBBtn.MouseButton1Click:Connect(function()
+			onBuyBBPressed(capturedMid, "output", oBBBtn)
+		end)
 	end
 
-	-- Adjust panel height to fit content
-	local totalHeight = layout.AbsoluteContentSize.Y + 16
-	panel.Size = UDim2.new(0, 320, 0, math.max(totalHeight, 200))
-
-	-- Toggle logic
 	toggleBtn.MouseButton1Click:Connect(function()
 		panelOpen = not panelOpen
 		panel.Visible = panelOpen
@@ -424,13 +454,9 @@ local function buildGui(): ()
 	end)
 end
 
--- ── Remote Event Listeners ─────────────────────────────────────────────────
-
 MoneyUpdated.OnClientEvent:Connect(function(data: { delta: number, total: number })
 	cachedMoney = data.total or cachedMoney
-	if panelOpen then
-		refreshAll()
-	end
+	if panelOpen then refreshAll() end
 end)
 
 UpgradePurchased.OnClientEvent:Connect(function(data: {
@@ -447,19 +473,18 @@ UpgradePurchased.OnClientEvent:Connect(function(data: {
 	else
 		cachedLevels[data.machineId].output = data.newLevel
 	end
-	if panelOpen then
-		refreshAll()
-	end
+	if panelOpen then refreshAll() end
 end)
 
--- Wait for team assignment before building (player may spawn before team is set)
+BoostBucksUpdated.OnClientEvent:Connect(function(data: { balance: number })
+	cachedBoostBucks = data.balance or cachedBoostBucks
+	if panelOpen then refreshAll() end
+end)
+
 task.spawn(function()
-	local maxWait = 10
 	local elapsed = 0
-	while elapsed < maxWait do
-		if localPlayer.Team then
-			break
-		end
+	while elapsed < 10 do
+		if localPlayer.Team then break end
 		task.wait(0.5)
 		elapsed += 0.5
 	end
