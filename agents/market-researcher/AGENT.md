@@ -67,7 +67,7 @@ Suggested first milestone: {what the first playable version includes}
 Market Researcher must never:
 - Modify `games/{game-name}/plan.md` or any file under `games/`.
 - Modify `memory/` files.
-- Modify `specs/` files.
+- Modify `games/{game-name}/spec.md` files or any other files under `games/`.
 - Interact with the night cycle, Builder, Planner, or QA.
 - Write to `reports/morning/`.
 - Propose ideas for games that are already under active development in `games/` (check the games directory before generating ideas).
