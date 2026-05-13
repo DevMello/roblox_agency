@@ -4,6 +4,20 @@ An autonomous multi-agent system that builds Roblox games while you sleep. Drop 
 
 ---
 
+## Web UI
+
+A browser-based control plane for managing games, monitoring runs, editing specs, and configuring the system.
+
+**Quick start:**
+```bash
+pip install -e ./webui
+agency
+```
+
+Opens `http://127.0.0.1:7432` in your browser. See [`webui/README.md`](webui/README.md) for full docs and options.
+
+---
+
 ## Overview
 
 This repository is an AI-powered development agency that autonomously plans, builds, tests, and reports on Roblox game projects. Two primary AI actors divide responsibility across three daily operational windows. Humans review work each morning and leave feedback; agents execute each night.
