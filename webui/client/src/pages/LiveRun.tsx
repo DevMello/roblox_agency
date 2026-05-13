@@ -102,10 +102,10 @@ export default function LiveRun() {
     try {
       const [runData, logsData] = await Promise.all([
         apiGet<Run>(`${API}/runs/${id}`),
-        apiGet<{ lines: string[] }>(`${API}/runs/${id}/logs?n=500`),
+        apiGet<{ logs: string[] }>(`${API}/runs/${id}/logs?n=500`),
       ])
       setRun(runData)
-      setLogs(logsData.lines ?? [])
+      setLogs(logsData.logs ?? [])
     } catch {
       // silently ignore transient errors during polling
     }

@@ -8,6 +8,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from webui.server import config as cfg
 from webui.server.services.repo import repo_service  # type: ignore[attr-defined]
 
 router = APIRouter(tags=["specs"])
@@ -41,7 +42,7 @@ async def get_spec(game: str):
 @router.put("/{game}")
 async def update_spec(game: str, body: dict):
     content = body.get("content", "")
-    repo_service.write_file(f"specs/{game}/spec.md", content)
+    repo_service.write_spec(game, content)
     return {"saved": True}
 
 
@@ -72,7 +73,7 @@ async def generate_spec(body: dict):
                     "## Out of Scope"
                 )
                 with client.messages.stream(
-                    model="claude-opus-4-5",
+                    model=cfg.ANTHROPIC_MODEL,
                     max_tokens=2000,
                     system=system,
                     messages=[

@@ -57,6 +57,13 @@ class RepoService:
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_text(content, encoding="utf-8")
 
+    def write_spec(self, game: str, content: str) -> None:
+        """Write specs/{game}/spec.md via dedicated route-only path."""
+        path = f"specs/{game}/spec.md"
+        abs_path = self._resolve(path)
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        abs_path.write_text(content, encoding="utf-8")
+
     def append_to_file(self, path: str, text: str) -> None:
         """Append text to file (used for override/blockers)."""
         abs_path = self._resolve(path)
@@ -152,19 +159,25 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def _count_open_blockers(self, game: str) -> int:
-        """Count open blockers in memory/blockers.md for a given game (all if game is '*')."""
+        """Count unresolved blockers in memory/blockers.md for a given game."""
         blockers_path = self._root() / "memory" / "blockers.md"
         if not blockers_path.exists():
             return 0
         content = blockers_path.read_text(encoding="utf-8")
-        # Split into sections by ## Blocker: ...
         sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
         count = 0
         for section in sections:
             if not section.strip():
                 continue
+            game_match = re.search(r"^Game:\s*(.+)$", section, re.MULTILINE)
+            section_game = game_match.group(1).strip().lower() if game_match else ""
+            if game != "*" and section_game != game.lower():
+                continue
+            resolved_match = re.search(r"^Resolved:\s*(.*)$", section, re.MULTILINE)
             status_match = re.search(r"^Status:\s*(\w+)", section, re.MULTILINE)
-            if status_match and status_match.group(1).lower() == "open":
+            is_open_by_resolved = resolved_match is not None and not resolved_match.group(1).strip()
+            is_open_by_status = status_match is not None and status_match.group(1).lower() == "open"
+            if is_open_by_resolved or is_open_by_status:
                 count += 1
         return count
 

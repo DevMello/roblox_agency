@@ -21,7 +21,13 @@ export function useGit() {
 
   const gitQuery = useQuery<GitData>({
     queryKey: ['git'],
-    queryFn: () => fetchJson<GitData>(`${API}/git`),
+    queryFn: async () => {
+      const [branches, prs] = await Promise.all([
+        fetchJson<Branch[]>(`${API}/git/branches`),
+        fetchJson<PR[]>(`${API}/git/prs`),
+      ])
+      return { branches, prs }
+    },
   })
 
   const checkoutMutation = useMutation<void, Error, { branch: string }>({

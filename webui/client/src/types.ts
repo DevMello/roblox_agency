@@ -58,13 +58,10 @@ export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked'
 export interface PR {
   number: number
   title: string
-  branch: string
-  game: string
-  status: 'open' | 'merged' | 'closed'
-  labels: string[]
-  qa_verdict: 'approved' | 'failed' | null
-  created_at: string
-  diff_url: string
+  headRefName: string
+  state: 'OPEN' | 'CLOSED' | 'MERGED'
+  url: string
+  createdAt: string
 }
 
 export interface Blocker {
@@ -110,7 +107,8 @@ export interface ScheduledJob {
 export interface Branch {
   name: string
   is_current: boolean
-  last_commit: string | null
+  last_commit_sha: string
+  last_commit_message: string
 }
 
 export interface Commit {

@@ -13,6 +13,12 @@ interface MCPHealth {
   [name: string]: 'up' | 'down' | 'unknown'
 }
 
+interface MCPHealthEntry {
+  name: string
+  status: 'up' | 'down' | 'unknown'
+  detail?: string
+}
+
 interface EnvEntry {
   key: string
   has_value: boolean
@@ -69,7 +75,14 @@ function MCPSection() {
         fetch('/api/v1/config/mcp/health'),
       ])
       if (sRes.ok) setServers(await sRes.json())
-      if (hRes.ok) setHealth(await hRes.json())
+      if (hRes.ok) {
+        const rows = await hRes.json() as MCPHealthEntry[]
+        const healthByName: MCPHealth = {}
+        rows.forEach((entry) => {
+          healthByName[entry.name] = entry.status
+        })
+        setHealth(healthByName)
+      }
     } catch {
       setError('Failed to load MCP config')
     }

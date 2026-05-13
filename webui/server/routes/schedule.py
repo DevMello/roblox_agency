@@ -14,10 +14,13 @@ async def list_schedule():
 @router.post("/")
 async def add_job(body: dict):
     try:
+        cron = body.get("cron_expr") or body.get("cron")
+        if not cron:
+            raise KeyError("cron_expr")
         job_id = _svc().add_job(
             game=body["game"],
             script=body["script"],
-            cron=body["cron"],
+            cron=cron,
             label=body.get("label", ""),
         )
         return {"job_id": job_id}

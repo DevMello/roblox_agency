@@ -21,7 +21,7 @@ def _script_cmd(name: str):
 def _save_run(run_id, game, script, pid):
     with _db() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO runs (run_id, game, script, status, started_at, pid) VALUES (?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO runs (id, game, script, status, started_at, pid) VALUES (?,?,?,?,?,?)",
             (run_id, game, script, "running", datetime.datetime.utcnow().isoformat(), pid)
         )
 
@@ -42,7 +42,7 @@ async def get_run(run_id: str):
     except Exception:
         logs, alive = [], False
     with _db() as conn:
-        row = conn.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        row = conn.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
     if not row:
         raise HTTPException(404)
     return {**dict(row), "logs": logs, "is_alive": alive}
@@ -113,7 +113,7 @@ async def kill_run(run_id: str):
         killed = process_manager.kill(run_id)
         if killed:
             with _db() as conn:
-                conn.execute("UPDATE runs SET status='killed' WHERE run_id=?", (run_id,))
+                conn.execute("UPDATE runs SET status='killed' WHERE id=?", (run_id,))
         return {"killed": killed}
     except Exception as e:
         raise HTTPException(500, str(e))

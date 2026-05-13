@@ -73,8 +73,8 @@ export default function LiveEdit() {
   useEffect(() => {
     if (!game) return
     setHistoryLoading(true)
-    apiGet<{ history: OverrideHistoryItem[] }>(`${API}/edits/history/${game}`)
-      .then(data => setHistory(data.history ?? []))
+    apiGet<{ entries: OverrideHistoryItem[] }>(`${API}/edits/history/${game}`)
+      .then(data => setHistory(data.entries ?? []))
       .catch(() => setHistory([]))
       .finally(() => setHistoryLoading(false))
   }, [game])
@@ -98,8 +98,8 @@ export default function LiveEdit() {
       setTargetFile('')
       setApplyImmediately(false)
       // Refresh history
-      const data = await apiGet<{ history: OverrideHistoryItem[] }>(`${API}/edits/history/${game}`)
-      setHistory(data.history ?? [])
+      const data = await apiGet<{ entries: OverrideHistoryItem[] }>(`${API}/edits/history/${game}`)
+      setHistory(data.entries ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed')
     } finally {

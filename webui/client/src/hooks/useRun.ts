@@ -12,9 +12,16 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 interface RunDetails {
-  run: Run
-  tasks: Task[]
+  id: string
+  game: string | null
+  script: RunScript
+  status: Run['status']
+  started_at: string
+  ended_at: string | null
+  exit_code: number | null
+  pid: number | null
   logs: string[]
+  is_alive: boolean
 }
 
 export function useRun(runId?: string) {
@@ -27,8 +34,12 @@ export function useRun(runId?: string) {
   })
 
   const launchMutation = useMutation<Run, Error, { script: RunScript; game: string }>({
-    mutationFn: ({ script, game }) =>
-      fetchJson<Run>(`${API}/runs/${script}/${game}`, { method: 'POST' }),
+    mutationFn: ({ script, game }) => {
+      if (script === 'night-cycle' || script === 'architect') {
+        return fetchJson<Run>(`${API}/runs/${script}/${game}`, { method: 'POST' })
+      }
+      throw new Error(`Unsupported launch script: ${script}`)
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['runs'] })
     },
@@ -46,8 +57,8 @@ export function useRun(runId?: string) {
   })
 
   return {
-    run: runQuery.data?.run ?? null,
-    tasks: runQuery.data?.tasks ?? [],
+    run: runQuery.data ?? null,
+    tasks: [] as Task[],
     logs: runQuery.data?.logs ?? [],
     isLoading: runQuery.isLoading,
     error: runQuery.error,

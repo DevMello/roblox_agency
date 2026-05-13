@@ -7,9 +7,11 @@ logger = logging.getLogger(__name__)
 class WSHub:
     def __init__(self):
         self._connections: list[WebSocket] = []
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
+        self._loop = asyncio.get_running_loop()
         self._connections.append(ws)
 
     def _remove(self, ws: WebSocket):
@@ -30,9 +32,8 @@ class WSHub:
     def broadcast_sync(self, event: dict):
         """Call from sync thread (watchdog, process manager)."""
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.run_coroutine_threadsafe(self.broadcast(event), loop)
+            if self._loop and self._loop.is_running():
+                asyncio.run_coroutine_threadsafe(self.broadcast(event), self._loop)
         except Exception:
             pass
 

@@ -137,27 +137,22 @@ function EmptyState() {
 
 // ── sidebar ───────────────────────────────────────────────────────────────────
 
-interface DirsResponse {
-  files: Array<{ name: string; path: string; type: string }>
-}
-
-interface ScheduleResponse {
-  upcoming: Array<{ id: string; label: string; next_run: string; script: string }>
-}
+type DirEntry = { name: string; path: string; is_dir: boolean }
+type UpcomingScheduleEntry = { job_id: string; next_run_time: string }
 
 function RightSidebar() {
-  const { data: dirsData } = useQuery<DirsResponse>({
+  const { data: dirsData } = useQuery<DirEntry[]>({
     queryKey: ['dirs', 'reports/morning'],
     queryFn: () =>
       fetch('/api/v1/files/dirs/reports/morning').then((r) => {
-        if (r.status === 404) return { files: [] } // No reports yet, that's OK
+        if (r.status === 404) return [] // No reports yet, that's OK
         if (!r.ok) throw new Error('Failed to fetch morning reports')
         return r.json()
       }),
     refetchInterval: 60_000,
   })
 
-  const { data: scheduleData } = useQuery<ScheduleResponse>({
+  const { data: scheduleData } = useQuery<UpcomingScheduleEntry[]>({
     queryKey: ['schedule', 'upcoming', 3],
     queryFn: () =>
       fetch('/api/v1/schedule/upcoming?n=3').then((r) => {
@@ -167,12 +162,12 @@ function RightSidebar() {
     refetchInterval: 60_000,
   })
 
-  const reports = (dirsData?.files ?? [])
+  const reports = (dirsData ?? [])
     .filter((f) => f.name.endsWith('.md'))
     .slice(-5)
     .reverse()
 
-  const upcoming = scheduleData?.upcoming ?? []
+  const upcoming = scheduleData ?? []
 
   async function triggerMorningReport() {
     try {
@@ -222,14 +217,14 @@ function RightSidebar() {
           <p className="text-text-muted font-body text-xs">No scheduled runs.</p>
         ) : (
           <ul className="space-y-2">
-            {upcoming.map((job) => (
-              <li key={job.id} className="flex flex-col gap-0.5">
-                <span className="text-xs text-text-primary font-body font-medium truncate">
-                  {job.label}
-                </span>
-                <span className="text-xs font-mono text-text-muted">{job.next_run}</span>
-              </li>
-            ))}
+              {upcoming.map((job) => (
+                <li key={job.job_id} className="flex flex-col gap-0.5">
+                  <span className="text-xs text-text-primary font-body font-medium truncate">
+                    {job.job_id}
+                  </span>
+                  <span className="text-xs font-mono text-text-muted">{job.next_run_time}</span>
+                </li>
+              ))}
           </ul>
         )}
       </section>

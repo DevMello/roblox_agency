@@ -14,9 +14,14 @@ async def get_mcp_servers():
 async def add_mcp_server(body: dict):
     try:
         from webui.server.services.mcp_registry import mcp_registry
-        name = body.pop("name")
+        name = body.get("name")
+        if not name:
+            raise HTTPException(400, "name is required")
+        body = {k: v for k, v in body.items() if k != "name"}
         mcp_registry.add_server(name, body)
         return {"saved": True}
+    except HTTPException:
+        raise
     except Exception as e: raise HTTPException(500, str(e))
 
 @router.delete("/mcp/{name}")

@@ -10,17 +10,14 @@ interface ScheduledJob {
   cron_expr: string
   timezone: string
   active: boolean
-  next_run: string
+  next_run_time: string | null
   last_run: string | null
   last_run_status: 'ok' | 'failed' | null
 }
 
 interface UpcomingJob {
-  id: string
-  label: string
-  next_run: string
-  game: string
-  script: string
+  job_id: string
+  next_run_time: string
 }
 
 interface Game {
@@ -86,7 +83,10 @@ export default function Schedule() {
         fetch('/api/v1/schedule/upcoming?n=5'),
         fetch('/api/v1/games/'),
       ])
-      if (jobsRes.ok) setJobs(await jobsRes.json())
+      if (jobsRes.ok) {
+        const jobsData = (await jobsRes.json()) as Array<Omit<ScheduledJob, 'active'> & { active: number | boolean }>
+        setJobs(jobsData.map(job => ({ ...job, active: Boolean(job.active) })))
+      }
       if (upcomingRes.ok) setUpcoming(await upcomingRes.json())
       if (gamesRes.ok) setGames(await gamesRes.json())
     } catch {
@@ -258,15 +258,11 @@ export default function Schedule() {
           <h2 className="text-sm font-semibold text-text-primary mb-3">Upcoming (next 5)</h2>
           <div className="space-y-2">
             {upcoming.map(job => (
-              <div key={job.id} className="flex items-center justify-between text-sm">
+              <div key={job.job_id} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-3">
-                  <span className="text-text-primary">{job.label}</span>
-                  {job.game && (
-                    <span className="badge badge-pending">{job.game}</span>
-                  )}
-                  <span className="text-text-muted text-xs font-mono">{job.script}</span>
+                  <span className="text-text-primary font-mono">{job.job_id}</span>
                 </div>
-                <span className="text-text-muted text-xs font-mono">{formatDate(job.next_run)}</span>
+                <span className="text-text-muted text-xs font-mono">{formatDate(job.next_run_time)}</span>
               </div>
             ))}
           </div>
@@ -326,7 +322,7 @@ export default function Schedule() {
                     {job.cron_expr}
                   </td>
                   <td className="px-4 py-3 text-text-muted text-xs">
-                    {formatDate(job.next_run)}
+                    {formatDate(job.next_run_time)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">

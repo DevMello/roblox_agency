@@ -49,7 +49,7 @@ class ProcessManager:
                 try:
                     from webui.server.routes.ws import ws_hub  # type: ignore[attr-defined]
 
-                    ws_hub.broadcast(
+                    ws_hub.broadcast_sync(
                         {"type": "run.log", "run_id": mp.run_id, "line": buffered}
                     )
                 except (ImportError, AttributeError):
