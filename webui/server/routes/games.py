@@ -92,19 +92,33 @@ async def get_progress(game: str):
 
 @router.get("/{game}/overrides")
 async def get_overrides(game: str):
-    """Return structured overrides for this game from memory/human-overrides.md."""
+    """Return structured overrides from game-scoped and agency-level human-overrides.md."""
+    combined_entries: list = []
+    combined_raw = ""
+
+    # Game-scoped overrides (primary)
     try:
-        content = repo_service.read_file("memory/human-overrides.md")
-        entries = markdown_service.parse_overrides(content, game_filter=game)
-        # Also return all entries if game-specific is empty
-        all_entries = markdown_service.parse_overrides(content)
-        return {
-            "entries": entries if entries else all_entries,
-            "filtered": bool(entries),
-            "raw": content,
-        }
+        game_content = repo_service.read_file(f"games/{game}/memory/human-overrides.md")
+        combined_entries += markdown_service.parse_overrides(game_content)
+        combined_raw += game_content
     except FileNotFoundError:
-        return {"entries": [], "filtered": False, "raw": ""}
+        pass
+
+    # Agency-level overrides filtered to this game (fallback / legacy)
+    try:
+        agency_content = repo_service.read_file("memory/human-overrides.md")
+        agency_entries = markdown_service.parse_overrides(agency_content, game_filter=game)
+        combined_entries += agency_entries
+        if agency_entries:
+            combined_raw += "\n" + agency_content
+    except FileNotFoundError:
+        pass
+
+    return {
+        "entries": combined_entries,
+        "filtered": True,
+        "raw": combined_raw,
+    }
 
 
 @router.post("/{game}/overrides")
@@ -116,33 +130,46 @@ async def add_override(game: str, body: dict):
     return {"saved": True}
 
 
+def _parse_open_blockers(content: str, default_game: str) -> list:
+    sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
+    blockers = []
+    for s in sections:
+        if not s.strip():
+            continue
+        id_match = re.search(r"ID:\s*(\S+)", s)
+        status_match = re.search(r"Status:\s*(\S+)", s)
+        title_match = re.match(r"## Blocker:\s*(.+)", s)
+        game_match = re.search(r"Game:\s*(\S+)", s)
+        desc_match = re.search(r"Description:\s*(.+)", s, re.DOTALL)
+        if id_match and status_match and status_match.group(1) == "open":
+            blockers.append({
+                "id": id_match.group(1),
+                "title": title_match.group(1).strip() if title_match else "",
+                "status": status_match.group(1),
+                "game": game_match.group(1) if game_match else default_game,
+                "description": desc_match.group(1).strip()[:200] if desc_match else "",
+            })
+    return blockers
+
+
 @router.get("/{game}/blockers")
 async def get_blockers(game: str):
+    blockers: list = []
+    # Game-scoped blockers (primary)
     try:
-        content = repo_service.read_file("memory/blockers.md")
-        sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
-        blockers = []
-        for s in sections:
-            if not s.strip():
-                continue
-            id_match = re.search(r"ID:\s*(\S+)", s)
-            status_match = re.search(r"Status:\s*(\S+)", s)
-            title_match = re.match(r"## Blocker:\s*(.+)", s)
-            game_match = re.search(r"Game:\s*(\S+)", s)
-            desc_match = re.search(r"Description:\s*(.+)", s, re.DOTALL)
-            if id_match and status_match and status_match.group(1) == "open":
-                blockers.append(
-                    {
-                        "id": id_match.group(1),
-                        "title": title_match.group(1).strip() if title_match else "",
-                        "status": status_match.group(1),
-                        "game": game_match.group(1) if game_match else game,
-                        "description": desc_match.group(1).strip()[:200] if desc_match else "",
-                    }
-                )
-        return blockers
+        game_content = repo_service.read_file(f"games/{game}/memory/blockers.md")
+        blockers += _parse_open_blockers(game_content, game)
+    except FileNotFoundError:
+        pass
+    # Agency-level blockers filtered to this game
+    try:
+        agency_content = repo_service.read_file("memory/blockers.md")
+        for b in _parse_open_blockers(agency_content, game):
+            if b["game"].lower() == game.lower():
+                blockers.append(b)
     except Exception:
-        return []
+        pass
+    return blockers
 
 
 @router.post("/{game}/blockers/resolve")

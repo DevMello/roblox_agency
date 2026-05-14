@@ -134,7 +134,7 @@ export default function LiveEdit() {
           Live Edit — <span style={{ color: '#7C6FFF' }}>{game}</span>
         </h1>
         <p style={{ color: '#6E6C85', fontSize: 13, marginBottom: 24, marginTop: 0 }}>
-          Submit a human override. This appends to <code style={{ color: '#7C6FFF', fontFamily: 'JetBrains Mono, monospace' }}>memory/human-overrides.md</code>.
+          Submit a human override. This appends to <code style={{ color: '#7C6FFF', fontFamily: 'JetBrains Mono, monospace' }}>games/{game}/memory/human-overrides.md</code>.
         </p>
 
         {/* ── Success banner ── */}

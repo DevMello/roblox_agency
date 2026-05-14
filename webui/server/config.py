@@ -63,7 +63,7 @@ WRITE_PROTECTED_DIRS: list[str] = [
     "scripts",
     ".github",
     "workflows",
-    "specs",   # specs can be written, but only via the dedicated specs route
+    "specs",  # only holds template.md — game specs now live in games/{game}/spec.md
 ]
 
 WRITE_PROTECTED_FILES: list[str] = [

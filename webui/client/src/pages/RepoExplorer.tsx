@@ -19,7 +19,7 @@ interface FileData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const PROTECTED = ['memory/human-overrides.md', 'agents/', 'config/', 'workflows/', 'specs/']
+const PROTECTED = ['memory/human-overrides.md', 'agents/', 'config/', 'workflows/', 'specs/template.md']
 
 function isProtected(path: string): boolean {
   return PROTECTED.some(p => path === p || path.startsWith(p))

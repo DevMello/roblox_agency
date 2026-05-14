@@ -8,7 +8,9 @@
       "Bash(git branch *)",
       "Bash(git push *)",
       "Bash(mv \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon/.claude\" \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/games/tycoon-game/.claude\")",
-      "Bash(rm -rf \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon\")"
+      "Bash(rm -rf \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon\")",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }

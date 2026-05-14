@@ -40,11 +40,14 @@ async def submit_edit(game: str, body: dict):
 
 @router.get("/history/{game}")
 async def edit_history(game: str):
-    try:
-        from webui.server.services.repo import repo_service
-        import re
-        content = repo_service.read_file("memory/human-overrides.md")
-        sections = re.split(r'(?=^## )', content, flags=re.MULTILINE)
-        return {"entries": [s.strip() for s in sections if game.lower() in s.lower() and s.strip()]}
-    except Exception:
-        return {"entries": []}
+    import re
+    from webui.server.services.repo import repo_service
+    entries: list[str] = []
+    for path in [f"games/{game}/memory/human-overrides.md", "memory/human-overrides.md"]:
+        try:
+            content = repo_service.read_file(path)
+            sections = re.split(r'(?=^## )', content, flags=re.MULTILINE)
+            entries += [s.strip() for s in sections if game.lower() in s.lower() and s.strip()]
+        except Exception:
+            pass
+    return {"entries": entries}

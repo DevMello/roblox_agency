@@ -20,7 +20,7 @@ async def list_specs():
         names = repo_service.game_names()
         result = []
         for name in names:
-            path = f"specs/{name}/spec.md"
+            path = f"games/{name}/spec.md"
             try:
                 repo_service.read_file(path)
                 result.append({"game": name, "path": path, "exists": True})
@@ -34,7 +34,7 @@ async def list_specs():
 @router.get("/{game}")
 async def get_spec(game: str):
     try:
-        return {"content": repo_service.read_file(f"specs/{game}/spec.md")}
+        return {"content": repo_service.read_file(f"games/{game}/spec.md")}
     except FileNotFoundError:
         raise HTTPException(404)
 

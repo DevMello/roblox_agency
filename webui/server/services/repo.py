@@ -58,8 +58,8 @@ class RepoService:
         abs_path.write_text(content, encoding="utf-8")
 
     def write_spec(self, game: str, content: str) -> None:
-        """Write specs/{game}/spec.md via dedicated route-only path."""
-        path = f"specs/{game}/spec.md"
+        """Write games/{game}/spec.md via dedicated route-only path."""
+        path = f"games/{game}/spec.md"
         abs_path = self._resolve(path)
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_text(content, encoding="utf-8")
@@ -158,27 +158,37 @@ class RepoService:
     # Blockers parser
     # ------------------------------------------------------------------
 
-    def _count_open_blockers(self, game: str) -> int:
-        """Count unresolved blockers in memory/blockers.md for a given game."""
-        blockers_path = self._root() / "memory" / "blockers.md"
-        if not blockers_path.exists():
-            return 0
-        content = blockers_path.read_text(encoding="utf-8")
+    def _count_open_in_content(self, content: str, game_filter: str) -> int:
+        """Count open blockers in a blockers.md content string.
+        Pass game_filter='*' to count all sections regardless of Game: field."""
         sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
         count = 0
         for section in sections:
             if not section.strip():
                 continue
-            game_match = re.search(r"^Game:\s*(.+)$", section, re.MULTILINE)
-            section_game = game_match.group(1).strip().lower() if game_match else ""
-            if game != "*" and section_game != game.lower():
-                continue
+            if game_filter != "*":
+                game_match = re.search(r"^Game:\s*(.+)$", section, re.MULTILINE)
+                section_game = game_match.group(1).strip().lower() if game_match else ""
+                if section_game != game_filter.lower():
+                    continue
             resolved_match = re.search(r"^Resolved:\s*(.*)$", section, re.MULTILINE)
             status_match = re.search(r"^Status:\s*(\w+)", section, re.MULTILINE)
             is_open_by_resolved = resolved_match is not None and not resolved_match.group(1).strip()
             is_open_by_status = status_match is not None and status_match.group(1).lower() == "open"
             if is_open_by_resolved or is_open_by_status:
                 count += 1
+        return count
+
+    def _count_open_blockers(self, game: str) -> int:
+        """Count unresolved blockers from both agency and game-scoped blockers.md."""
+        count = 0
+        agency_path = self._root() / "memory" / "blockers.md"
+        if agency_path.exists():
+            count += self._count_open_in_content(agency_path.read_text(encoding="utf-8"), game)
+        game_path = self._root() / "games" / game / "memory" / "blockers.md"
+        if game_path.exists():
+            # Every entry in the game-scoped file belongs to this game
+            count += self._count_open_in_content(game_path.read_text(encoding="utf-8"), "*")
         return count
 
     # ------------------------------------------------------------------
@@ -245,7 +255,7 @@ class RepoService:
             "milestone_count": len(plan_milestones),
             "milestones_done": sum(1 for m in plan_milestones if m.get("status") == "complete"),
             "recent_progress": recent_progress,
-            "spec_path": f"specs/{name}/spec.md",
+            "spec_path": f"games/{name}/spec.md",
             "plan_path": f"games/{name}/plan.md",
             "sprint_log_path": f"games/{name}/sprint-log.md",
             "progress_path": f"games/{name}/progress.md",
@@ -258,42 +268,30 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def append_override(self, game: str, text: str) -> None:
-        """Appends to memory/human-overrides.md with ## timestamp header."""
+        """Appends to games/{game}/memory/human-overrides.md (agency-level fallback)."""
         now = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
             "%Y-%m-%d %H:%M UTC"
         )
         header = f"\n## Override — {game} — {now}\n"
-        self.append_to_file("memory/human-overrides.md", header + text.rstrip() + "\n")
+        game_dir = self._root() / "games" / game
+        if game_dir.is_dir():
+            self.append_to_file(f"games/{game}/memory/human-overrides.md", header + text.rstrip() + "\n")
+        else:
+            self.append_to_file("memory/human-overrides.md", header + text.rstrip() + "\n")
 
-    def resolve_blockers(self, game: str, blocker_ids: list[str]) -> None:
-        """Sets Status: resolved on specified blocker IDs in memory/blockers.md."""
-        rel = "memory/blockers.md"
-        abs_path = self._resolve(rel)
+    def _resolve_ids_in_file(self, abs_path: Path, blocker_ids: list[str], now: str) -> None:
+        """Mutates a blockers.md file to mark the given IDs as resolved."""
         if not abs_path.exists():
             return
-
         content = abs_path.read_text(encoding="utf-8")
-        now = datetime.datetime.now(tz=datetime.timezone.utc).strftime(
-            "%Y-%m-%d %H:%M UTC"
-        )
-
-        # For each blocker_id, find the section containing that ID and flip status
         for bid in blocker_ids:
-            # Match the ID line and capture surrounding context to replace Status:
-            # Strategy: replace "Status: open" only within the section that contains "ID: blocker-{bid}"
-            # We split by section, mutate, and rejoin.
             sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
-            updated_sections: list[str] = []
+            updated: list[str] = []
             for section in sections:
                 if re.search(rf"^ID:\s*{re.escape(bid)}\s*$", section, re.MULTILINE):
-                    # Replace Status: open -> Status: resolved and inject resolved_at if absent
                     section = re.sub(
-                        r"^(Status:\s*)open\s*$",
-                        rf"\1resolved",
-                        section,
-                        flags=re.MULTILINE,
+                        r"^(Status:\s*)open\s*$", rf"\1resolved", section, flags=re.MULTILINE
                     )
-                    # Add Resolved-At line if not already present
                     if not re.search(r"^Resolved-At:", section, re.MULTILINE):
                         section = re.sub(
                             r"^(Status:\s*resolved)\s*$",
@@ -301,18 +299,25 @@ class RepoService:
                             section,
                             flags=re.MULTILINE,
                         )
-                updated_sections.append(section)
-            content = "".join(updated_sections)
-
+                updated.append(section)
+            content = "".join(updated)
         abs_path.write_text(content, encoding="utf-8")
+
+    def resolve_blockers(self, game: str, blocker_ids: list[str]) -> None:
+        """Sets Status: resolved on specified blocker IDs in agency and game-scoped blockers.md."""
+        now = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        self._resolve_ids_in_file(self._root() / "memory" / "blockers.md", blocker_ids, now)
+        self._resolve_ids_in_file(
+            self._root() / "games" / game / "memory" / "blockers.md", blocker_ids, now
+        )
 
     # ------------------------------------------------------------------
     # Spec path
     # ------------------------------------------------------------------
 
     def spec_path(self, game: str) -> str:
-        """Returns relative path specs/{game}/spec.md"""
-        return f"specs/{game}/spec.md"
+        """Returns relative path games/{game}/spec.md"""
+        return f"games/{game}/spec.md"
 
 
 # ---------------------------------------------------------------------------
