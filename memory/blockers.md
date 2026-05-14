@@ -1,6 +1,8 @@
-# Blockers
+# Agency-Level Blockers
 
-Current list of all known blockers across all active games. Planner reads this before every sprint and skips any task with an active blocker.
+Agency-level blockers only. Game-specific blockers are in `games/{game-name}/memory/blockers.md`.
+
+This file tracks system-wide blockers that affect the agency itself: MCP server outages, worker machine failures, cost cap exhaustion, CI/CD failures, and other cross-game issues. Do not record game-specific task blockers here.
 
 ---
 
@@ -19,7 +21,7 @@ Current list of all known blockers across all active games. Planner reads this b
 ## Blocker: {short description}
 ID: blocker-{YYYY-MM-DD-HH-MM}
 Added: {ISO 8601 timestamp}
-Game: {game-name}
+Game: {game-name | "agency-wide"}
 Task blocked: {task-id} — {task title}
 Description: {what the blocker is and why it prevents the task}
 Type: {missing-dependency | human-input-required | mcp-server-issue | spec-ambiguity | implementation-failure | external-dependency}
@@ -34,7 +36,7 @@ Resolution: {how it was resolved — or blank if still active}
 
 ## Active Blockers
 
-*No active blockers. This is the desired steady state.*
+*No active agency-level blockers. This is the desired steady state.*
 
 ---
 

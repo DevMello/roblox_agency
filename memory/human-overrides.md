@@ -2,6 +2,8 @@
 
 Append-only log of every change a human has made or requested. This file is the system's guarantee that human decisions are never reversed by autonomous agents.
 
+> **Memory split note (2026-05-13):** As of the game-repo isolation refactor, this file tracks **agency-level overrides only** — decisions that span all games or affect the agency system itself. Game-specific overrides (decisions about a particular game's design, features, or implementation) should be recorded in `games/{game-name}/memory/human-overrides.md` going forward. Existing entries below are preserved as required by the append-only policy; any that are game-specific are noted with a `[GAME-SPECIFIC — migrate to game repo]` comment.
+
 ---
 
 ## Rules
@@ -19,7 +21,7 @@ Append-only log of every change a human has made or requested. This file is the 
 ## Override: {short description}
 ID: override-{YYYY-MM-DD-HH-MM}
 Timestamp: {ISO 8601}
-Game: {game-name}
+Game: {game-name | "agency-wide"}
 Type: {live-edit | design-decision | feature-block | feature-require | cost-cap-override}
 Requested by: {human | builder-on-behalf-of-human}
 Request: {exact text of what was requested or decided}

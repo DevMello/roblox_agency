@@ -4,10 +4,23 @@ The memory system persists human intent and agent decisions across nights so con
 
 ---
 
+## Memory Split: Agency vs Game
+
+As of the game-repo isolation refactor, memory is split into two scopes:
+
+- **`memory/`** (this directory) — **Agency-level state only.** Cross-game decisions, system-wide blockers, human overrides that span all games, and worker registration. These files live in the agency repo.
+- **`games/{game-name}/memory/`** — **Game-specific state.** Per-game blockers, per-game architectural decisions, and per-game human overrides. These files live with the game (eventually in the game's own repository).
+
+`memory/game-states/` is no longer used for active state. Per-game state snapshots have moved to `games/{game-name}/memory/`. The `memory/game-states/` directory is retained for historical reference only — do not write new files there.
+
+---
+
 ## Files
 
 ### `memory/human-overrides.md`
-**What it tracks:** Every change or decision a human has made or requested. The permanent record of human intent.
+**What it tracks:** Every change or decision a human has made or requested at the agency level. The permanent record of human intent for cross-game and system-wide decisions.
+
+**Game-specific overrides:** Live at `games/{game-name}/memory/human-overrides.md`.
 
 **Who can write:** Humans directly, or Builder on behalf of a human (during live edits). Planner and other agents are read-only.
 
@@ -18,7 +31,9 @@ The memory system persists human intent and agent decisions across nights so con
 ---
 
 ### `memory/decisions.md`
-**What it tracks:** Significant architectural and design decisions made by agents, with rationale.
+**What it tracks:** Significant architectural and design decisions made by agents at the **agency level** (agent system design, workflow conventions, cross-game patterns). Not game-specific implementation decisions.
+
+**Game-specific decisions:** Live at `games/{game-name}/memory/decisions.md`.
 
 **Who can write:** Architect (after planning runs) and Planner (after each night cycle). Builder and QA are read-only. Humans may add entries manually.
 
@@ -29,22 +44,34 @@ The memory system persists human intent and agent decisions across nights so con
 ---
 
 ### `memory/blockers.md`
-**What it tracks:** All known blockers across all active games — reasons a task cannot be worked on.
+**What it tracks:** Agency-level blockers only — system-wide issues that affect the agency itself (MCP server outages, worker machine failures, cost cap hits, etc.). Not game-specific task blockers.
+
+**Game-specific blockers:** Live at `games/{game-name}/memory/blockers.md`.
 
 **Who can write:** Planner (adds and resolves blockers), Builder (adds blockers when it hits failures), QA (adds blockers on escalations). Read-only for Reporter.
 
-**Write frequency:** Whenever a new blocker is identified; whenever a blocker is resolved.
+**Write frequency:** Whenever a new agency-level blocker is identified; whenever a blocker is resolved.
 
 **Key property:** Resolved blockers are marked with a timestamp, not deleted. This creates a history of what problems were encountered and how they were resolved.
 
 ---
 
 ### `memory/game-states/{game-name}.md`
-**What it tracks:** A running snapshot of a single game's state. One file per game.
+**Status: DEPRECATED.** Per-game state snapshots have moved to `games/{game-name}/memory/`. This directory is retained for historical reference only. Do not write new files here.
 
-**Who can write:** Planner updates this after each night. Architect updates it after planning runs. Read-only for Builder, QA, Reporter.
+---
 
-**Write frequency:** After every night cycle.
+### `memory/workers.md`
+**What it tracks:** Registered worker machines — their IDs, capabilities, and last-seen timestamps.
+
+**Who can write:** `register-worker.sh` (appends new entries), Builder (updates `Last seen:` field after each task).
+
+---
+
+### `memory/workers/{worker-id}.md`
+**What it tracks:** Per-worker heartbeat files. Written after every task to confirm the worker is alive and which task it last completed.
+
+**Who can write:** Builder (heartbeat after each task), `launch-worker.sh`.
 
 ---
 
@@ -55,30 +82,38 @@ The memory system persists human intent and agent decisions across nights so con
 | `human-overrides.md` | — | read | write (on behalf of human) | — | read | **write** |
 | `decisions.md` | **write** | **write** | read | — | read | write |
 | `blockers.md` | — | **write** | **write** | write (escalations) | read | write |
-| `game-states/{name}.md` | **write** | **write** | read | — | read | — |
+| `game-states/{name}.md` | deprecated | deprecated | deprecated | — | — | — |
+| `workers.md` | — | — | **write** | — | — | — |
+| `workers/{id}.md` | — | — | **write** | — | — | — |
+| `games/{game}/memory/decisions.md` | **write** | **write** | read | — | read | write |
+| `games/{game}/memory/blockers.md` | — | **write** | **write** | write (escalations) | read | write |
+| `games/{game}/memory/human-overrides.md` | — | read | write (on behalf of human) | — | read | **write** |
 
 ---
 
 ## How Planner Uses Memory
 
 At the start of every night:
-1. Reads all of `human-overrides.md` — identifies active overrides to exclude from the sprint.
-2. Reads `blockers.md` — identifies tasks that cannot be scheduled.
-3. Reads `game-states/{game-name}.md` — cross-checks current state.
-4. Reads `decisions.md` — ensures tonight's sprint does not contradict recent architectural decisions.
+1. Reads `memory/human-overrides.md` — identifies active agency-level overrides.
+2. Reads `games/{game-name}/memory/human-overrides.md` — identifies active game-scoped overrides.
+3. Reads `memory/blockers.md` — identifies agency-level blockers (e.g. worker down, MCP server offline).
+4. Reads `games/{game-name}/memory/blockers.md` — identifies game-specific task blockers.
+5. Reads `memory/decisions.md` — ensures tonight's sprint does not contradict agency-level architectural decisions.
+6. Reads `games/{game-name}/memory/decisions.md` — ensures tonight's sprint does not contradict game-level decisions.
 
 At the end of every night:
-1. Writes new blockers and decisions to their respective files.
-2. Updates `game-states/{game-name}.md` with the night's progress.
+1. Writes new agency-level blockers and decisions to `memory/blockers.md` and `memory/decisions.md`.
+2. Writes new game-level blockers and decisions to `games/{game-name}/memory/blockers.md` and `games/{game-name}/memory/decisions.md`.
 
 ---
 
 ## How Reporter Uses Memory
 
 Each morning:
-1. Reads `blockers.md` — surfaces active blockers in the morning report.
-2. Reads `decisions.md` — notes significant new decisions in the report.
-3. Does not write to any memory file.
+1. Reads `memory/blockers.md` — surfaces active agency-level blockers in the morning report.
+2. Reads `games/{game-name}/memory/blockers.md` — surfaces active game-level blockers.
+3. Reads `memory/decisions.md` — notes significant new agency-level decisions in the report.
+4. Does not write to any memory file.
 
 ---
 
