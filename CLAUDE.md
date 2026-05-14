@@ -19,6 +19,7 @@ At the start of every session, read these files in order:
 3. `memory/blockers.md` — know what is currently blocked before planning any work.
 4. `memory/decisions.md` — know what architectural decisions have already been made.
 5. `architecture.md` - read the architecture of the codebase.
+6. `games/registry.md` — know which games are active and where their repos are cloned.
 
 If you are operating as a specific agent (Builder, Planner, QA, etc.), also read your agent's `AGENT.md` before taking any action.
 
@@ -52,6 +53,7 @@ If you are not sure which role to fill, ask the human before proceeding.
 - **Never modify `plan.md`, `memory/decisions.md`, or `memory/blockers.md`** if you are Builder or QA.
 - **Never skip QA.** A PR must have `qa-approved` before it can be merged (except manual human merges of `live-edit` PRs).
 - **Never modify files in `agents/`, `config/`, `workflows/`, or `specs/`** unless you are explicitly asked to update the agency configuration itself (not a game task).
+- **Never commit game files (anything under `games/*/`) to the agency repo** — game repos are external and gitignored.
 - **Never guess at a fundamental design question in a spec.** Flag ambiguity and stop — do not implement a guess.
 - **Never use `wait()`, `spawn()`, or `delay()` in Luau** — use `task.wait()`, `task.spawn()`, `task.delay()`.
 - **Never access Roblox services as `game.ServiceName`** — always use `game:GetService("ServiceName")`.
@@ -87,18 +89,24 @@ config/
   agent-limits.md        Token budgets, retry counts, cost guardrails
   mcp-servers.md         MCP server registry (URLs, auth, fallback policy)
   schedule.md            All time windows and agent activation order
-games/{game-name}/
-  overrides.md           Game-scoped copy of active human overrides (read convenience)
-  plan.md                Living milestone plan (Architect creates, Planner updates)
-  progress.md            Append-only build log (Builder writes after each task)
-  sprint-log.md          Per-night structured sprint record (Planner writes, Builder/QA update)
-  *.rbxl                 Roblox place file (present when a Studio project exists for this game)
-  src/                   Luau source files (Builder writes via Roblox Studio MCP)
+games/
+  registry.md            Committed list of active games and their repo URLs
+  {game-name}/           (gitignored — external repo cloned here)
+    spec.md              Human-written game spec (Architect reads this)
+    plan.md              Living milestone plan (Architect creates, Planner updates)
+    progress.md          Append-only build log (Builder writes after each task)
+    sprint-log.md        Per-night structured sprint record (Planner writes, Builder/QA update)
+    *.rbxl               Roblox place file (present when a Studio project exists for this game)
+    src/                 Luau source files (Builder writes via Roblox Studio MCP)
+    memory/
+      state.md           Per-game state snapshot (Architect, Planner)
+      blockers.md        Game-scoped blockers
+      decisions.md       Game-scoped architectural decisions
+      human-overrides.md Game-scoped human decision log (NEVER delete entries)
 memory/
-  blockers.md            All known blockers across all games
-  decisions.md           Architectural decisions with rationale
-  game-states/           Per-game state snapshots
-  human-overrides.md     Append-only human decision log (NEVER delete entries)
+  blockers.md            Agency-level blockers
+  decisions.md           Agency-level architectural decisions with rationale
+  human-overrides.md     Agency-level append-only human decision log (NEVER delete entries)
   workers.md             Registered worker machines (written by register-worker.sh)
   workers/               Per-worker heartbeat files ({worker-id}.md, updated after each task)
 reports/
@@ -112,8 +120,7 @@ scripts/
   launch-worker.sh       Worker mode — execute tasks assigned to this machine
   register-worker.sh     One-time machine registration for multi-worker mode
 specs/
-  template.md            Canonical spec format
-  {game-name}/spec.md    Human-written game specs (Architect reads these)
+  template.md            Canonical spec format (template only — active specs live in games/{game}/spec.md)
 workflows/
   day-cycle.md           Human reviewer guide
   live-edit-protocol.md  Live edit step-by-step protocol
@@ -128,14 +135,18 @@ workflows/
 
 | File | Who may write |
 |------|--------------|
+| `games/registry.md` | Human, `new-game.sh`, `clone-game.sh` |
+| `games/{game}/spec.md` | Human (create/edit) |
 | `games/{game}/plan.md` | Architect (create), Planner (update) |
 | `games/{game}/sprint-log.md` | Planner (write), Builder (update task status), QA (update qa_verdict) |
 | `games/{game}/progress.md` | Builder (append only) |
-| `games/{game}/overrides.md` | Builder (during live edits) |
+| `games/{game}/memory/state.md` | Architect, Planner |
+| `games/{game}/memory/blockers.md` | Planner, Builder, QA (escalations), Human |
+| `games/{game}/memory/decisions.md` | Architect, Planner, Human |
+| `games/{game}/memory/human-overrides.md` | Human (primary), Builder (live edits) |
 | `memory/human-overrides.md` | Human (primary), Builder (on behalf of human during live edits) |
 | `memory/decisions.md` | Architect, Planner, Human |
 | `memory/blockers.md` | Planner, Builder, QA (escalations), Human |
-| `memory/game-states/*.md` | Architect, Planner |
 | `memory/workers.md` | `register-worker.sh` (append), Builder (update `Last seen:` after each task) |
 | `memory/workers/{worker-id}.md` | Builder (heartbeat after each task), `launch-worker.sh` |
 | `reports/morning/*.md` | Reporter |
@@ -239,9 +250,10 @@ If you are Planner and detect a failure, apply `agents/planner/prompts/replan-on
 
 Human decisions always override agent decisions. Before any action that might conflict with a human choice:
 
-1. Check `memory/human-overrides.md` for active entries relevant to the feature or file you are about to touch.
-2. If a conflict exists: stop. Do not implement the conflicting work. Log the conflict in the sprint log's `conflict_warnings` field.
-3. Escalate via the morning report — not in real-time.
+1. Check `memory/human-overrides.md` (agency-level) for active entries relevant to the feature or file you are about to touch.
+2. Check `games/{game}/memory/human-overrides.md` (game-level) for active entries relevant to the specific game you are working on.
+3. If a conflict exists in either file: stop. Do not implement the conflicting work. Log the conflict in the sprint log's `conflict_warnings` field.
+4. Escalate via the morning report — not in real-time.
 
 An active override is never reversed by an agent. Only a human (via a new override entry that supersedes the old one) can change what an override covers.
 
@@ -264,8 +276,8 @@ See `agents/qa/checklists/luau-lint.md` for the full 26-rule checklist QA applie
 
 ## How to Start a New Game (Human Reference)
 
-1. Copy `specs/template.md` → `specs/{game-name}/spec.md`
-2. Fill in all sections of the spec.
+1. Run `./scripts/new-game.sh {game-name}` — creates an external git repo cloned into `games/{game-name}/` and registers it in `games/registry.md`.
+2. Fill in all sections of `games/{game-name}/spec.md` (use `specs/template.md` as a reference).
 3. Run `./scripts/launch-night-cycle.sh`
 
 The system detects the new spec automatically and runs Architect on the first night.

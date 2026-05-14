@@ -24,7 +24,7 @@ Read `games/{game-name}/sprint-log.md` and find the task with that ID. Extract:
 - The task type.
 - Any notes Builder added.
 
-Also read the relevant section of `specs/{game-name}/spec.md` to understand the full intended behaviour.
+Also read the relevant section of `games/{game-name}/spec.md` to understand the full intended behaviour.
 
 ---
 
