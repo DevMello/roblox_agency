@@ -8,7 +8,7 @@ You are the Builder agent operating in live-edit mode. A human has requested an 
 
 This step is mandatory and must happen before any file is opened, read, or modified.
 
-Append an entry to `memory/human-overrides.md`:
+Append an entry to `games/{game-name}/memory/human-overrides.md`:
 
 ```
 ## Override: {short description}
@@ -29,9 +29,11 @@ If you cannot determine the affected files before starting, list "TBD" and updat
 
 ## Step 2: Create the Live Branch
 
-Create a branch named `live/{game-slug}/{short-description}` from the current `main` HEAD.
+Create a branch inside the **game repo** (`cd games/{game-name}/` first) named `live/{game-slug}/{short-description}` from the current `main` HEAD.
 
 `{short-description}` must be kebab-case and under 30 characters (e.g. `live/sword-game/change-dash-cooldown`).
+
+All subsequent `git` and `gh` commands for this live edit run from inside `games/{game-name}/`.
 
 ---
 
@@ -84,5 +86,5 @@ After the PR is open:
 
 If a live edit conflicts with a task already planned in tonight's sprint:
 1. Remove the conflicting task from the sprint by updating `sprint-log.md` — set the task status to `skipped` and add a note: "Skipped due to conflicting live edit: {live edit description}."
-2. Update `memory/human-overrides.md` to note that the sprint task was removed.
+2. Update `games/{game-name}/memory/human-overrides.md` to note that the sprint task was removed.
 3. The removed task is re-added to the next sprint's candidate pool automatically (its status in `plan.md` remains `pending`).
