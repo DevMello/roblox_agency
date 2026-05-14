@@ -61,9 +61,9 @@ Read the recommendation ranking. If you want to start building the top-ranked id
 
 1. Copy the idea's fields into a new spec file:
    ```
-   specs/{game-name}/spec.md
+   games/{game-name}/spec.md
    ```
-2. Use `specs/template.md` to fill in the full spec (the idea proposal gives you the core fields; you need to add art direction, full feature list, success criteria, etc.).
+2. Use `specs/template.md` to fill in the full spec (the idea proposal gives you the core fields; you need to add art direction, full feature list, success criteria, etc.). Or run `./scripts/new-game.sh <game-name>` to scaffold the game repo automatically.
 3. On the next night cycle, the pre-flight check will detect the new spec and activate Architect.
 
 If you want to delay or reject an idea: no action needed. Ideas that are not promoted to spec files are not acted on.

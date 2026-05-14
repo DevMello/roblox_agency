@@ -26,7 +26,7 @@ The `scripts/launch-night-cycle.sh` script runs these checks before any agent ac
 1. **Roblox Studio MCP** — checks that the batch file exists at `%LOCALAPPDATA%\Roblox\mcp.bat`. Roblox Studio must be open and running for Builder to use the MCP.
 2. **GitHub CLI (`gh`)** — run `gh auth status`. Must exit 0 with an authenticated account.
 3. **Active sprint log** — check that `games/{game-name}/sprint-log.md` exists for each active game (or will be created by Planner). If a game directory exists under `games/` but has no plan.md, flag it as needing Architect.
-4. **New specs** — check for any file at `specs/{game-name}/spec.md` with no corresponding `games/{game-name}/plan.md`. If found, activate Architect for that game before continuing.
+4. **New specs** — check for any file at `games/{game-name}/spec.md` with no corresponding `games/{game-name}/plan.md`. If found, activate Architect for that game before continuing.
 
 **If Roblox Studio MCP batch file is missing and `gh auth status` fails:** Abort the night cycle. Reporter will note the abort in the morning report.
 
