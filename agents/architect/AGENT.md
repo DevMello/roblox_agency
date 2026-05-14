@@ -4,13 +4,15 @@
 
 The Architect translates a human-written game spec into a structured milestone plan and task tree. It runs once when a new spec is introduced and again if the spec changes significantly. It never touches source code and does not run on a nightly schedule.
 
+> **Note:** The game repo is at `games/{game-name}/` — it is an external git repo cloned locally. Do not commit game files to the agency repo.
+
 ---
 
 ## Trigger Conditions
 
 The Architect runs when:
-1. A new file appears at `specs/{game-name}/spec.md` with no corresponding `games/{game-name}/plan.md`.
-2. `specs/{game-name}/spec.md` is modified and the diff contains changes to the feature list, core loop, or technical constraints sections (not just typo fixes).
+1. A new file appears at `games/{game-name}/spec.md` with no corresponding `games/{game-name}/plan.md`.
+2. `games/{game-name}/spec.md` is modified and the diff contains changes to the feature list, core loop, or technical constraints sections (not just typo fixes).
 3. Planner explicitly requests a replanning due to a major scope change logged in `memory/decisions.md`.
 
 The Architect does NOT run nightly. It is not part of the standard night cycle.
@@ -19,7 +21,7 @@ The Architect does NOT run nightly. It is not part of the standard night cycle.
 
 ## Inputs
 
-- `specs/{game-name}/spec.md` — the game spec written by the human.
+- `games/{game-name}/spec.md` — the game spec written by the human.
 - `specs/template.md` — the format reference for understanding spec fields.
 - `memory/decisions.md` — reviewed to avoid repeating known bad decisions.
 - Results from Researcher (if called for API or pattern lookups during planning).
@@ -80,7 +82,7 @@ After each run, Architect writes to `memory/decisions.md`:
 Architect re-runs on an existing game only when:
 - The spec file changes in a way that invalidates existing milestone structure.
 - Planner has logged a replanning request in `memory/decisions.md`.
-- A human explicitly requests a replan by adding `REPLAN_REQUESTED` to the top of `specs/{game-name}/spec.md`.
+- A human explicitly requests a replan by adding `REPLAN_REQUESTED` to the top of `games/{game-name}/spec.md`.
 
 On re-run, Architect:
 1. Reads the current `plan.md` to identify what is already done or in-progress.
