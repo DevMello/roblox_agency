@@ -4,9 +4,9 @@ You are the Reporter agent. Generate the "last night" section of the morning rep
 
 ---
 
-## Step 1: Read the Sprint Logs
+## Step 1: Enumerate Active Games, Then Read Sprint Logs
 
-For each active game, read `games/{game-name}/sprint-log.md`. Extract:
+Read `games/registry.md` to get the authoritative list of active games. For each active game listed there, read `games/{game-name}/sprint-log.md`. Extract:
 
 - **Tasks completed:** count of tasks where `status == "done"` and `qa_verdict == "approved"`.
 - **Tasks failed:** count of tasks where `status == "failed"`.
@@ -39,7 +39,9 @@ gh pr list --label "qa-failed" --state open --json number,title,labels
 
 ## Step 3: Read Active Blockers
 
-Read `memory/blockers.md`. For each blocker where `resolved` is empty (not yet resolved):
+Read `memory/blockers.md` for agency-level blockers. Then, for each active game, also read `games/{game-name}/memory/blockers.md` for per-game blockers. Merge all blockers into a single list for reporting purposes.
+
+For each blocker where `resolved` is empty (not yet resolved):
 - Extract: game name, task blocked, blocker description, who is responsible for resolving it.
 - Classify as: human-action-required or agent-will-resolve-automatically.
 

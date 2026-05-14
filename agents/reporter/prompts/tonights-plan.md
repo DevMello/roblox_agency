@@ -4,9 +4,9 @@ You are the Reporter agent. Generate the "coming night" section of the morning r
 
 ---
 
-## Step 1: Read the Current Milestone for Each Game
+## Step 1: Enumerate Active Games, Then Read Milestones
 
-For each active game, read `games/{game-name}/plan.md`. Extract:
+Read `games/registry.md` to get the authoritative list of active games. For each active game listed there, read `games/{game-name}/plan.md`. Extract:
 - The current active milestone name and ID.
 - The list of tasks in that milestone with status `pending` or `paused`.
 - The total estimated nights for the milestone.
@@ -26,7 +26,7 @@ From the pending/paused task list, identify which tasks are most likely to appea
 
 ## Step 3: Flag Pre-Sprint Blockers
 
-From `memory/blockers.md`, identify any active blockers that will prevent tonight's likely tasks from running unless a human resolves them today.
+From `memory/blockers.md` (agency-level) and `games/{game-name}/memory/blockers.md` (per-game), identify any active blockers that will prevent tonight's likely tasks from running unless a human resolves them today.
 
 For each such blocker, write:
 - Which task is blocked.

@@ -18,9 +18,11 @@ On Sundays after the weekly research run completes, Reporter also generates the 
 
 | Input | What Reporter extracts |
 |-------|----------------------|
+| `games/registry.md` | Authoritative list of active games (read this first to enumerate games) |
 | `games/{game-name}/sprint-log.md` | Task counts (done/failed/skipped), replan events, QA results, morning report flags |
 | GitHub CLI (`gh pr list`) | PRs merged last night, PRs still open, PRs awaiting human review |
-| `memory/blockers.md` | Active unresolved blockers |
+| `memory/blockers.md` | Agency-level active unresolved blockers |
+| `games/{game-name}/memory/blockers.md` | Per-game active unresolved blockers |
 | `memory/decisions.md` | New decisions added since the last report |
 
 ---
@@ -29,9 +31,11 @@ On Sundays after the weekly research run completes, Reporter also generates the 
 
 | Input | What Reporter extracts |
 |-------|----------------------|
+| `games/registry.md` | Authoritative list of active games (read this first to enumerate games) |
 | `games/{game-name}/plan.md` | Current milestone name, pending tasks, estimated nights remaining |
 | `games/{game-name}/sprint-log.md` | Planner's sprint preview if written (some Planners write a preview) |
-| `memory/blockers.md` | Blockers that will prevent tonight's sprint tasks if not resolved today |
+| `memory/blockers.md` | Agency-level blockers that will prevent tonight's sprint tasks if not resolved today |
+| `games/{game-name}/memory/blockers.md` | Per-game blockers that will prevent tonight's sprint tasks if not resolved today |
 
 ---
 
