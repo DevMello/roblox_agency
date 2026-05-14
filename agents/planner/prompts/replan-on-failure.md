@@ -55,7 +55,7 @@ After the decision:
 
 ## Step 4: Log to Blockers
 
-If a task is skipped or the sprint aborted, add an entry to `memory/blockers.md`:
+If a task is skipped or the sprint aborted, add an entry to `games/{game-name}/memory/blockers.md` (create the file if it does not exist). Use `memory/blockers.md` only for agency-level blockers (infrastructure failures, cross-game issues).
 
 ```
 ## Blocker: {task_id}

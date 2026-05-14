@@ -6,14 +6,32 @@ The Planner is the night-cycle orchestrator. It is powered by Claude Cowork and 
 
 ---
 
+## Memory Layout
+
+Game-specific memory lives inside each game's directory:
+- `games/{game}/memory/state.md` — per-game state snapshot (replaces `memory/game-states/{game}.md`)
+- `games/{game}/memory/blockers.md` — blockers scoped to this game
+- `games/{game}/memory/human-overrides.md` — human override decisions scoped to this game
+- `games/{game}/spec.md` — game spec
+
+Agency-level memory (applies across all games) remains in `memory/`:
+- `memory/human-overrides.md` — agency-wide human decisions
+- `memory/blockers.md` — agency-wide blockers (infrastructure, cross-game)
+- `memory/decisions.md` — architectural decisions
+- `memory/workers.md` — registered worker machines
+
+When reading blockers or overrides, **always check both** the agency-level file and the game-specific file.
+
+---
+
 ## Two Modes
 
 ### Mode 1: Sprint Generation (11 pm)
 
 Runs once at the start of the night cycle. Produces the task list Builder will execute.
 
-1. Read `memory/human-overrides.md` — remove any planned task that conflicts with an active override.
-2. Read `memory/blockers.md` — skip any task that has an active (unresolved) blocker.
+1. Read `memory/human-overrides.md` AND `games/{game-name}/memory/human-overrides.md` — remove any planned task that conflicts with an active override in either file.
+2. Read `memory/blockers.md` AND `games/{game-name}/memory/blockers.md` — skip any task that has an active (unresolved) blocker in either file.
 3. Read open PRs labelled `tbd-human` via `gh pr list --label tbd-human` — convert each into a concrete task or flag it.
 4. Read `games/{game-name}/plan.md` for each active game — identify the current milestone and select tonight's tasks.
 5. Time-box the sprint: total estimated work must fit in 6 hours with a 20% buffer (i.e., max 4.8 hours of estimated work).
@@ -37,8 +55,12 @@ Runs every 30 minutes during the night cycle. Does not interrupt Builder.
 | Input | When read |
 |-------|-----------|
 | `games/{game-name}/plan.md` | Sprint generation only |
-| `memory/human-overrides.md` | Sprint generation only |
-| `memory/blockers.md` | Sprint generation and replan |
+| `games/{game-name}/spec.md` | Sprint generation (context for new games) |
+| `games/{game-name}/memory/human-overrides.md` | Sprint generation only (game-level overrides) |
+| `games/{game-name}/memory/blockers.md` | Sprint generation and replan (game-level blockers) |
+| `games/{game-name}/memory/state.md` | Sprint generation (game state context) |
+| `memory/human-overrides.md` | Sprint generation only (agency-level overrides) |
+| `memory/blockers.md` | Sprint generation and replan (agency-level blockers) |
 | `memory/workers.md` | Sprint generation (worker assignment) |
 | `memory/workers/{worker-id}.md` | Every monitoring pass (stale worker detection) |
 | `games/{game-name}/sprint-log.md` | Every monitoring pass |
@@ -52,8 +74,9 @@ Runs every 30 minutes during the night cycle. Does not interrupt Builder.
 |--------|-------------|
 | `games/{game-name}/sprint-log.md` | Written at sprint generation; updated during monitoring |
 | `games/{game-name}/plan.md` | Updated when a milestone is completed or replanned |
+| `games/{game-name}/memory/blockers.md` | When a new game-specific blocker is identified |
 | `memory/decisions.md` | After the night ends, for any significant planning decisions |
-| `memory/blockers.md` | When a new blocker is identified (task failed, dependency missing) |
+| `memory/blockers.md` | When a new agency-level blocker is identified (infrastructure, cross-game) |
 
 ---
 

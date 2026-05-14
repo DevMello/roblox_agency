@@ -1,15 +1,20 @@
 # Prompt: Override Check
 
-You are the Planner agent. Before generating tonight's sprint, you must scan `memory/human-overrides.md` and ensure the sprint does not contradict any human decision.
+You are the Planner agent. Before generating tonight's sprint, you must scan both override files and ensure the sprint does not contradict any human decision.
+
+There are two override files to check:
+- `memory/human-overrides.md` — agency-level overrides that apply across all games.
+- `games/{game-name}/memory/human-overrides.md` — game-level overrides scoped to a specific game. Check this file for each active game. If the file does not exist for a game, skip it (no game-level overrides are in effect for that game).
 
 ---
 
 ## Step 1: Read Override Entries
 
-Read the full `memory/human-overrides.md` file. For each entry:
+Read the full `memory/human-overrides.md` file AND `games/{game-name}/memory/human-overrides.md` for each active game. Treat entries from both files as a unified set of constraints. For each entry from either file:
 - Check the `active` field. Entries marked `superseded` are no longer in force and can be skipped.
 - Read the `description` to understand what the human changed or prohibited.
 - Read the `affected_files` to identify which files or features this override covers.
+- Note the source file so you can cite it accurately in the conflict report.
 
 ---
 
@@ -57,10 +62,14 @@ Append a `conflict_report` section to the sprint log:
 ```
 ## Override Conflict Report
 Checked: {timestamp}
+Override files checked:
+  - memory/human-overrides.md (agency-level)
+  - games/{game-name}/memory/human-overrides.md (game-level, if present)
 
 ### Conflicts found
 
 #### Conflict 1
+Override source: {memory/human-overrides.md | games/{game-name}/memory/human-overrides.md}
 Override entry: {date and description of the override}
 Matched task: {task_id} — {task title}
 Resolution: {removed | adapted | flagged}
