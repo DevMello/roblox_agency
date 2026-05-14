@@ -21,11 +21,11 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 |-----------|---------|
 | `agents/` | One subdirectory per agent role — AGENT.md, prompts, schemas, reference docs |
 | `config/` | Operational constraints: MCP server registry, schedule windows, cost caps, token limits |
-| `games/` | Per-game runtime state: plan, sprint log, progress log, override copy. Active games: `example-game`, `industrial-tycoon` |
-| `memory/` | Persistent cross-session state: human overrides, decisions, blockers, worker heartbeats |
+| `games/registry.md` | Committed file listing all registered external game repos |
+| `games/{game-name}/` | Gitignored — external game repo cloned here. Contains `spec.md` at repo root and `memory/` subdirectory |
+| `memory/` | Persistent cross-session agency state: human overrides, decisions, blockers, worker heartbeats |
 | `reports/` | Generated output: daily morning digests, weekly market analysis, game idea proposals |
-| `scripts/` | Shell entry points: night cycle launcher, worker launcher, live-edit trigger, registration |
-| `specs/` | Human-written game specifications (source of truth for Architect) |
+| `scripts/` | Shell entry points: night cycle launcher, worker launcher, live-edit trigger, registration, `clone-game.sh`, `new-game.sh` |
 | `workflows/` | Authoritative runbooks for night cycle, day cycle, live edits, PR review |
 | `.github/workflows/` | GitHub Actions: schedule night cycle, morning report, weekly research |
 | `logs/` | Runtime logs from night cycle and worker sessions |
@@ -38,7 +38,7 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 - **Files**: `agents/architect/AGENT.md`, `agents/architect/prompts/`, `agents/architect/schemas/`
 - **Purpose**: Reads a game spec and decomposes it into a validated task tree grouped into milestones. Runs once per new spec, not nightly.
 - **Key artifacts**: `task-tree.schema.json`, `milestone.schema.json`
-- **Dependencies**: `specs/{game}/spec.md` → writes `games/{game}/plan.md`, `memory/decisions.md`
+- **Dependencies**: `games/{game}/spec.md` → writes `games/{game}/plan.md`, `memory/decisions.md`
 
 ### Planner
 - **Files**: `agents/planner/AGENT.md`, `agents/planner/prompts/`, `agents/planner/schemas/`
@@ -79,8 +79,8 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 - **Dependencies**: Chrome MCP, Creator Docs, DevForum → caches results in `games/{game}/progress.md`
 
 ### Memory System
-- **Files**: `memory/human-overrides.md`, `memory/decisions.md`, `memory/blockers.md`, `memory/game-states/`, `memory/workers.md`, `memory/workers/{id}.md`
-- **Purpose**: Persistent state store shared across all agents and sessions. Append-only for overrides; blockers resolved in-place with timestamp.
+- **Files**: `memory/human-overrides.md`, `memory/decisions.md`, `memory/blockers.md`, `memory/workers.md`, `memory/workers/{id}.md`
+- **Purpose**: Persistent agency-level state store shared across all agents and sessions. Game-specific state (blockers, decisions, human overrides, state snapshots) lives in `games/{game}/memory/`. Append-only for overrides; blockers resolved in-place with timestamp.
 - **Key invariants**: `human-overrides.md` is never deleted by agents; only humans (or Builder on human's behalf) may write to it.
 
 ### Night Cycle Orchestration
@@ -94,11 +94,12 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 
 ```
 Human writes spec
-  → specs/{game}/spec.md
+  → games/{game}/spec.md  (in the external game repo)
 
 Architect reads spec
   → games/{game}/plan.md  (milestone + task tree)
   → memory/decisions.md
+  → games/{game}/memory/state.md
 
 Planner reads plan + human-overrides + blockers
   → games/{game}/sprint-log.md  (nightly task assignments)
@@ -146,14 +147,30 @@ Human reads morning report
 
 | State | Location | Updated By | Update Model |
 |-------|----------|------------|-------------|
+| Game spec | `games/{game}/spec.md` | Human | Overwrite (in game repo) |
 | Game plan (milestones/tasks) | `games/{game}/plan.md` | Architect → Planner | Overwrite |
 | Nightly sprint | `games/{game}/sprint-log.md` | Planner (write), Builder (status), QA (verdict) | In-place field updates, pushed immediately |
 | Build history | `games/{game}/progress.md` | Builder | Append-only |
-| Human decisions | `memory/human-overrides.md` | Human (primary) | Append-only, never deleted |
-| Architectural decisions | `memory/decisions.md` | Architect, Planner, Human | Append |
-| Active blockers | `memory/blockers.md` | Planner, Builder, QA | Resolved in-place with timestamp |
+| Game state snapshot | `games/{game}/memory/state.md` | Architect, Planner | Overwrite |
+| Game-scoped blockers | `games/{game}/memory/blockers.md` | Planner, Builder, QA | Resolved in-place with timestamp |
+| Game-scoped decisions | `games/{game}/memory/decisions.md` | Architect, Planner, Human | Append |
+| Game-scoped human overrides | `games/{game}/memory/human-overrides.md` | Human (primary) | Append-only, never deleted |
+| Agency human decisions | `memory/human-overrides.md` | Human (primary) | Append-only, never deleted |
+| Agency architectural decisions | `memory/decisions.md` | Architect, Planner, Human | Append |
+| Agency active blockers | `memory/blockers.md` | Planner, Builder, QA | Resolved in-place with timestamp |
 | Worker liveness | `memory/workers/{id}.md` | Builder (after each task) | Overwrite (heartbeat) |
-| Game state snapshot | `memory/game-states/{game}.md` | Architect, Planner | Overwrite |
+
+---
+
+## Game Repo Isolation
+
+The agency is a product; each game is an independent external git repository.
+
+- **Agency repo** contains only agency configuration, agent logic, workflows, and the `games/registry.md` index. It has no game source files committed directly.
+- **Game repos** are independent git repositories hosted separately (one repo per game). Each game repo contains `spec.md` at its root and a `memory/` subdirectory for game-scoped state (`state.md`, `blockers.md`, `decisions.md`, `human-overrides.md`).
+- **Developers** clone a game repo into `games/{game-name}/` using `scripts/clone-game.sh`, or create a new game repo using `scripts/new-game.sh`.
+- **`games/*/` is gitignored** in the agency repo — cloned game repos are local working directories, never committed into the agency.
+- **`games/registry.md`** is the only committed file in `games/`. It maps game slugs to their remote repository URLs and is the authoritative link between the agency and its games.
 
 ---
 
