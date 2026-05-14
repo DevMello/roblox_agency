@@ -16,3 +16,6 @@ webui/__pycache__/
 
 # Game repos — each game lives in its own external git repository
 games/*/
+
+# Worktrees — isolated environments for parallel agent work, never committed
+.claude/worktrees/
