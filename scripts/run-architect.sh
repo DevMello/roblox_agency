@@ -7,7 +7,7 @@
 #   ./scripts/run-architect.sh <game-name>
 #
 # Prerequisites:
-#   - specs/<game-name>/spec.md must exist and be filled in
+#   - games/<game-name>/spec.md must exist and be filled in
 #   - claude CLI must be on PATH (run: claude --version to verify)
 
 set -euo pipefail
@@ -16,7 +16,7 @@ cd "$REPO_ROOT"
 source "${REPO_ROOT}/scripts/run-agent.sh"
 
 GAME="${1:?Usage: ./scripts/run-architect.sh <game-name>}"
-SPEC_FILE="specs/${GAME}/spec.md"
+SPEC_FILE="games/${GAME}/spec.md"
 PLAN_FILE="games/${GAME}/plan.md"
 LOG_DIR="${REPO_ROOT}/logs"
 mkdir -p "$LOG_DIR" "games/${GAME}"
@@ -27,7 +27,7 @@ log() { echo "[$(date +%H:%M:%S)] $*"; }
 
 if [[ ! -f "$SPEC_FILE" ]]; then
   echo "ERROR: Spec not found at ${SPEC_FILE}"
-  echo "Create it with: ./scripts/new-game.sh ${GAME}"
+  echo "Place the spec at games/${GAME}/spec.md, or create it with: ./scripts/new-game.sh ${GAME}"
   exit 1
 fi
 
