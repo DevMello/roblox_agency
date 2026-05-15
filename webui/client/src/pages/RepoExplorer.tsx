@@ -191,7 +191,7 @@ function SimpleMarkdown({ content }: { content: string }) {
     i++
   }
 
-  return <div className="prose-agency max-w-none">{elements}</div>
+  return <div className="prose-snapblox max-w-none">{elements}</div>
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
