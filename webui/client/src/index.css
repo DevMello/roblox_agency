@@ -66,67 +66,67 @@
 
 @layer components {
   /* Markdown prose */
-  .prose-agency {
+  .prose-snapblox {
     @apply text-text-primary;
   }
 
-  .prose-agency h1 {
+  .prose-snapblox h1 {
     @apply text-2xl font-display font-bold text-text-primary mb-4 mt-6;
   }
 
-  .prose-agency h2 {
+  .prose-snapblox h2 {
     @apply text-xl font-display font-semibold text-text-primary mb-3 mt-5;
   }
 
-  .prose-agency h3 {
+  .prose-snapblox h3 {
     @apply text-lg font-semibold text-text-primary mb-2 mt-4;
   }
 
-  .prose-agency p {
+  .prose-snapblox p {
     @apply text-text-primary leading-relaxed mb-3;
   }
 
-  .prose-agency code {
+  .prose-snapblox code {
     @apply font-mono text-sm bg-surface px-1.5 py-0.5 rounded text-accent;
   }
 
-  .prose-agency pre {
+  .prose-snapblox pre {
     @apply bg-surface border border-border rounded-lg p-4 overflow-x-auto mb-4;
   }
 
-  .prose-agency pre code {
+  .prose-snapblox pre code {
     @apply bg-transparent p-0 text-text-primary;
   }
 
-  .prose-agency table {
+  .prose-snapblox table {
     @apply w-full border-collapse mb-4;
   }
 
-  .prose-agency th {
+  .prose-snapblox th {
     @apply text-left text-text-muted text-sm font-medium border-b border-border pb-2 pr-4;
   }
 
-  .prose-agency td {
+  .prose-snapblox td {
     @apply text-text-primary text-sm border-b border-border py-2 pr-4;
   }
 
-  .prose-agency ul {
+  .prose-snapblox ul {
     @apply list-disc list-inside mb-3 space-y-1;
   }
 
-  .prose-agency ol {
+  .prose-snapblox ol {
     @apply list-decimal list-inside mb-3 space-y-1;
   }
 
-  .prose-agency li {
+  .prose-snapblox li {
     @apply text-text-primary;
   }
 
-  .prose-agency a {
+  .prose-snapblox a {
     @apply text-accent underline underline-offset-2 hover:text-accent/80;
   }
 
-  .prose-agency blockquote {
+  .prose-snapblox blockquote {
     @apply border-l-2 border-accent pl-4 italic text-text-muted;
   }
 

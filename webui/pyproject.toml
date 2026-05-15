@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.backends.legacy:build"
 
 [project]
-name = "roblox-agency-ui"
+name = "snapblox"
 version = "0.1.0"
-description = "Web UI control plane for the Roblox Agency autonomous build system"
+description = "Web UI control plane for the Snapblox autonomous Roblox game-building system"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.111.0",

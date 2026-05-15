@@ -68,11 +68,11 @@ export function Sidebar() {
       {/* Brand */}
       <div className="flex items-center h-14 px-3 border-b border-border shrink-0">
         <span className="font-display font-bold text-accent text-base tracking-widest select-none w-8 shrink-0 text-center">
-          A
+          S
         </span>
         {expanded && (
           <span className="ml-2 font-display font-bold text-accent text-sm tracking-widest whitespace-nowrap overflow-hidden">
-            AGENCY
+            SNAPBLOX
           </span>
         )}
       </div>
