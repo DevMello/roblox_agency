@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snapblox — Autonomous AI Agents for Roblox</title>
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --bg: #0A0A0F;
+      --surface: #111118;
+      --border: #1E1E2E;
+      --accent: #7C6FFF;
+      --danger: #FF4A6E;
+      --success: #00E5A0;
+      --warning: #FFB547;
+      --text-primary: #F0EEF8;
+      --text-muted: #6E6C85;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      --radius: 10px;
+      --max-w: 1120px;
+    }
+
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    img { display: block; max-width: 100%; }
+
+    /* ── Layout helpers ── */
+    .container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+    section { padding: 96px 0; }
+    section:nth-child(even) { background: var(--surface); }
+
+    /* ── Typography ── */
+    h1, h2, h3, h4 { font-weight: 700; line-height: 1.2; color: var(--text-primary); }
+    h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); margin-bottom: 16px; }
+    .section-label {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 560px;
+      margin-bottom: 56px;
+    }
+
+    /* ══════════════════════════════════════
+       NAV
+    ══════════════════════════════════════ */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 10, 15, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .nav-logo {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-logo .logo-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-primary); text-decoration: none; }
+
+    /* hamburger (mobile) */
+    .nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: 4px; }
+    .nav-toggle span {
+      display: block; width: 22px; height: 2px; background: var(--text-muted);
+      margin: 5px 0; border-radius: 2px; transition: 0.3s;
+    }
+    @media (max-width: 680px) {
+      .nav-toggle { display: block; }
+      .nav-links {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 61px; left: 0; right: 0;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 24px;
+        gap: 16px;
+      }
+      .nav-links.open { display: flex; }
+    }
+
+    /* ══════════════════════════════════════
+       HERO
+    ══════════════════════════════════════ */
+    #hero {
+      padding: 120px 0 100px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      top: -120px; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 400px;
+      background: radial-gradient(ellipse at center, rgba(124,111,255,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(124,111,255,0.12);
+      border: 1px solid rgba(124,111,255,0.3);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-bottom: 28px;
+    }
+    .hero-badge::before { content: "●"; font-size: 0.5rem; }
+    .hero-title {
+      font-size: clamp(3rem, 9vw, 6rem);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-tagline {
+      font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 20px;
+    }
+    .hero-desc {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 48px;
+      opacity: 0.8;
+    }
+    .hero-ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      border: none;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); text-decoration: none; }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ══════════════════════════════════════
+       WHAT IS SNAPBLOX — 3-col cards
+    ══════════════════════════════════════ */
+    .card-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 840px) { .card-grid-3 { grid-template-columns: 1fr; } }
+    @media (min-width: 541px) and (max-width: 840px) { .card-grid-3 { grid-template-columns: repeat(2, 1fr); } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: border-color 0.2s;
+    }
+    section:nth-child(even) .card { background: var(--bg); }
+    .card:hover { border-color: var(--accent); }
+    .card-icon {
+      width: 44px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(124,111,255,0.12);
+      border-radius: 10px;
+      font-size: 1.3rem;
+      margin-bottom: 16px;
+    }
+    .card h3 { font-size: 1.1rem; margin-bottom: 10px; }
+    .card p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* ══════════════════════════════════════
+       HOW IT WORKS — steps
+    ══════════════════════════════════════ */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    @media (max-width: 840px) { .steps { grid-template-columns: 1fr; } }
+    @media (min-width: 541px) and (max-width: 840px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+
+    .step {
+      padding: 32px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .step:nth-child(3n) { border-right: none; }
+    .step:nth-child(n+4) { border-bottom: none; }
+    @media (max-width: 840px) {
+      .step { border-right: none; }
+      .step:last-child { border-bottom: none; }
+    }
+    .step-num {
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: rgba(124,111,255,0.2);
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .step-icon { font-size: 1.5rem; margin-bottom: 10px; }
+    .step h3 { font-size: 1rem; margin-bottom: 8px; }
+    .step p { font-size: 0.875rem; color: var(--text-muted); }
+
+    /* ══════════════════════════════════════
+       AGENT PIPELINE
+    ══════════════════════════════════════ */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 840px) { .agent-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .agent-grid { grid-template-columns: 1fr; } }
+
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    section:nth-child(even) .agent-card { background: var(--bg); }
+    .agent-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+    .agent-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .agent-card h3 { font-size: 1rem; margin-bottom: 8px; }
+    .agent-card ul {
+      list-style: none;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .agent-card ul li { padding: 3px 0; }
+    .agent-card ul li::before { content: "→ "; color: var(--accent); }
+
+    /* ══════════════════════════════════════
+       SCREENSHOTS
+    ══════════════════════════════════════ */
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 840px) { .screenshots-grid { grid-template-columns: 1fr; } }
+
+    .screenshot-placeholder {
+      width: 100%;
+      height: 300px;
+      background: var(--surface);
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+    section:nth-child(even) .screenshot-placeholder { background: var(--bg); }
+    .screenshot-placeholder .ph-icon { font-size: 2rem; opacity: 0.4; }
+    .screenshot-placeholder p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ══════════════════════════════════════
+       FEATURES — 2-column list
+    ══════════════════════════════════════ */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px 40px;
+    }
+    @media (max-width: 640px) { .features-grid { grid-template-columns: 1fr; } }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.925rem;
+      color: var(--text-primary);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .feature-item:last-child { border-bottom: none; }
+    .feature-check { color: var(--success); font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+    /* ══════════════════════════════════════
+       ROADMAP
+    ══════════════════════════════════════ */
+    .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+    .roadmap-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    section:nth-child(even) .roadmap-item { background: var(--bg); }
+    .roadmap-icon { font-size: 1.2rem; flex-shrink: 0; }
+    .roadmap-text { flex: 1; font-size: 0.9rem; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .badge-progress { background: rgba(0,229,160,0.12); color: var(--success); border: 1px solid rgba(0,229,160,0.25); }
+    .badge-planned  { background: rgba(255,181,71,0.12);  color: var(--warning); border: 1px solid rgba(255,181,71,0.25); }
+    .badge-idea     { background: rgba(124,111,255,0.12); color: var(--accent);  border: 1px solid rgba(124,111,255,0.25); }
+
+    /* ══════════════════════════════════════
+       GETTING STARTED — code block
+    ══════════════════════════════════════ */
+    .code-window {
+      background: #07070C;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .code-window-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .dot-r { background: #FF5F57; }
+    .dot-y { background: #FEBC2E; }
+    .dot-g { background: #28C840; }
+    .code-window pre {
+      padding: 24px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      line-height: 1.75;
+      color: var(--text-primary);
+    }
+    .cm { color: var(--text-muted); }
+    .ck { color: var(--accent); }
+    .cs { color: var(--success); }
+
+    /* ══════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════ */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+    }
+    .footer-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .footer-brand h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .footer-brand p { font-size: 0.85rem; color: var(--text-muted); max-width: 280px; }
+    .footer-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+    .footer-links a { font-size: 0.875rem; color: var(--text-muted); transition: color 0.2s; }
+    .footer-links a:hover { color: var(--text-primary); text-decoration: none; }
+    .footer-copy {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ══════════════════════════════════════
+       DIVIDER / MISC
+    ══════════════════════════════════════ */
+    .accent-line {
+      display: inline-block;
+      width: 40px;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      margin-bottom: 20px;
+    }
+    .accent-line--center { display: block; margin: 0 auto 20px; }
+    .section-sub--center { margin-left: auto; margin-right: auto; margin-bottom: 48px; }
+    #getting-started { text-align: center; }
+  </style>
+</head>
+<body>
+
+<!-- ══════ NAVIGATION ══════ -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="#hero" style="text-decoration:none;">
+      <span class="logo-dot"></span>
+      Snapblox
+    </a>
+    <button class="nav-toggle" aria-label="Toggle navigation" onclick="this.nextElementSibling.classList.toggle('open')">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#screenshots">Screenshots</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+      <li><a href="#getting-started">Docs</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ══════ HERO ══════ -->
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-badge">Open Source · AI-Powered · Roblox</div>
+    <h1 class="hero-title">Snapblox</h1>
+    <p class="hero-tagline">Autonomous AI agents that build your Roblox games while you sleep.</p>
+    <p class="hero-desc">
+      Write a spec, push it to your repo, and wake up to working Luau code, tested PRs, and a morning digest — all generated by a coordinated pipeline of AI agents running every night.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="https://github.com/DevMello/roblox-studio-agency" target="_blank" rel="noopener">
+        &#9651; View on GitHub
+      </a>
+      <a class="btn btn-outline" href="#getting-started">
+        Read the Docs
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ WHAT IS SNAPBLOX ══════ -->
+<section id="what-is">
+  <div class="container">
+    <span class="section-label">Overview</span>
+    <div class="accent-line"></div>
+    <h2>What is Snapblox?</h2>
+    <p class="section-sub">A fully autonomous multi-agent system that turns game specs into playable Roblox games, hands-free.</p>
+    <div class="card-grid-3">
+      <div class="card">
+        <div class="card-icon">&#9881;</div>
+        <h3>Spec to Playable Game</h3>
+        <p>Write a plain-text spec describing your Roblox game idea. Snapblox handles everything else — architecture, code, assets, and testing — without you writing a single line of Luau.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9679;</div>
+        <h3>Nightly Build Cycle</h3>
+        <p>Agents fire every night on a schedule. By morning, new features are implemented, PRs are open, and a digest report summarizes exactly what was built and what comes next.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">&#9670;</div>
+        <h3>Multi-Agent Pipeline</h3>
+        <p>Specialized agents handle each phase: Architect plans, Planner sprints, Builder codes, QA validates, Reporter digests. Each agent has strict scope — no stepping on toes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ HOW IT WORKS ══════ -->
+<section id="how-it-works">
+  <div class="container">
+    <span class="section-label">Process</span>
+    <div class="accent-line"></div>
+    <h2>How It Works</h2>
+    <p class="section-sub">Six steps from idea to working Roblox game — fully automated every night.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">&#9998;</div>
+        <h3>Write a Game Spec</h3>
+        <p>Describe your Roblox game idea in a structured Markdown spec file. Include mechanics, goals, and constraints.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">&#128736;</div>
+        <h3>Architect Plans</h3>
+        <p>The Architect agent reads your spec and decomposes it into milestones, tasks, and a dependency graph stored in <code>plan.md</code>.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">&#128197;</div>
+        <h3>Planner Sprints</h3>
+        <p>Each night, the Planner selects the highest-priority tasks from the plan and generates a structured sprint with assignments.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-icon">&#128187;</div>
+        <h3>Builder Codes</h3>
+        <p>Builder implements Luau scripts directly inside Roblox Studio via the MCP server — live, in the actual editor.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-icon">&#10003;</div>
+        <h3>QA Validates</h3>
+        <p>The QA agent reviews each PR against a 26-rule Luau lint checklist and playtest criteria before approving.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">06</div>
+        <div class="step-icon">&#9788;</div>
+        <h3>Reporter Digests</h3>
+        <p>A morning digest lands at 5 am summarizing overnight progress, open PRs, blockers, and tonight's plan.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ AGENT PIPELINE ══════ -->
+<section id="agents">
+  <div class="container">
+    <span class="section-label">Agents</span>
+    <div class="accent-line"></div>
+    <h2>Agent Pipeline</h2>
+    <p class="section-sub">Each agent owns a specific role. No agent can override another's domain without a human override.</p>
+    <div class="agent-grid">
+      <div class="agent-card">
+        <span class="agent-tag">Agent 1</span>
+        <h3>Architect</h3>
+        <ul>
+          <li>Reads game spec</li>
+          <li>Produces milestone plan</li>
+          <li>Maps task dependencies</li>
+          <li>Writes <code>plan.md</code></li>
+        </ul>
+      </div>
+      <div class="agent-card">
+        <span class="agent-tag">Agent 2</span>
+        <h3>Planner</h3>
+        <ul>
+          <li>Generates nightly sprints</li>
+          <li>Assigns tasks to workers</li>
+          <li>Replans on failures</li>
+          <li>Monitors human overrides</li>
+        </ul>
+      </div>
+      <div class="agent-card">
+        <span class="agent-tag">Agent 3</span>
+        <h3>Builder</h3>
+        <ul>
+          <li>Implements Luau features</li>
+          <li>Writes via Roblox Studio MCP</li>
+          <li>Opens GitHub PRs</li>
+          <li>Writes progress log</li>
+        </ul>
+      </div>
+      <div class="agent-card">
+        <span class="agent-tag">Agent 4</span>
+        <h3>QA</h3>
+        <ul>
+          <li>Validates every PR</li>
+          <li>Runs 26-rule lint check</li>
+          <li>Executes playtest eval</li>
+          <li>Labels qa-approved / failed</li>
+        </ul>
+      </div>
+      <div class="agent-card">
+        <span class="agent-tag">Agent 5</span>
+        <h3>Reporter</h3>
+        <ul>
+          <li>Generates morning digest</li>
+          <li>Summarizes overnight work</li>
+          <li>Flags blockers &amp; cost usage</li>
+          <li>Previews tonight's plan</li>
+        </ul>
+      </div>
+      <div class="agent-card">
+        <span class="agent-tag">Agent 6</span>
+        <h3>Market Researcher</h3>
+        <ul>
+          <li>Weekly Roblox market scans</li>
+          <li>Competitor mechanic analysis</li>
+          <li>Trending genre reports</li>
+          <li>New game idea proposals</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ SCREENSHOTS ══════ -->
+<section id="screenshots">
+  <div class="container">
+    <span class="section-label">Product</span>
+    <div class="accent-line"></div>
+    <h2>Snapblox UI</h2>
+    <p class="section-sub">A built-in React dashboard for monitoring runs, browsing repos, and triggering live edits.</p>
+    <div class="screenshots-grid">
+      <div class="screenshot-placeholder">
+        <span class="ph-icon">&#128450;</span>
+        <p>Snapblox dashboard showing active game projects and run status</p>
+      </div>
+      <div class="screenshot-placeholder">
+        <span class="ph-icon">&#9654;</span>
+        <p>Live run view with agent timeline and real-time log stream</p>
+      </div>
+      <div class="screenshot-placeholder">
+        <span class="ph-icon">&#9788;</span>
+        <p>Morning report showing overnight build progress and PR links</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ CURRENT FEATURES ══════ -->
+<section id="features">
+  <div class="container">
+    <span class="section-label">Features</span>
+    <div class="accent-line"></div>
+    <h2>Current Features</h2>
+    <p class="section-sub">Everything that ships today, out of the box.</p>
+    <div class="features-grid">
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Autonomous nightly build cycle</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>WebSocket real-time log streaming</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Multi-agent pipeline (Architect → Planner → Builder → QA → Reporter)</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Per-game isolated git repositories</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Direct Roblox Studio integration via MCP</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Human override system</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>GitHub branch &amp; PR automation</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Cost guardrails ($5/night cap)</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>WebUI dashboard (Snapblox UI) for monitoring and live edits</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-check">&#10003;</span>
+        <span>Morning digest reports</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ ROADMAP ══════ -->
+<section id="roadmap">
+  <div class="container">
+    <span class="section-label">Roadmap</span>
+    <div class="accent-line"></div>
+    <h2>Upcoming Features</h2>
+    <p class="section-sub">What's being built next — and what's on the horizon.</p>
+    <div class="roadmap-list">
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#9654;</span>
+        <span class="roadmap-text">Multi-worker parallel task execution — run multiple Builder agents simultaneously across machines</span>
+        <span class="badge badge-progress">In Progress</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#9654;</span>
+        <span class="roadmap-text">Game asset marketplace integration — automatically source and integrate Creator Store assets</span>
+        <span class="badge badge-progress">In Progress</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#128197;</span>
+        <span class="roadmap-text">Web-based spec editor with AI assistance — write specs in-browser with autocomplete and validation</span>
+        <span class="badge badge-planned">Planned</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#128197;</span>
+        <span class="roadmap-text">One-click game deployment to Roblox — publish directly from the dashboard with one button</span>
+        <span class="badge badge-planned">Planned</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#128197;</span>
+        <span class="roadmap-text">Player analytics dashboard — view live player counts, retention curves, and revenue per game</span>
+        <span class="badge badge-planned">Planned</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#128197;</span>
+        <span class="roadmap-text">Cross-game asset library — reuse scripts, models, and systems across all your Snapblox projects</span>
+        <span class="badge badge-planned">Planned</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#128197;</span>
+        <span class="roadmap-text">Public game template marketplace — share and fork proven game spec templates</span>
+        <span class="badge badge-planned">Planned</span>
+      </div>
+      <div class="roadmap-item">
+        <span class="roadmap-icon">&#128161;</span>
+        <span class="roadmap-text">Community spec sharing — publish your specs for others to run on their own Snapblox instances</span>
+        <span class="badge badge-idea">Idea</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ GETTING STARTED ══════ -->
+<section id="getting-started">
+  <div class="container">
+    <span class="section-label">Getting Started</span>
+    <div class="accent-line accent-line--center"></div>
+    <h2>Up and running in minutes</h2>
+    <p class="section-sub section-sub--center">Clone the repo, create a spec, and launch your first nightly build cycle.</p>
+    <div class="code-window">
+      <div class="code-window-bar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span style="margin-left:8px; font-size:0.75rem; color: var(--text-muted);">bash</span>
+      </div>
+      <pre><span class="ck">git</span> clone https://github.com/DevMello/roblox-studio-agency
+<span class="ck">cd</span> roblox-studio-agency
+
+<span class="cm"># 1. Create your first game spec</span>
+<span class="cs">./scripts/new-game.sh</span> my-game
+
+<span class="cm"># 2. Edit games/my-game/spec.md</span>
+<span class="cm">#    Describe your game: mechanics, goals, constraints</span>
+
+<span class="cm"># 3. Launch the night cycle</span>
+<span class="cs">./scripts/launch-night-cycle.sh</span>
+
+<span class="cm"># Check your morning digest tomorrow at 5 am</span>
+<span class="cm"># reports/morning/$(date +%Y-%m-%d).md</span></pre>
+    </div>
+    <p style="margin-top:32px; font-size:0.875rem; color: var(--text-muted);">
+      See the full setup guide and configuration reference in
+      <a href="https://github.com/DevMello/roblox-studio-agency">the GitHub repository</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ══════ FOOTER ══════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3>
+        <span class="logo-dot" style="margin-right:8px; vertical-align:middle;"></span>
+        Snapblox
+      </h3>
+      <p>Autonomous AI agents that build your Roblox games while you sleep.</p>
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/DevMello/roblox-studio-agency" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="#getting-started">Documentation</a></li>
+      <li><a href="https://github.com/DevMello/roblox-studio-agency/issues" target="_blank" rel="noopener">Issues</a></li>
+    </ul>
+  </div>
+  <div class="container">
+    <p class="footer-copy">
+      &copy; 2025 Snapblox. Built with Claude (Anthropic) &amp; the Roblox Studio MCP.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
