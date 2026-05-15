@@ -16,6 +16,7 @@ export interface Game {
   open_pr_count: number
   blocker_count: number
   last_run_at: string | null
+  registry_status: string
 }
 
 export interface Run {

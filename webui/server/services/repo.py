@@ -136,6 +136,19 @@ class RepoService:
     # Plan.md milestone parser
     # ------------------------------------------------------------------
 
+    def _parse_registry_status(self) -> dict[str, str]:
+        """Returns {game_name: status} from games/registry.md table."""
+        registry_path = self._root() / "games" / "registry.md"
+        if not registry_path.exists():
+            return {}
+        statuses: dict[str, str] = {}
+        for line in registry_path.read_text(encoding="utf-8").splitlines():
+            # Match table data rows: | game-name | ... | status |
+            parts = [p.strip() for p in line.strip().strip("|").split("|")]
+            if len(parts) >= 3 and parts[0] and not parts[0].startswith("-") and parts[0] != "Game":
+                statuses[parts[0]] = parts[2].lower()
+        return statuses
+
     def _parse_plan_milestones(self, content: str) -> list[dict[str, Any]]:
         """Return list of milestone objects from plan.md."""
         # Match "### M1 — Infrastructure Foundation" and then the fields below it
@@ -240,6 +253,10 @@ class RepoService:
         # --- blockers ---
         open_blockers = self._count_open_blockers(name)
 
+        # --- registry status ---
+        registry_statuses = self._parse_registry_status()
+        registry_status = registry_statuses.get(name, "unknown")
+
         return {
             "name": name,
             "slug": name,
@@ -261,6 +278,7 @@ class RepoService:
             "progress_path": f"games/{name}/progress.md",
             "open_pr_count": 0,  # Populated in routes if needed
             "last_run_at": None,
+            "registry_status": registry_status,
         }
 
     # ------------------------------------------------------------------

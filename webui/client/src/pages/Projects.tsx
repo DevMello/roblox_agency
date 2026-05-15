@@ -67,10 +67,15 @@ function GameCard({ game }: GameCardProps) {
   const sprintLabel =
     game.current_sprint != null ? `Sprint ${game.current_sprint}` : 'No sprint'
 
-  // Derive a display status from available data
+  // Use registry status directly; fall back to derived status when unknown
   const sprintStatus = (() => {
+    const reg = game.registry_status
+    if (reg === 'active') return 'active'
+    if (reg === 'complete') return 'complete'
+    if (reg === 'idle') return 'idle'
+    // registry unknown — derive from data
     if (game.open_pr_count > 0) return 'active'
-    if (game.tasks_done === game.task_count && game.task_count > 0) return 'complete'
+    if (game.milestones_done === game.milestone_count && game.milestone_count > 0) return 'complete'
     return 'idle'
   })()
 
@@ -93,12 +98,12 @@ function GameCard({ game }: GameCardProps) {
       {/* progress */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-text-muted font-body">Tasks</span>
+          <span className="text-xs text-text-muted font-body">Milestones</span>
           <span className="text-xs font-mono text-text-muted">
-            {game.tasks_done}/{game.task_count}
+            {game.milestones_done}/{game.milestone_count}
           </span>
         </div>
-        <ProgressBar done={game.tasks_done} total={game.task_count} />
+        <ProgressBar done={game.milestones_done} total={game.milestone_count} />
       </div>
 
       {/* footer */}
