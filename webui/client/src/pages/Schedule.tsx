@@ -1,28 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import clsx from 'clsx'
+import type { ScheduledJob, Run, Game } from '../types'
+import { useGames } from '../hooks/useGames'
+import { useRunList } from '../hooks/useRun'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface ScheduledJob {
-  id: string
-  label: string
-  game: string
-  script: string
-  cron_expr: string
-  timezone: string
-  active: boolean
-  next_run_time: string | null
-  last_run: string | null
-  last_run_status: 'ok' | 'failed' | null
-}
-
-interface UpcomingJob {
+interface UpcomingRun {
   job_id: string
   next_run_time: string
-}
-
-interface Game {
-  name: string
-  slug: string
+  label?: string
+  duration?: string
+  forecast?: string
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,330 +21,476 @@ const SCRIPT_OPTIONS = [
   'night-cycle',
   'architect',
   'reporter',
-  'live-edit',
-  'worker',
+  'research',
+  'qa-sweep',
   'weekly-research',
 ]
 
+const TIMEZONE_OPTIONS = [
+  'America/New_York',
+  'America/Los_Angeles',
+  'America/Chicago',
+  'UTC',
+  'Europe/London',
+  'Europe/Berlin',
+  'Asia/Tokyo',
+]
+
+const CRON_LABELS = ['min', 'hr', 'day', 'mo', 'dow']
+
+const API = '/api/v1'
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string | null): string {
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, options)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+function relativeLabel(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (d.toDateString() === now.toDateString()) return 'Today'
+  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function formatNextRun(iso: string | null): string {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString()
+    const d = new Date(iso)
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return `${relativeLabel(iso)} ${time}`
   } catch {
     return iso
   }
 }
 
-function StatusDot({ active }: { active: boolean }) {
+function formatCountdown(iso: string): string {
+  const diffMs = new Date(iso).getTime() - Date.now()
+  if (diffMs <= 0) return 'now'
+  const h = Math.floor(diffMs / 3_600_000)
+  const m = Math.floor((diffMs % 3_600_000) / 60_000)
+  return `in ${h}h ${m}m`
+}
+
+function formatDayTime(iso: string): { day: string; time: string } {
+  try {
+    const d = new Date(iso)
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const day = d.toDateString() === now.toDateString()
+      ? 'Tonight'
+      : d.toDateString() === tomorrow.toDateString()
+        ? 'Tomorrow'
+        : d.toLocaleDateString([], { weekday: 'long' })
+    const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    return { day, time }
+  } catch {
+    return { day: '—', time: '—' }
+  }
+}
+
+function formatDuration(startedAt: string | null, endedAt: string | null): string {
+  if (!startedAt || !endedAt) return '—'
+  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
+  if (ms >= 3_600_000) return `${Math.floor(ms / 3_600_000)}h ${Math.floor((ms % 3_600_000) / 60_000)}m`
+  if (ms >= 60_000) return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`
+  return `${Math.floor(ms / 1000)}s`
+}
+
+function parseCron(expr: string): string {
+  const parts = expr.trim().split(/\s+/)
+  if (parts.length !== 5) return expr
+  const [min, hr, , , dow] = parts
+  if (dow !== '*') return `Weekly on ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][parseInt(dow)] ?? dow}`
+  if (hr !== '*' && min !== '*') {
+    const h = parseInt(hr)
+    const m = parseInt(min)
+    const h12 = h % 12 || 12
+    return `Every day at ${h12}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+  }
+  return expr
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'accent' | 'success' }) {
+  const color = tone === 'accent' ? 'var(--accent-soft)' : tone === 'success' ? 'var(--success)' : 'var(--ink)'
   return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full ${active ? 'bg-success' : 'bg-text-muted'}`}
-      title={active ? 'Active' : 'Paused'}
-    />
+    <div className="card card-pad" style={{ flex: 1 }}>
+      <div className="text-cap">{label}</div>
+      <div className="t-display" style={{ fontSize: 26, marginTop: 6, color }}>{value}</div>
+      <div className="t-xs t-muted" style={{ marginTop: 4 }}>{sub}</div>
+    </div>
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-export default function Schedule() {
-  const [jobs, setJobs] = useState<ScheduledJob[]>([])
-  const [upcoming, setUpcoming] = useState<UpcomingJob[]>([])
-  const [games, setGames] = useState<Game[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [actionMsg, setActionMsg] = useState<{ text: string; ok: boolean } | null>(null)
-
-  // Add form state
-  const [newLabel, setNewLabel] = useState('')
-  const [newGame, setNewGame] = useState('')
-  const [newScript, setNewScript] = useState(SCRIPT_OPTIONS[0])
-  const [newCron, setNewCron] = useState('0 23 * * *')
-  const [adding, setAdding] = useState(false)
-
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [jobsRes, upcomingRes, gamesRes] = await Promise.all([
-        fetch('/api/v1/schedule/'),
-        fetch('/api/v1/schedule/upcoming?n=5'),
-        fetch('/api/v1/games/'),
-      ])
-      if (jobsRes.ok) {
-        const jobsData = (await jobsRes.json()) as Array<Omit<ScheduledJob, 'active'> & { active: number | boolean }>
-        setJobs(jobsData.map(job => ({ ...job, active: Boolean(job.active) })))
-      }
-      if (upcomingRes.ok) setUpcoming(await upcomingRes.json())
-      if (gamesRes.ok) setGames(await gamesRes.json())
-    } catch {
-      setError('Failed to load schedule data')
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetchAll() }, [fetchAll])
-
-  function flash(text: string, ok: boolean) {
-    setActionMsg({ text, ok })
-    setTimeout(() => setActionMsg(null), 3000)
-  }
-
-  async function handlePause(id: string) {
-    const res = await fetch(`/api/v1/schedule/${id}/pause`, { method: 'POST' })
-    if (res.ok) {
-      setJobs(prev => prev.map(j => j.id === id ? { ...j, active: false } : j))
-      flash('Job paused', true)
-    } else {
-      flash('Failed to pause job', false)
-    }
-  }
-
-  async function handleResume(id: string) {
-    const res = await fetch(`/api/v1/schedule/${id}/resume`, { method: 'POST' })
-    if (res.ok) {
-      setJobs(prev => prev.map(j => j.id === id ? { ...j, active: true } : j))
-      flash('Job resumed', true)
-    } else {
-      flash('Failed to resume job', false)
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this scheduled job?')) return
-    const res = await fetch(`/api/v1/schedule/${id}`, { method: 'DELETE' })
-    if (res.ok) {
-      setJobs(prev => prev.filter(j => j.id !== id))
-      flash('Job deleted', true)
-    } else {
-      flash('Failed to delete job', false)
-    }
-  }
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setAdding(true)
-    const res = await fetch('/api/v1/schedule/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        label: newLabel,
-        game: newGame,
-        script: newScript,
-        cron_expr: newCron,
-      }),
-    })
-    if (res.ok) {
-      flash('Job added', true)
-      setShowAddForm(false)
-      setNewLabel('')
-      setNewGame('')
-      setNewScript(SCRIPT_OPTIONS[0])
-      setNewCron('0 23 * * *')
-      await fetchAll()
-    } else {
-      flash('Failed to add job', false)
-    }
-    setAdding(false)
-  }
-
-  // ─── Render ──────────────────────────────────────────────────────────────
-
+function JobRow({
+  job,
+  onEdit,
+  onPause,
+  onResume,
+  onRunNow,
+}: {
+  job: ScheduledJob
+  onEdit: () => void
+  onPause: () => void
+  onResume: () => void
+  onRunNow: () => void
+}) {
   return (
-    <div className="p-6 max-w-6xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-lg font-display font-semibold text-text-primary">Schedule</h1>
-        <div className="flex items-center gap-3">
-          {actionMsg && (
-            <span className={`text-xs font-mono ${actionMsg.ok ? 'text-success' : 'text-danger'}`}>
-              {actionMsg.text}
-            </span>
-          )}
-          <button
-            onClick={() => setShowAddForm(v => !v)}
-            className="px-3 py-1.5 text-sm rounded bg-accent text-white hover:bg-accent/90 transition-colors"
-          >
-            {showAddForm ? 'Cancel' : '+ Add Job'}
-          </button>
+    <div
+      className="row gap-16"
+      style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', opacity: job.active ? 1 : 0.6 }}
+    >
+      <div
+        style={{
+          width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+          background: job.active ? 'var(--accent-wash)' : 'var(--surface-2)',
+          border: `1px solid ${job.active ? 'var(--accent)' : 'var(--border-2)'}`,
+          display: 'grid', placeItems: 'center',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={job.active ? 'var(--accent)' : 'var(--muted)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      </div>
+
+      <div className="col flex-1" style={{ minWidth: 0 }}>
+        <div className="row gap-8">
+          <span className="t-display" style={{ fontSize: 14 }}>{job.label}</span>
+          {job.active ? <span className="chip chip-success">active</span> : <span className="chip">paused</span>}
+        </div>
+        <div className="row gap-12" style={{ marginTop: 4 }}>
+          <span className="t-mono t-xs t-muted">{job.cron_expr}</span>
+          <span className="t-mono t-xs t-muted">·</span>
+          <span className="t-mono t-xs t-muted">{job.timezone}</span>
+          <span className="t-mono t-xs t-muted">·</span>
+          <span className="t-mono t-xs t-muted">avg —</span>
         </div>
       </div>
 
-      {/* Add Job Form */}
-      {showAddForm && (
-        <form
-          onSubmit={handleAdd}
-          className="bg-surface border border-border rounded-lg p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4"
-        >
-          <h2 className="col-span-full text-sm font-semibold text-text-primary mb-1">New Scheduled Job</h2>
+      <div className="col" style={{ alignItems: 'flex-end' }}>
+        <div className="text-cap" style={{ marginBottom: 0 }}>Next</div>
+        <div className="t-sm t-dim">{formatNextRun(job.next_run ?? null)}</div>
+      </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-muted">Label</label>
-            <input
-              value={newLabel}
-              onChange={e => setNewLabel(e.target.value)}
-              required
-              placeholder="Nightly build"
-              className="bg-bg border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/60"
-            />
+      <div className="row gap-4">
+        <button className="btn btn-sm" onClick={onEdit}>Edit</button>
+        <button className="btn btn-sm btn-ghost" onClick={job.active ? onPause : onResume}>
+          {job.active ? 'Pause' : 'Resume'}
+        </button>
+        <button className="btn btn-sm btn-ghost" onClick={onRunNow}>Run now</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function Schedule() {
+  const qc = useQueryClient()
+
+  const jobsQuery = useQuery<ScheduledJob[]>({
+    queryKey: ['schedule'],
+    queryFn: () => fetchJson<ScheduledJob[]>(`${API}/schedule/`),
+    refetchInterval: 30_000,
+  })
+
+  const upcomingQuery = useQuery<UpcomingRun[]>({
+    queryKey: ['schedule', 'upcoming'],
+    queryFn: () => fetchJson<UpcomingRun[]>(`${API}/schedule/upcoming?n=10`),
+    refetchInterval: 60_000,
+  })
+
+  const runsQuery = useRunList()
+  const gamesQuery = useGames()
+
+  const pauseMutation = useMutation({
+    mutationFn: (id: string) => fetchJson<void>(`${API}/schedule/${id}/pause`, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['schedule'] }),
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: (id: string) => fetchJson<void>(`${API}/schedule/${id}/resume`, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['schedule'] }),
+  })
+
+  const runNowMutation = useMutation({
+    mutationFn: ({ script, game }: { script: string; game: string }) =>
+      fetchJson<Run>(`${API}/runs/${script}/${game}`, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['runs'] }),
+  })
+
+  const addJobMutation = useMutation({
+    mutationFn: (body: object) =>
+      fetchJson<{ job_id: string }>(`${API}/schedule/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['schedule'] }),
+  })
+
+  const [newLabel, setNewLabel] = useState('Night cycle · lava-escape')
+  const [newGame, setNewGame] = useState('')
+  const [newScript, setNewScript] = useState('night-cycle')
+  const [cronParts, setCronParts] = useState(['0', '23', '*', '*', '*'])
+  const [newTz, setNewTz] = useState('America/New_York')
+
+  const jobs = jobsQuery.data ?? []
+  const upcoming = upcomingQuery.data ?? []
+  const runs = runsQuery.data ?? []
+  const games = gamesQuery.data ?? []
+
+  const activeJobs = jobs.filter(j => j.active).length
+  const recentRuns = runs.slice(0, 7)
+
+  const nextRunJob = jobs.reduce<ScheduledJob | undefined>((best, j) => {
+    if (!j.active || !j.next_run) return best
+    if (!best?.next_run) return j
+    return new Date(j.next_run) < new Date(best.next_run) ? j : best
+  }, undefined)
+
+  const successCount = recentRuns.filter(r => r.status === 'completed').length
+  const successRate = recentRuns.length ? Math.round((successCount / recentRuns.length) * 100) : 0
+
+  function handleCronPart(i: number, val: string) {
+    setCronParts(prev => { const next = [...prev]; next[i] = val; return next })
+  }
+
+  const cronExpr = cronParts.join(' ')
+
+  async function handleAddJob(e: React.FormEvent) {
+    e.preventDefault()
+    await addJobMutation.mutateAsync({ label: newLabel, game: newGame, script: newScript, cron_expr: cronExpr, timezone: newTz })
+  }
+
+  return (
+    <div className="page">
+      <div className="page-head fade-up d-0">
+        <div>
+          <div className="text-cap" style={{ marginBottom: 8, color: 'var(--accent-soft)' }}>Orchestration</div>
+          <h1>Schedule</h1>
+          <p className="lead">When the agent fleet wakes up, and what it does when it does.</p>
+        </div>
+        <button className="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Add schedule
+        </button>
+      </div>
+
+      <div className="row gap-12 fade-up d-0" style={{ marginBottom: 24 }}>
+        <Stat label="Jobs active" value={String(activeJobs)} sub={`of ${jobs.length} · ${jobs.length - activeJobs} paused`} />
+        <Stat
+          label="Next run"
+          value={nextRunJob ? new Date(nextRunJob.next_run).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—'}
+          sub={nextRunJob ? formatCountdown(nextRunJob.next_run) : '—'}
+          tone="accent"
+        />
+        <Stat label="Forecast · 7d" value="$4.40" sub="of $5 cap · 88%" />
+        <Stat label="Avg success" value={`${successRate}%`} sub="last 30 cycles" tone="success" />
+      </div>
+
+      <section className="card fade-up d-1" style={{ marginBottom: 24 }}>
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+          <h3 style={{ fontSize: 14, marginLeft: 8 }}>Upcoming · next 48 hours</h3>
+          <div className="spacer" />
+          <span className="t-mono t-xs t-muted">timezone · America/New_York · GMT-4</span>
+        </div>
+
+        {upcoming.length === 0 ? (
+          <div style={{ padding: '20px 22px' }} className="t-sm t-muted">
+            {upcomingQuery.isLoading ? 'Loading…' : 'No upcoming runs scheduled.'}
           </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-muted">Game</label>
-            <select
-              value={newGame}
-              onChange={e => setNewGame(e.target.value)}
-              className="bg-bg border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/60"
-            >
-              <option value="">— all games —</option>
-              {games.map(g => (
-                <option key={g.slug} value={g.slug}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-muted">Script</label>
-            <select
-              value={newScript}
-              onChange={e => setNewScript(e.target.value)}
-              className="bg-bg border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/60"
-            >
-              {SCRIPT_OPTIONS.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-muted">Cron Expression</label>
-            <input
-              value={newCron}
-              onChange={e => setNewCron(e.target.value)}
-              required
-              placeholder="0 23 * * *"
-              className="bg-bg border border-border rounded px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-accent/60"
-            />
-            <span className="text-xs text-text-muted">e.g. <code className="font-mono text-accent">0 23 * * *</code> = 11 PM daily</span>
-          </div>
-
-          <div className="col-span-full flex justify-end">
-            <button
-              type="submit"
-              disabled={adding}
-              className="px-4 py-2 text-sm rounded bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
-            >
-              {adding ? 'Adding…' : 'Add Job'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Upcoming panel */}
-      {upcoming.length > 0 && (
-        <div className="mb-6 bg-surface border border-border rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-text-primary mb-3">Upcoming (next 5)</h2>
-          <div className="space-y-2">
-            {upcoming.map(job => (
-              <div key={job.job_id} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-3">
-                  <span className="text-text-primary font-mono">{job.job_id}</span>
+        ) : (
+          upcoming.slice(0, 8).map((u, i) => {
+            const { day, time } = formatDayTime(u.next_run_time)
+            const isAccent = i < 3
+            return (
+              <div
+                key={u.job_id + i}
+                className="row gap-16"
+                style={{
+                  padding: '14px 22px',
+                  borderTop: i ? '1px solid var(--border)' : 'none',
+                  background: isAccent ? 'rgba(124,111,255,0.04)' : 'transparent',
+                }}
+              >
+                <span className={clsx('dot', isAccent ? 'dot-accent' : 'dot-muted')} style={{ marginTop: 6 }} />
+                <div className="col" style={{ width: 110 }}>
+                  <span className="t-display" style={{ fontSize: 13 }}>{day}</span>
+                  <span className="t-mono t-xs t-muted">{time}</span>
                 </div>
-                <span className="text-text-muted text-xs font-mono">{formatDate(job.next_run_time)}</span>
+                <div className="col flex-1">
+                  <span className="t-sm" style={{ fontWeight: 500 }}>{u.label ?? u.job_id}</span>
+                  <span className="t-xs t-muted">{u.duration ?? 'est —'} · forecast {u.forecast ?? '—'}</span>
+                </div>
+                <button className="btn btn-sm btn-ghost">Edit</button>
+                <button className="btn btn-sm btn-ghost">Skip</button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )
+          })
+        )}
+      </section>
 
-      {/* Jobs table */}
-      {loading ? (
-        <div className="bg-surface border border-border rounded-lg p-8 text-text-muted text-sm font-mono">
-          Loading…
+      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20, marginBottom: 24 }}>
+        <section className="card fade-up d-2">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Configured jobs · {jobs.length}</h3>
+            <div className="spacer" />
+            <button className="btn btn-sm btn-ghost">Sort: next ▾</button>
+          </div>
+
+          {jobsQuery.isLoading ? (
+            <div style={{ padding: '20px 22px' }} className="t-sm t-muted">Loading…</div>
+          ) : jobs.length === 0 ? (
+            <div style={{ padding: '20px 22px' }} className="t-sm t-muted">No jobs configured yet.</div>
+          ) : (
+            jobs.map(job => (
+              <JobRow
+                key={job.id}
+                job={job}
+                onEdit={() => {}}
+                onPause={() => pauseMutation.mutate(job.id)}
+                onResume={() => resumeMutation.mutate(job.id)}
+                onRunNow={() => runNowMutation.mutate({ script: job.script, game: job.game })}
+              />
+            ))
+          )}
+        </section>
+
+        <section className="card fade-up d-3" style={{ alignSelf: 'flex-start' }}>
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <h3 style={{ fontSize: 14, marginLeft: 8 }}>New job</h3>
+          </div>
+
+          <form className="col gap-12" style={{ padding: '16px 20px' }} onSubmit={e => void handleAddJob(e)}>
+            <div>
+              <label className="label-cap">Label</label>
+              <input className="field" value={newLabel} onChange={e => setNewLabel(e.target.value)} required />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label className="label-cap">Game</label>
+                <select className="field" value={newGame} onChange={e => setNewGame(e.target.value)}>
+                  <option value="">— all games —</option>
+                  {games.map((g: Game) => <option key={g.slug} value={g.slug}>{g.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label-cap">Script</label>
+                <select className="field" value={newScript} onChange={e => setNewScript(e.target.value)}>
+                  {SCRIPT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="label-cap">Cron</label>
+              <div className="row gap-6">
+                {cronParts.map((v, i) => (
+                  <input key={i} className="field field-mono" value={v} onChange={e => handleCronPart(i, e.target.value)} style={{ width: 56, textAlign: 'center' }} />
+                ))}
+              </div>
+              <div className="row gap-6" style={{ marginTop: 6 }}>
+                {CRON_LABELS.map(l => (
+                  <span key={l} className="t-mono t-xs t-muted" style={{ width: 56, textAlign: 'center' }}>{l}</span>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ padding: 10, background: 'var(--bg)', border: '1px dashed var(--border-2)', borderRadius: 6 }}>
+              <div className="t-mono t-xs t-muted">Translated</div>
+              <div className="t-sm t-accent" style={{ marginTop: 2 }}>"{parseCron(cronExpr)}"</div>
+            </div>
+
+            <div>
+              <label className="label-cap">Timezone</label>
+              <select className="field" value={newTz} onChange={e => setNewTz(e.target.value)}>
+                {TIMEZONE_OPTIONS.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+              </select>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', marginTop: 4 }} disabled={addJobMutation.isPending}>
+              {addJobMutation.isPending ? 'Saving…' : 'Save schedule'}
+            </button>
+            <div className="t-xs t-muted" style={{ textAlign: 'center' }}>
+              Cron more frequent than 1 / hour rejected (cost guard)
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <section className="card fade-up d-4">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>Run history · last 7 days</h3>
+          <div className="spacer" />
+          <span className="t-mono t-xs t-muted">{recentRuns.length} cycles · {successRate}% success</span>
         </div>
-      ) : error ? (
-        <div className="bg-surface border border-border rounded-lg p-8 text-danger text-sm font-mono">
-          {error}
-        </div>
-      ) : jobs.length === 0 ? (
-        <div className="bg-surface border border-border rounded-lg p-8 text-center text-text-muted text-sm">
-          No scheduled jobs yet. Click "Add Job" to create one.
-        </div>
-      ) : (
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-text-muted font-medium px-4 py-3 w-8"></th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Label</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Game</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Script</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Cron</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Next Run</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3 w-40">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map(job => (
-                <tr key={job.id} className="border-b border-border hover:bg-border/20 transition-colors">
-                  <td className="px-4 py-3">
-                    <StatusDot active={job.active} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-text-primary">{job.label}</div>
-                    {job.last_run && (
-                      <div className="text-xs text-text-muted mt-0.5">
-                        Last: {formatDate(job.last_run)}{' '}
-                        {job.last_run_status === 'ok' && <span className="text-success">✓</span>}
-                        {job.last_run_status === 'failed' && <span className="text-danger">✗</span>}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-text-muted text-xs font-mono">
-                    {job.game || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-text-muted text-xs font-mono">
-                    {job.script}
-                  </td>
-                  <td className="px-4 py-3 text-text-muted text-xs font-mono">
-                    {job.cron_expr}
-                  </td>
-                  <td className="px-4 py-3 text-text-muted text-xs">
-                    {formatDate(job.next_run_time)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      {job.active ? (
-                        <button
-                          onClick={() => handlePause(job.id)}
-                          className="px-2 py-1 text-xs rounded bg-warning/20 text-warning border border-warning/30 hover:bg-warning/30 transition-colors"
-                        >
-                          Pause
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleResume(job.id)}
-                          className="px-2 py-1 text-xs rounded bg-success/20 text-success border border-success/30 hover:bg-success/30 transition-colors"
-                        >
-                          Resume
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(job.id)}
-                        className="px-2 py-1 text-xs rounded bg-danger/20 text-danger border border-danger/30 hover:bg-danger/30 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              {['Date', 'Job', 'Duration', 'Spend', 'Tasks', 'Status'].map((h, i) => (
+                <th key={i} style={{ textAlign: 'left', padding: '10px 20px', fontFamily: 'var(--f-mono)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)', fontWeight: 500 }}>
+                  {h}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </tr>
+          </thead>
+          <tbody>
+            {runsQuery.isLoading ? (
+              <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }} className="t-sm t-muted">Loading…</td></tr>
+            ) : recentRuns.length === 0 ? (
+              <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }} className="t-sm t-muted">No runs recorded yet.</td></tr>
+            ) : (
+              recentRuns.map(r => {
+                const isSuccess = r.status === 'completed'
+                const isFailed = r.status === 'failed'
+                return (
+                  <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 20px' }}>
+                      <span className="t-mono t-xs t-muted">
+                        {r.started_at ? new Date(r.started_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 20px' }}>
+                      <span className="t-sm">{r.script}{r.game ? ` · ${r.game}` : ''}</span>
+                    </td>
+                    <td style={{ padding: '10px 20px' }}>
+                      <span className="t-mono t-xs t-dim">{formatDuration(r.started_at, r.ended_at)}</span>
+                    </td>
+                    <td style={{ padding: '10px 20px' }}><span className="t-mono t-xs t-dim">—</span></td>
+                    <td style={{ padding: '10px 20px' }}><span className="t-mono t-xs t-dim">—</span></td>
+                    <td style={{ padding: '10px 20px' }}>
+                      {isSuccess && <span className="chip chip-success">✓ clean</span>}
+                      {isFailed && <span className="chip chip-danger">✗ failed</span>}
+                      {!isSuccess && !isFailed && (
+                        <span className={clsx('chip', r.status === 'running' && 'chip-accent')}>{r.status}</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </section>
     </div>
   )
 }
