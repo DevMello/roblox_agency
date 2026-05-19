@@ -1,5 +1,4 @@
 import { useEffect, type ReactNode } from 'react'
-import { clsx } from 'clsx'
 
 interface ModalProps {
   open: boolean
@@ -10,7 +9,6 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, footer }: ModalProps) {
-  // Close on Escape
   useEffect(() => {
     if (!open) return
     function handleKey(e: KeyboardEvent) {
@@ -24,52 +22,89 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="palette-backdrop"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      style={{ alignItems: 'center', paddingTop: 0 }}
     >
-      {/* Backdrop */}
+      {/* Backdrop click-to-close */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        style={{ position: 'absolute', inset: 0 }}
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
       <div
-        className={clsx(
-          'relative z-10 w-full max-w-md rounded-xl bg-surface border border-border shadow-2xl',
-          'flex flex-col max-h-[90vh]',
-        )}
+        className="palette"
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '90vh',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 16px',
+            borderBottom: '1px solid var(--border)',
+            flexShrink: 0,
+          }}
+        >
           <h2
             id="modal-title"
-            className="text-base font-semibold font-display text-text-primary"
+            style={{
+              fontFamily: 'var(--f-display)',
+              fontSize: '15px',
+              fontWeight: 600,
+              margin: 0,
+              color: 'var(--ink)',
+            }}
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary transition-colors p-1 rounded-md hover:bg-border"
+            className="btn btn-ghost btn-sm"
             aria-label="Close"
+            style={{ padding: '4px 6px' }}
           >
-            <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
               <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z" />
             </svg>
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '14px 16px',
+          }}
+        >
           {children}
         </div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border shrink-0">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              padding: '14px 16px',
+              borderTop: '1px solid var(--border)',
+              flexShrink: 0,
+            }}
+          >
             {footer}
           </div>
         )}

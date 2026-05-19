@@ -1,5 +1,3 @@
-import { clsx } from 'clsx'
-
 type Size = 'sm' | 'md' | 'lg'
 
 interface SpinnerProps {
@@ -7,44 +5,45 @@ interface SpinnerProps {
   className?: string
 }
 
-const sizeClasses: Record<Size, { svg: string; stroke: string }> = {
-  sm: { svg: 'w-3.5 h-3.5', stroke: '2.5' },
-  md: { svg: 'w-5 h-5', stroke: '2' },
-  lg: { svg: 'w-8 h-8', stroke: '2' },
+const sizePx: Record<Size, number> = {
+  sm: 14,
+  md: 20,
+  lg: 32,
 }
 
 export function Spinner({ size = 'md', className }: SpinnerProps) {
-  const { svg, stroke } = sizeClasses[size]
-  const r = 7
-  const circumference = 2 * Math.PI * r
+  const px = sizePx[size]
 
   return (
     <svg
-      viewBox="0 0 16 16"
+      width={px}
+      height={px}
+      viewBox="0 0 32 32"
       fill="none"
-      className={clsx('animate-spin shrink-0', svg, className)}
       aria-hidden="true"
+      className={className}
+      style={{ animation: 'spin 1.6s cubic-bezier(0.5,0,0.5,1) infinite', flexShrink: 0 }}
     >
-      {/* Track */}
-      <circle
-        cx="8"
-        cy="8"
-        r={r}
-        stroke="currentColor"
-        strokeWidth={stroke}
-        opacity={0.2}
+      {/* Snapblox cube / diamond mark — two rotated squares */}
+      <rect
+        x="10"
+        y="10"
+        width="12"
+        height="12"
+        rx="2"
+        fill="var(--accent)"
+        opacity="0.9"
+        transform="rotate(45 16 16)"
       />
-      {/* Arc */}
-      <circle
-        cx="8"
-        cy="8"
-        r={r}
-        stroke="currentColor"
-        strokeWidth={stroke}
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference * 0.75}
-        strokeLinecap="round"
-        transform="rotate(-90 8 8)"
+      <rect
+        x="12"
+        y="12"
+        width="8"
+        height="8"
+        rx="1.5"
+        fill="var(--bg)"
+        opacity="0.7"
+        transform="rotate(45 16 16)"
       />
     </svg>
   )

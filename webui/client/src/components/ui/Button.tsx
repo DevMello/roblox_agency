@@ -13,20 +13,16 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary:
-    'bg-accent text-white hover:bg-accent/90 border border-accent/80 disabled:opacity-50',
-  secondary:
-    'bg-surface text-text-primary border border-border hover:bg-border disabled:opacity-50',
-  danger:
-    'bg-danger/10 text-danger border border-danger/40 hover:bg-danger/20 disabled:opacity-50',
-  ghost:
-    'bg-transparent text-text-muted border border-transparent hover:text-text-primary hover:bg-border disabled:opacity-50',
+  primary: 'btn btn-primary',
+  secondary: 'btn',
+  danger: 'btn btn-danger',
+  ghost: 'btn btn-ghost',
 }
 
-const sizeClasses: Record<Size, string> = {
-  sm: 'h-7 px-2.5 text-xs gap-1.5',
-  md: 'h-9 px-4 text-sm gap-2',
-  lg: 'h-11 px-5 text-base gap-2',
+const sizeClasses: Record<Size, string | undefined> = {
+  sm: 'btn-sm',
+  md: undefined,
+  lg: 'btn-lg',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -41,16 +37,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   },
   ref,
 ) {
+  const isDisabled = disabled || loading
   return (
     <button
       ref={ref}
-      disabled={disabled || loading}
-      className={clsx(
-        'inline-flex items-center justify-center rounded-md font-body font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 cursor-pointer select-none',
-        variantClasses[variant],
-        sizeClasses[size],
-        className,
-      )}
+      disabled={isDisabled}
+      className={clsx(variantClasses[variant], sizeClasses[size], className)}
+      style={isDisabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
       {...props}
     >
       {loading && <Spinner size="sm" />}
