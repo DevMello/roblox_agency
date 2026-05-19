@@ -1,489 +1,400 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+// Page · /repo — Repo Explorer (grid map + ⌘K palette)
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Static data ──────────────────────────────────────────────────────────────
 
-interface DirEntry {
-  name: string
-  path: string
-  is_dir: boolean
-  size?: number
-  modified?: string
+const REPO_NODES = [
+  { id: 'agents', label: 'agents', x: 0, y: 0, w: 3, h: 2, locked: true, count: 14, kind: 'dir' as const },
+  { id: 'config', label: 'config', x: 3, y: 0, w: 2, h: 2, count: 8, kind: 'dir' as const },
+  { id: 'games', label: 'games', x: 5, y: 0, w: 4, h: 4, count: 3, kind: 'dir' as const, accent: true, hero: true },
+  { id: 'workflows', label: 'workflows', x: 9, y: 0, w: 3, h: 2, count: 11, kind: 'dir' as const, locked: true },
+  { id: 'memory', label: 'memory', x: 0, y: 2, w: 3, h: 2, count: 4, kind: 'dir' as const, recent: true },
+  { id: 'logs', label: 'logs', x: 3, y: 2, w: 2, h: 2, count: 47, kind: 'dir' as const },
+  { id: 'arch', label: 'architecture.md', x: 9, y: 2, w: 3, h: 1, kind: 'file' as const },
+  { id: 'claude', label: 'CLAUDE.md', x: 9, y: 3, w: 3, h: 1, kind: 'file' as const },
+  { id: 'specs', label: 'specs', x: 0, y: 4, w: 3, h: 2, count: 3, kind: 'dir' as const },
+  { id: 'reports', label: 'reports', x: 3, y: 4, w: 2, h: 2, count: 12, kind: 'dir' as const },
+  { id: 'scripts', label: 'scripts', x: 5, y: 4, w: 4, h: 1, count: 8, kind: 'dir' as const, locked: true },
+  { id: 'mcp', label: '.mcp.json', x: 5, y: 5, w: 2, h: 1, kind: 'file' as const },
+  { id: 'env', label: '.env', x: 7, y: 5, w: 2, h: 1, kind: 'file' as const, locked: true },
+  { id: 'webui', label: 'webui', x: 9, y: 4, w: 3, h: 2, count: 84, kind: 'dir' as const },
+]
+
+const GAME_CHILDREN = [
+  { label: 'industrial-tycoon', pct: 78, status: 'building' as const },
+  { label: 'sword-game', pct: 18, status: 'idle' as const },
+  { label: 'lava-escape', pct: 4, status: 'planning' as const },
+]
+
+const PALETTE_RESULTS = [
+  { path: 'games/industrial-tycoon/plan.md', type: 'markdown' },
+  { path: 'games/industrial-tycoon/sprint-log.md', type: 'markdown' },
+  { path: 'games/sword-game/plan.md', type: 'markdown' },
+  { path: 'games/lava-escape/plan.md', type: 'markdown' },
+  { path: 'memory/blockers.md', type: 'markdown' },
+  { path: 'memory/human-overrides.md', type: 'markdown' },
+  { path: 'specs/industrial-tycoon/spec.md', type: 'markdown' },
+  { path: 'architecture.md', type: 'markdown' },
+  { path: 'reports/morning/2026-05-19.md', type: 'markdown' },
+  { path: '.mcp.json', type: 'json' },
+]
+
+const RECENT_FILES = [
+  { p: 'games/industrial-tycoon/sprint-log.md', t: '2m ago', who: 'builder', op: 'modified' },
+  { p: 'memory/human-overrides.md', t: '9m ago', who: 'you', op: 'appended' },
+  { p: 'games/industrial-tycoon/progress.md', t: '12m ago', who: 'builder', op: 'modified' },
+  { p: 'reports/morning/2026-05-19.md', t: '5h ago', who: 'reporter', op: 'created' },
+  { p: 'specs/lava-escape/spec.md', t: '1d ago', who: 'you', op: 'created' },
+]
+
+const BRANCHES = [
+  { n: 'main', cur: true, ahead: 0, behind: 0 },
+  { n: 'feature/conveyor-curve', cur: false, ahead: 3, behind: 0, pr: '#47' },
+  { n: 'feature/gamepass-2x-coins', cur: false, ahead: 12, behind: 1, pr: '#48' },
+  { n: 'live/industrial-tycoon/neon-trail', cur: false, ahead: 0, behind: 0, merged: true },
+  { n: 'live/industrial-tycoon/fix-conveyor', cur: false, ahead: 1, behind: 0, pr: '#46' },
+]
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function FolderIcon({ size = 14, color = 'var(--muted)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+      <path d="M1.5 3.5A1 1 0 0 1 2.5 2.5H6L7.5 4H13.5A1 1 0 0 1 14.5 5V12.5A1 1 0 0 1 13.5 13.5H2.5A1 1 0 0 1 1.5 12.5V3.5Z"
+        stroke="currentColor" strokeWidth="1.2" fill="none" />
+    </svg>
+  )
 }
 
-interface FileData {
-  content: string
-  size: number
-  modified?: string
+function FileIcon({ size = 14, color = 'var(--muted)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+      <path d="M3 2.5A1 1 0 0 1 4 1.5H9.5L13 5V13.5A1 1 0 0 1 12 14.5H4A1 1 0 0 1 3 13.5V2.5Z"
+        stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <path d="M9.5 1.5V5H13" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const PROTECTED = ['memory/human-overrides.md', 'agents/', 'config/', 'workflows/', 'specs/template.md']
-
-function isProtected(path: string): boolean {
-  return PROTECTED.some(p => path === p || path.startsWith(p))
+function SearchIcon({ size = 14, color = 'var(--muted)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+      <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M10 10L14 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
 }
 
-function isMarkdown(name: string): boolean {
-  return name.endsWith('.md') || name.endsWith('.mdx')
+function RepoIcon({ size = 13, color = 'var(--muted)' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+      <path d="M2 2.5A1.5 1.5 0 0 1 3.5 1 1.5 1.5 0 0 1 5 2.5V13.5A1.5 1.5 0 0 1 3.5 15 1.5 1.5 0 0 1 2 13.5V2.5Z"
+        stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <path d="M5 3H10.5A2 2 0 0 1 12.5 5V10A2 2 0 0 1 10.5 12H5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
 }
 
-function formatSize(bytes?: number): string {
-  if (bytes == null) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+function KbdHint({ k, l }: { k: string; l: string }) {
+  return (
+    <span className="row gap-6">
+      <span className="kbd">{k}</span>
+      <span className="t-xs t-muted">{l}</span>
+    </span>
+  )
 }
 
-function formatDate(iso?: string): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
-}
-
-// ─── Simple Markdown Renderer ─────────────────────────────────────────────────
-
-function SimpleMarkdown({ content }: { content: string }) {
-  // Convert basic markdown to styled HTML-like elements inline
-  const lines = content.split('\n')
-  const elements: JSX.Element[] = []
-  let i = 0
-
-  while (i < lines.length) {
-    const line = lines[i]
-
-    // Heading H1
-    if (line.startsWith('# ')) {
-      elements.push(
-        <h1 key={i} className="text-2xl font-bold text-text-primary mt-6 mb-3 border-b border-border pb-2">
-          {line.slice(2)}
-        </h1>
-      )
-    }
-    // Heading H2
-    else if (line.startsWith('## ')) {
-      elements.push(
-        <h2 key={i} className="text-xl font-semibold text-text-primary mt-5 mb-2">
-          {line.slice(3)}
-        </h2>
-      )
-    }
-    // Heading H3
-    else if (line.startsWith('### ')) {
-      elements.push(
-        <h3 key={i} className="text-lg font-semibold text-text-primary mt-4 mb-2">
-          {line.slice(4)}
-        </h3>
-      )
-    }
-    // Code block
-    else if (line.startsWith('```')) {
-      const lang = line.slice(3).trim()
-      const codeLines: string[] = []
-      i++
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        codeLines.push(lines[i])
-        i++
-      }
-      elements.push(
-        <pre key={i} className="bg-surface border border-border rounded-lg p-4 overflow-x-auto my-3 text-sm font-mono text-text-primary">
-          {lang && <div className="text-text-muted text-xs mb-2">{lang}</div>}
-          <code>{codeLines.join('\n')}</code>
-        </pre>
-      )
-    }
-    // Horizontal rule
-    else if (/^---+$/.test(line.trim())) {
-      elements.push(<hr key={i} className="border-border my-4" />)
-    }
-    // Blockquote
-    else if (line.startsWith('> ')) {
-      elements.push(
-        <blockquote key={i} className="border-l-2 border-accent pl-4 italic text-text-muted my-2 text-sm">
-          {line.slice(2)}
-        </blockquote>
-      )
-    }
-    // Unordered list
-    else if (/^[-*+] /.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^[-*+] /.test(lines[i])) {
-        items.push(lines[i].slice(2))
-        i++
-      }
-      elements.push(
-        <ul key={i} className="list-disc list-inside space-y-1 my-2 text-text-primary text-sm pl-2">
-          {items.map((item, idx) => <li key={idx}>{item}</li>)}
-        </ul>
-      )
-      continue
-    }
-    // Ordered list
-    else if (/^\d+\. /.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^\d+\. /.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\. /, ''))
-        i++
-      }
-      elements.push(
-        <ol key={i} className="list-decimal list-inside space-y-1 my-2 text-text-primary text-sm pl-2">
-          {items.map((item, idx) => <li key={idx}>{item}</li>)}
-        </ol>
-      )
-      continue
-    }
-    // Table (basic — header row detection)
-    else if (line.includes('|') && lines[i + 1]?.includes('---')) {
-      const headers = line.split('|').map(c => c.trim()).filter(Boolean)
-      i++ // skip separator
-      const rows: string[][] = []
-      i++
-      while (i < lines.length && lines[i].includes('|')) {
-        rows.push(lines[i].split('|').map(c => c.trim()).filter(Boolean))
-        i++
-      }
-      elements.push(
-        <div key={i} className="overflow-x-auto my-3">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr>
-                {headers.map((h, hi) => (
-                  <th key={hi} className="text-left text-text-muted font-medium border-b border-border pb-2 pr-4">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, ri) => (
-                <tr key={ri} className="hover:bg-surface/50">
-                  {row.map((cell, ci) => (
-                    <td key={ci} className="text-text-primary border-b border-border py-2 pr-4">{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )
-      continue
-    }
-    // Blank line
-    else if (line.trim() === '') {
-      elements.push(<div key={i} className="h-2" />)
-    }
-    // Regular paragraph
-    else {
-      // Inline code
-      const parts = line.split(/(`[^`]+`)/)
-      const rendered = parts.map((p, pi) =>
-        p.startsWith('`') && p.endsWith('`')
-          ? <code key={pi} className="font-mono text-xs bg-surface px-1.5 py-0.5 rounded text-accent">{p.slice(1, -1)}</code>
-          : <span key={pi}>{p}</span>
-      )
-      elements.push(
-        <p key={i} className="text-text-primary text-sm leading-relaxed my-1">{rendered}</p>
-      )
-    }
-
-    i++
-  }
-
-  return <div className="prose-snapblox max-w-none">{elements}</div>
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function RepoExplorer() {
-  const params = useParams<{ '*': string }>()
   const navigate = useNavigate()
-  const currentPath = params['*'] ?? ''
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [activeIdx, setActiveIdx] = useState(0)
 
-  const [dirEntries, setDirEntries] = useState<DirEntry[] | null>(null)
-  const [fileData, setFileData] = useState<FileData | null>(null)
-  const [isDirectory, setIsDirectory] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [editMode, setEditMode] = useState(false)
-  const [editContent, setEditContent] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const filtered = PALETTE_RESULTS.filter(r =>
+    r.path.toLowerCase().includes(q.toLowerCase())
+  )
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    setDirEntries(null)
-    setFileData(null)
-    setIsDirectory(null)
-    setEditMode(false)
-    setSaveMsg(null)
-
-    // Try directory first, then file
-    const encodedPath = currentPath ? encodeURIComponent(currentPath) : ''
-    const dirUrl = currentPath
-      ? `/api/v1/files/dirs/${encodedPath}`
-      : `/api/v1/files/dirs/`
-
-    try {
-      const dirRes = await fetch(dirUrl)
-      if (dirRes.ok) {
-        const data = await dirRes.json() as DirEntry[]
-        setDirEntries(data)
-        setIsDirectory(true)
-        setLoading(false)
-        return
-      }
-    } catch {
-      // fall through to file attempt
-    }
-
-    if (currentPath) {
-      const fileUrl = `/api/v1/files/${encodeURIComponent(currentPath)}`
-      try {
-        const fileRes = await fetch(fileUrl)
-        if (fileRes.status === 404) {
-          setError('404 — path not found')
-          setLoading(false)
-          return
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
+      } else if (e.key === 'Escape') {
+        setPaletteOpen(false)
+      } else if (paletteOpen) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          setActiveIdx(i => Math.min(i + 1, filtered.length - 1))
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          setActiveIdx(i => Math.max(i - 1, 0))
         }
-        if (fileRes.ok) {
-          const data = await fileRes.json() as FileData
-          setFileData(data)
-          setIsDirectory(false)
-          setLoading(false)
-          return
-        }
-        setError(`Server error: ${fileRes.status}`)
-      } catch (e) {
-        setError('Network error')
       }
-    } else {
-      setError('Could not load directory')
     }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [paletteOpen, filtered.length])
 
-    setLoading(false)
-  }, [currentPath])
-
-  useEffect(() => { load() }, [load])
-
-  async function handleSave() {
-    if (!currentPath) return
-    setSaving(true)
-    setSaveMsg(null)
-    try {
-      const res = await fetch(`/api/v1/files/${encodeURIComponent(currentPath)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent }),
-      })
-      if (res.ok) {
-        setSaveMsg('Saved successfully')
-        setFileData(prev => prev ? { ...prev, content: editContent } : prev)
-        setEditMode(false)
-      } else {
-        setSaveMsg(`Save failed: ${res.status}`)
-      }
-    } catch {
-      setSaveMsg('Save failed: network error')
-    }
-    setSaving(false)
+  function openPalette() {
+    setQ('')
+    setActiveIdx(0)
+    setPaletteOpen(true)
   }
 
-  // ─── Breadcrumb ────────────────────────────────────────────────────────────
-
-  const pathSegments = currentPath ? currentPath.split('/').filter(Boolean) : []
-  const breadcrumbs: { label: string; path: string }[] = [
-    { label: 'repo', path: '' },
-    ...pathSegments.map((seg, idx) => ({
-      label: seg,
-      path: pathSegments.slice(0, idx + 1).join('/'),
-    })),
-  ]
-
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div className="p-6 h-full flex flex-col">
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-lg font-display font-semibold text-text-primary mb-2">Repo Explorer</h1>
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm font-mono text-text-muted flex-wrap">
-          {breadcrumbs.map((crumb, idx) => (
-            <span key={crumb.path} className="flex items-center gap-1">
-              {idx > 0 && <span className="text-border">/</span>}
-              {idx === breadcrumbs.length - 1 ? (
-                <span className="text-text-primary">{crumb.label}</span>
-              ) : (
-                <Link
-                  to={crumb.path ? `/repo/${crumb.path}` : '/repo'}
-                  className="hover:text-accent transition-colors"
-                >
-                  {crumb.label}
-                </Link>
-              )}
-            </span>
-          ))}
-        </nav>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div className="topbar">
+        <div className="crumbs" style={{ flex: 1, minWidth: 0 }}>
+          <span className="crumb root">Snapblox</span>
+          <span className="sep">/</span>
+          <span className="crumb">Repository</span>
+          <span className="sep">/</span>
+          <span className="crumb last">map</span>
+        </div>
+        <button className="btn btn-sm" onClick={openPalette}>
+          <SearchIcon size={13} color="currentColor" />
+          Search files
+          <span className="kbd" style={{ marginLeft: 4 }}>⌘K</span>
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 bg-surface border border-border rounded-lg overflow-hidden">
-        {loading && (
-          <div className="p-8 text-text-muted text-sm font-mono">Loading…</div>
-        )}
-
-        {!loading && error && (
-          <div className="p-8">
-            <div className="text-danger font-mono text-sm">{error}</div>
-            <button
-              onClick={() => navigate('/repo')}
-              className="mt-4 text-accent text-sm hover:underline"
-            >
-              ← Back to root
+      <div className="page" style={{ overflowY: 'auto' }}>
+        <div className="page-head">
+          <div>
+            <p className="text-cap" style={{ marginBottom: 6 }}>Repository</p>
+            <h1>Repo map</h1>
+            <p className="lead">Every folder in the agent stack. Locked nodes are agent-owned — read only.</p>
+          </div>
+          <div className="row gap-6">
+            <button className="btn btn-sm btn-ghost">Tree</button>
+            <button className="btn btn-sm btn-primary">Map</button>
+            <button className="btn btn-sm btn-ghost">Graph</button>
+            <div style={{ width: 12 }} />
+            <button className="btn">
+              <RepoIcon size={13} color="currentColor" />
+              main ▾
             </button>
           </div>
-        )}
+        </div>
 
-        {/* Directory Listing */}
-        {!loading && !error && isDirectory && dirEntries && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-text-muted font-medium px-4 py-3 w-8"></th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Name</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3 w-32">Size</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3 w-48">Modified</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentPath && (
-                <tr className="border-b border-border hover:bg-border/30 transition-colors">
-                  <td className="px-4 py-2 text-text-muted">📁</td>
-                  <td className="px-4 py-2" colSpan={3}>
-                    <Link
-                      to={pathSegments.length > 1 ? `/repo/${pathSegments.slice(0, -1).join('/')}` : '/repo'}
-                      className="text-accent hover:underline font-mono"
-                    >
-                      ..
-                    </Link>
-                  </td>
-                </tr>
-              )}
-              {dirEntries.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-text-muted">
-                    Empty directory
-                  </td>
-                </tr>
-              )}
-              {dirEntries
-                .sort((a, b) => {
-                  if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1
-                  return a.name.localeCompare(b.name)
-                })
-                .map(entry => {
-                  const href = `/repo/${entry.path}`
-                  return (
-                    <tr key={entry.path} className="border-b border-border hover:bg-border/30 transition-colors">
-                      <td className="px-4 py-2 text-text-muted">
-                        {entry.is_dir ? '📁' : '📄'}
-                      </td>
-                      <td className="px-4 py-2">
-                        <Link
-                          to={href}
-                          className="text-accent hover:underline font-mono text-sm"
-                        >
-                          {entry.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2 text-text-muted font-mono text-xs">
-                        {entry.is_dir ? '—' : formatSize(entry.size)}
-                      </td>
-                      <td className="px-4 py-2 text-text-muted text-xs">
-                        {formatDate(entry.modified)}
-                      </td>
-                    </tr>
-                  )
-                })}
-            </tbody>
-          </table>
-        )}
+        <div className="card glow-violet fade-up d-1" style={{ padding: 22, position: 'relative' }}>
+          <div className="row" style={{ marginBottom: 14 }}>
+            <span className="text-cap">Roblox-agency · root</span>
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">14 top-level entries · 426 files</span>
+          </div>
 
-        {/* File View */}
-        {!loading && !error && isDirectory === false && fileData && (
-          <div className="h-full flex flex-col">
-            {/* File meta + actions */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface/80">
-              <div className="flex items-center gap-4">
-                <span className="font-mono text-xs text-text-muted">
-                  {formatSize(fileData.size)}
-                </span>
-                {fileData.modified && (
-                  <span className="font-mono text-xs text-text-muted">
-                    Modified: {formatDate(fileData.modified)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {saveMsg && (
-                  <span className={`text-xs font-mono ${saveMsg.startsWith('Saved') ? 'text-success' : 'text-danger'}`}>
-                    {saveMsg}
-                  </span>
-                )}
-                {!isProtected(currentPath) && !editMode && (
-                  <button
-                    onClick={() => {
-                      setEditContent(fileData.content)
-                      setEditMode(true)
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(12, 1fr)',
+            gridTemplateRows: 'repeat(6, 78px)',
+            gap: 10,
+          }}>
+            {REPO_NODES.map(n => (
+              <div
+                key={n.id}
+                className="card-hover"
+                onClick={() => navigate(`/repo/${n.id}`)}
+                style={{
+                  gridColumn: `${n.x + 1} / span ${n.w}`,
+                  gridRow: `${n.y + 1} / span ${n.h}`,
+                  border: `1px solid ${n.accent ? 'var(--accent)' : n.locked ? 'var(--border)' : 'var(--border-2)'}`,
+                  background: n.accent
+                    ? 'linear-gradient(135deg, rgba(124,111,255,0.12), rgba(124,111,255,0.02))'
+                    : 'var(--surface)',
+                  borderRadius: 10,
+                  padding: 12,
+                  opacity: n.locked ? 0.55 : 1,
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <div className="row gap-6">
+                  {n.kind === 'dir'
+                    ? <FolderIcon size={14} color={n.accent ? 'var(--accent-soft)' : 'var(--muted)'} />
+                    : <FileIcon size={14} color="var(--muted)" />
+                  }
+                  <span
+                    className="t-mono"
+                    style={{
+                      fontSize: n.hero ? 14 : 12,
+                      fontWeight: n.hero ? 600 : 500,
+                      color: n.accent ? 'var(--ink)' : 'var(--ink-dim)',
                     }}
-                    className="px-3 py-1 text-xs rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
                   >
-                    Edit
-                  </button>
+                    {n.label}
+                  </span>
+                  <div className="spacer" />
+                  {n.locked && <span className="t-xs t-muted">🔒</span>}
+                  {n.recent && <span className="dot dot-accent" style={{ width: 5, height: 5 }} />}
+                </div>
+
+                {n.count != null && (
+                  <div className="t-mono t-xs t-muted" style={{ marginTop: 4 }}>
+                    {n.count} {n.kind === 'dir' ? 'items' : ''}
+                  </div>
                 )}
-                {editMode && (
-                  <>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="px-3 py-1 text-xs rounded bg-success/20 text-success border border-success/30 hover:bg-success/30 transition-colors disabled:opacity-50"
-                    >
-                      {saving ? 'Saving…' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => { setEditMode(false); setSaveMsg(null) }}
-                      className="px-3 py-1 text-xs rounded bg-surface text-text-muted border border-border hover:bg-border/50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </>
+
+                {n.hero && (
+                  <div className="col gap-6" style={{ marginTop: 10, flex: 1, justifyContent: 'flex-end' }}>
+                    {GAME_CHILDREN.map((g, i) => (
+                      <div
+                        key={i}
+                        className="row gap-8"
+                        style={{
+                          background: 'rgba(10,10,15,0.4)',
+                          padding: '6px 8px',
+                          borderRadius: 6,
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        <span
+                          className={`dot dot-${g.status === 'building' ? 'live' : g.status === 'idle' ? 'muted' : 'accent'}`}
+                          style={{ width: 6, height: 6 }}
+                        />
+                        <span
+                          className="t-mono t-xs flex-1"
+                          style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >
+                          {g.label}
+                        </span>
+                        <span className="t-mono t-xs t-muted">{g.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
+            ))}
+          </div>
 
-            {/* File Content */}
-            <div className="flex-1 overflow-auto p-6">
-              {editMode ? (
-                <textarea
-                  value={editContent}
-                  onChange={e => setEditContent(e.target.value)}
-                  className="w-full h-full min-h-[60vh] bg-bg border border-border rounded-lg p-4 font-mono text-sm text-text-primary resize-none focus:outline-none focus:border-accent/60"
-                  spellCheck={false}
-                />
-              ) : isMarkdown(currentPath.split('/').pop() ?? '') ? (
-                <SimpleMarkdown content={fileData.content} />
-              ) : (
-                <pre className="font-mono text-sm text-text-primary whitespace-pre-wrap break-words">
-                  {fileData.content}
-                </pre>
-              )}
+          <div className="row gap-16" style={{ marginTop: 18, paddingTop: 16, borderTop: '1px dashed var(--border)' }}>
+            <KbdHint k="⌘K" l="Open palette" />
+            <KbdHint k="1–9" l="Jump to top folder" />
+            <KbdHint k="/" l="Inline search" />
+            <KbdHint k="b" l="Branch switcher" />
+            <KbdHint k="esc" l="Close" />
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">last sync · 14s ago · main @ 7c4f2a1</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 20 }}>
+          <section className="card fade-up d-2">
+            <div className="row" style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: 14 }}>Recently changed</h3>
+              <div className="spacer" />
+              <span className="t-mono t-xs t-muted">across all branches</span>
+            </div>
+            <div>
+              {RECENT_FILES.map((r, i) => (
+                <div
+                  key={i}
+                  className="row gap-10"
+                  style={{
+                    padding: '9px 18px',
+                    borderTop: i ? '1px solid var(--border)' : 'none',
+                  }}
+                >
+                  <FileIcon size={13} color="var(--muted)" />
+                  <span
+                    className="t-mono t-xs flex-1"
+                    style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {r.p}
+                  </span>
+                  <span className="t-xs t-muted">{r.op} by {r.who}</span>
+                  <span className="t-mono t-xs t-muted" style={{ minWidth: 60, textAlign: 'right' }}>{r.t}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="card fade-up d-3">
+            <div className="row" style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: 14 }}>Branches · 7</h3>
+              <div className="spacer" />
+              <button className="btn btn-sm btn-ghost">+ new</button>
+            </div>
+            <div>
+              {BRANCHES.map((b, i) => (
+                <div
+                  key={i}
+                  className="row gap-10"
+                  style={{
+                    padding: '10px 18px',
+                    borderTop: i ? '1px solid var(--border)' : 'none',
+                  }}
+                >
+                  <RepoIcon size={13} color={b.cur ? 'var(--accent)' : 'var(--muted)'} />
+                  <span
+                    className="t-mono t-xs flex-1"
+                    style={{
+                      color: b.cur ? 'var(--ink)' : 'var(--ink-dim)',
+                      fontWeight: b.cur ? 600 : 400,
+                    }}
+                  >
+                    {b.n}
+                  </span>
+                  {b.cur && <span className="chip chip-accent">current</span>}
+                  {b.pr && <span className="chip">{b.pr}</span>}
+                  {b.merged && <span className="chip chip-success">merged</span>}
+                  <span className="t-mono t-xs t-muted">
+                    {b.ahead > 0 && `↑${b.ahead} `}{b.behind > 0 && `↓${b.behind}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {paletteOpen && (
+        <div className="palette-backdrop" onClick={() => setPaletteOpen(false)}>
+          <div className="palette" onClick={e => e.stopPropagation()}>
+            <div className="palette-input">
+              <SearchIcon size={18} color="var(--muted)" />
+              <input
+                autoFocus
+                value={q}
+                onChange={e => { setQ(e.target.value); setActiveIdx(0) }}
+                placeholder="Search files, open paths, switch branches…"
+              />
+              <span className="kbd">esc</span>
+            </div>
+            <div className="palette-list">
+              {filtered.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center' }} className="t-muted">No matches.</div>
+              ) : filtered.map((r, i) => (
+                <div
+                  key={r.path}
+                  className={`palette-item${i === activeIdx ? ' active' : ''}`}
+                  onMouseEnter={() => setActiveIdx(i)}
+                >
+                  <FileIcon size={14} color="var(--muted)" />
+                  <span className="path">{r.path}</span>
+                  <span className="type">{r.type}</span>
+                </div>
+              ))}
+            </div>
+            <div
+              className="row gap-16"
+              style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg-elev)' }}
+            >
+              <KbdHint k="↑↓" l="navigate" />
+              <KbdHint k="↵" l="open" />
+              <KbdHint k="⌘↵" l="open in new tab" />
+              <div className="spacer" />
+              <span className="t-mono t-xs t-muted">{filtered.length} of {PALETTE_RESULTS.length}</span>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
