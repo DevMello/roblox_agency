@@ -5,22 +5,23 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
   hint?: string
+  mono?: boolean
+  fieldSize?: 'default' | 'lg'
 }
 
+const errorStyle = { borderColor: 'var(--danger)', boxShadow: '0 0 0 3px var(--danger-soft)' }
+
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, hint, className, id: externalId, ...props },
+  { label, error, hint, mono, fieldSize = 'default', className, id: externalId, ...props },
   ref,
 ) {
   const generatedId = useId()
   const id = externalId ?? generatedId
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="col gap-4">
       {label && (
-        <label
-          htmlFor={id}
-          className="text-xs font-medium text-text-muted font-body"
-        >
+        <label htmlFor={id} className="label-cap">
           {label}
         </label>
       )}
@@ -28,21 +29,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={id}
         className={clsx(
-          'h-9 w-full rounded-md border bg-bg px-3 text-sm text-text-primary font-body placeholder:text-text-muted transition-colors',
-          'focus:outline-none focus:ring-2',
-          error
-            ? 'border-danger/60 focus:border-danger/60 focus:ring-danger/20'
-            : 'border-border focus:border-accent/60 focus:ring-accent/20',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'field',
+          mono && 'field-mono',
+          fieldSize === 'lg' && 'field-lg',
           className,
         )}
+        style={error ? errorStyle : undefined}
         {...props}
       />
       {error && (
-        <p className="text-xs text-danger font-body">{error}</p>
+        <p style={{ fontSize: '11.5px', color: 'var(--danger)', margin: 0 }}>{error}</p>
       )}
       {!error && hint && (
-        <p className="text-xs text-text-muted font-body">{hint}</p>
+        <p style={{ fontSize: '11.5px', color: 'var(--muted)', margin: 0 }}>{hint}</p>
       )}
     </div>
   )
