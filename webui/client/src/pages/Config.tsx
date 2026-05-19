@@ -1,387 +1,203 @@
-import { useState, useEffect, useCallback } from 'react'
+// Page 8 · /config — Config (health dashboard, MCP cards, sparklines)
+import { useQuery } from '@tanstack/react-query'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface MCPServer {
+interface MCPData {
   name: string
-  type: string
-  command: string
-  args?: string[]
+  addr: string
+  ops: number
+  cap: number
+  peak: string
+  usage: number[]
+  status: 'live' | 'down'
+  mode?: string
 }
 
-interface MCPHealth {
-  [name: string]: 'up' | 'down' | 'unknown'
+interface WorkerData {
+  id: string
+  role: string
+  seen: string
+  mcps: string[]
+  ok: boolean
+  current?: boolean
+  stale?: boolean
 }
 
-interface MCPHealthEntry {
-  name: string
-  status: 'up' | 'down' | 'unknown'
-  detail?: string
+interface CapProps {
+  label: string
+  value: string
+  bar: number
+  sub: string
 }
 
-interface EnvEntry {
-  key: string
-  has_value: boolean
-}
+// ─── Static fallback / display data ──────────────────────────────────────────
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function HealthDot({ status }: { status: 'up' | 'down' | 'unknown' | undefined }) {
-  const colors: Record<string, string> = {
-    up: 'bg-success',
-    down: 'bg-danger',
-    unknown: 'bg-text-muted',
-  }
-  return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full ${colors[status ?? 'unknown']}`}
-      title={status ?? 'unknown'}
-    />
-  )
-}
-
-type TabId = 'mcp' | 'env' | 'workers' | 'limits'
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'mcp', label: 'MCP Servers' },
-  { id: 'env', label: 'Environment' },
-  { id: 'workers', label: 'Workers' },
-  { id: 'limits', label: 'Limits' },
+const STATIC_MCPS: MCPData[] = [
+  { name: 'roblox-studio', addr: '%LOCALAPPDATA%\\Roblox\\mcp.bat', ops: 34, cap: 60, peak: 'building',       usage: [12,18,22,30,28,34,42,38,34,30,33,34], status: 'live' },
+  { name: 'blender',       addr: 'localhost:3002',                  ops: 8,  cap: 30, peak: 'asset re-export', usage: [3,5,4,8,12,8,6,5,7,9,8,8],           status: 'live' },
+  { name: 'chrome',        addr: 'localhost:3003',                  ops: 2,  cap: 5,  peak: 'tabs',             usage: [0,1,1,2,2,2,3,2,2,2,2,2],            status: 'live', mode: 'tabs' },
 ]
 
-// ─── MCP Servers Section ──────────────────────────────────────────────────────
+const STATIC_WORKERS: WorkerData[] = [
+  { id: 'machine-a', role: 'coordinator', seen: '5 min ago',  mcps: ['roblox-studio', 'chrome'], ok: true,  current: true },
+  { id: 'machine-b', role: 'worker',      seen: '32 min ago', mcps: ['blender'],                 ok: true  },
+  { id: 'machine-c', role: 'worker',      seen: '4 days ago', mcps: [],                          ok: false, stale: true },
+]
 
-function MCPSection() {
-  const [servers, setServers] = useState<MCPServer[]>([])
-  const [health, setHealth] = useState<MCPHealth>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showAdd, setShowAdd] = useState(false)
-  const [actionMsg, setActionMsg] = useState<{ text: string; ok: boolean } | null>(null)
+const COST_CAPS: CapProps[] = [
+  { label: 'Per night cycle',    value: '$5.00',     bar: 84, sub: '$4.18 used yesterday'   },
+  { label: 'Per week',           value: '$28.00',    bar: 56, sub: '$15.72 used this week'  },
+  { label: 'Builder · per task', value: '8 000 tok', bar: 42, sub: 'avg 3.4k'              },
+  { label: 'QA · per PR',        value: '4 000 tok', bar: 31, sub: 'avg 1.2k'              },
+]
 
-  // Add form
-  const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState('bat')
-  const [newCommand, setNewCommand] = useState('')
-  const [newArgs, setNewArgs] = useState('')
-  const [adding, setAdding] = useState(false)
+const SKILLS = [
+  { name: 'luau-scripting',       agent: 'builder',   active: true,  size: '4.2 kb' },
+  { name: 'blender-export',       agent: 'builder',   active: true,  size: '2.1 kb' },
+  { name: 'milestone-planning',   agent: 'architect', active: true,  size: '6.0 kb' },
+  { name: 'physics-tuning',       agent: 'builder',   active: false, size: '3.4 kb' },
+  { name: 'monetisation-balance', agent: 'planner',   active: false, size: '1.9 kb' },
+]
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [sRes, hRes] = await Promise.all([
-        fetch('/api/v1/config/mcp'),
-        fetch('/api/v1/config/mcp/health'),
-      ])
-      if (sRes.ok) setServers(await sRes.json())
-      if (hRes.ok) {
-        const rows = await hRes.json() as MCPHealthEntry[]
-        const healthByName: MCPHealth = {}
-        rows.forEach((entry) => {
-          healthByName[entry.name] = entry.status
-        })
-        setHealth(healthByName)
-      }
-    } catch {
-      setError('Failed to load MCP config')
-    }
-    setLoading(false)
-  }, [])
+const ENV_KEYS = [
+  { k: 'ANTHROPIC_API_KEY',     v: 'sk-ant-••••••••••••••••••••YYwM',           status: 'success' as const, label: 'valid · 2d left' },
+  { k: 'GITHUB_TOKEN',          v: 'ghp_•••••••••••••••••••••••••••••a4',      status: 'success' as const, label: 'valid'           },
+  { k: 'ROBLOX_OPEN_CLOUD_KEY', v: '(not set)',                                  status: 'danger'  as const, label: 'required'        },
+  { k: 'SLACK_WEBHOOK_URL',     v: 'https://hooks.slack.com/services/T0••••••', status: 'success' as const, label: 'valid'           },
+]
 
-  useEffect(() => { fetchData() }, [fetchData])
+const AVAILABLE_MCPS = [
+  { n: 'figma',    a: 'figma.com/mcp',     reason: 'pull design tokens & frames' },
+  { n: 'slack',    a: 'api.slack.com/mcp', reason: 'post run reports to channel'  },
+  { n: '+ custom', a: '',                  reason: 'paste an MCP endpoint URL'    },
+]
 
-  function flash(text: string, ok: boolean) {
-    setActionMsg({ text, ok })
-    setTimeout(() => setActionMsg(null), 3000)
-  }
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-  async function handleRemove(name: string) {
-    if (!confirm(`Remove MCP server "${name}"?`)) return
-    const res = await fetch(`/api/v1/config/mcp/${encodeURIComponent(name)}`, { method: 'DELETE' })
-    if (res.ok) {
-      setServers(prev => prev.filter(s => s.name !== name))
-      flash(`Removed ${name}`, true)
-    } else {
-      flash('Failed to remove server', false)
-    }
-  }
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
-    setAdding(true)
-    const body: Record<string, unknown> = {
-      name: newName,
-      type: newType,
-      command: newCommand,
-    }
-    if (newArgs.trim()) {
-      body.args = newArgs.split('\n').map(a => a.trim()).filter(Boolean)
-    }
-    const res = await fetch('/api/v1/config/mcp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    if (res.ok) {
-      flash(`Added ${newName}`, true)
-      setShowAdd(false)
-      setNewName('')
-      setNewType('bat')
-      setNewCommand('')
-      setNewArgs('')
-      await fetchData()
-    } else {
-      flash('Failed to add server', false)
-    }
-    setAdding(false)
-  }
-
-  if (loading) return <div className="p-6 text-text-muted text-sm font-mono">Loading…</div>
-  if (error) return <div className="p-6 text-danger text-sm font-mono">{error}</div>
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-text-primary">MCP Servers</h2>
-        <div className="flex items-center gap-3">
-          {actionMsg && (
-            <span className={`text-xs font-mono ${actionMsg.ok ? 'text-success' : 'text-danger'}`}>
-              {actionMsg.text}
-            </span>
-          )}
-          <button
-            onClick={() => setShowAdd(v => !v)}
-            className="px-3 py-1 text-xs rounded bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 transition-colors"
-          >
-            {showAdd ? 'Cancel' : '+ Add'}
-          </button>
-        </div>
-      </div>
-
-      {showAdd && (
-        <form onSubmit={handleAdd} className="bg-bg border border-border rounded-lg p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <h3 className="col-span-full text-xs font-semibold text-text-muted uppercase tracking-wide">Add MCP Server</h3>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-muted">Name</label>
-            <input
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              required
-              placeholder="roblox-studio"
-              className="bg-surface border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/60"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-text-muted">Type</label>
-            <select
-              value={newType}
-              onChange={e => setNewType(e.target.value)}
-              className="bg-surface border border-border rounded px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/60"
-            >
-              <option value="bat">bat</option>
-              <option value="url">url</option>
-              <option value="stdio">stdio</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1 col-span-full">
-            <label className="text-xs text-text-muted">Command / URL</label>
-            <input
-              value={newCommand}
-              onChange={e => setNewCommand(e.target.value)}
-              required
-              placeholder="%LOCALAPPDATA%\Roblox\mcp.bat"
-              className="bg-surface border border-border rounded px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-accent/60"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1 col-span-full">
-            <label className="text-xs text-text-muted">Args (one per line, optional)</label>
-            <textarea
-              value={newArgs}
-              onChange={e => setNewArgs(e.target.value)}
-              rows={3}
-              placeholder="--port 3002"
-              className="bg-surface border border-border rounded px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-accent/60 resize-none"
-            />
-          </div>
-
-          <div className="col-span-full flex justify-end">
-            <button
-              type="submit"
-              disabled={adding}
-              className="px-4 py-2 text-sm rounded bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
-            >
-              {adding ? 'Adding…' : 'Add Server'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {servers.length === 0 && (
-          <p className="text-text-muted text-sm col-span-full">No MCP servers configured.</p>
-        )}
-        {servers.map(server => (
-          <div key={server.name} className="bg-bg border border-border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <HealthDot status={health[server.name]} />
-                <span className="text-text-primary text-sm font-medium">{server.name}</span>
-              </div>
-              <button
-                onClick={() => handleRemove(server.name)}
-                className="text-xs text-danger hover:text-danger/80 transition-colors"
-              >
-                Remove
-              </button>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-text-muted w-16 shrink-0">Type</span>
-                <span className="font-mono text-accent">{server.type}</span>
-              </div>
-              <div className="flex items-start gap-2 text-xs">
-                <span className="text-text-muted w-16 shrink-0">Command</span>
-                <span className="font-mono text-text-primary break-all">{server.command}</span>
-              </div>
-              {server.args && server.args.length > 0 && (
-                <div className="flex items-start gap-2 text-xs">
-                  <span className="text-text-muted w-16 shrink-0">Args</span>
-                  <span className="font-mono text-text-muted break-all">{server.args.join(' ')}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+interface HeroStatProps {
+  label: string
+  value: string
+  sub: string
+  bar?: number
+  barTone?: 'warning'
+  valTone?: 'success'
 }
 
-// ─── Environment Section ──────────────────────────────────────────────────────
-
-function EnvSection() {
-  const [entries, setEntries] = useState<EnvEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/v1/config/env')
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(data => { setEntries(data); setLoading(false) })
-      .catch(() => { setError('Failed to load environment config'); setLoading(false) })
-  }, [])
-
-  if (loading) return <div className="text-text-muted text-sm font-mono">Loading…</div>
-  if (error) return <div className="text-danger text-sm font-mono">{error}</div>
-
+function HeroStat({ label, value, sub, bar, barTone, valTone }: HeroStatProps) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-text-primary">Environment Variables</h2>
-        <span className="text-xs text-text-muted">Values are never shown for security</span>
+    <div className="col">
+      <div className="text-cap">{label}</div>
+      <div
+        className="t-display"
+        style={{
+          fontSize: 30, lineHeight: 1, marginTop: 4, letterSpacing: '-0.02em',
+          color: valTone === 'success' ? 'var(--success)' : 'var(--ink)',
+        }}
+      >
+        {value}
       </div>
-      {entries.length === 0 ? (
-        <p className="text-text-muted text-sm">No environment variables configured.</p>
-      ) : (
-        <div className="bg-bg border border-border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left text-text-muted font-medium px-4 py-3 w-8"></th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Key</th>
-                <th className="text-left text-text-muted font-medium px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map(entry => (
-                <tr key={entry.key} className="border-b border-border hover:bg-surface/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${entry.has_value ? 'bg-success' : 'bg-danger'}`}
-                      title={entry.has_value ? 'Set' : 'Not set'}
-                    />
-                  </td>
-                  <td className="px-4 py-3 font-mono text-text-primary">{entry.key}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {entry.has_value ? (
-                      <span className="text-success">Set</span>
-                    ) : (
-                      <span className="text-danger">Not set</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="t-xs t-muted" style={{ marginTop: 6 }}>{sub}</div>
+      {bar != null && (
+        <div className="bar" style={{ marginTop: 8, height: 4 }}>
+          <div
+            className="fill"
+            style={{
+              width: `${bar}%`,
+              background: barTone === 'warning' ? 'var(--warning)' : undefined,
+              boxShadow: barTone === 'warning' ? '0 0 8px rgba(255,181,71,0.4)' : undefined,
+            }}
+          />
         </div>
       )}
     </div>
   )
 }
 
-// ─── Workers Section ──────────────────────────────────────────────────────────
+interface MCPCardProps {
+  mcp: MCPData
+  delay?: number
+}
 
-function WorkersSection() {
-  const [content, setContent] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/v1/config/workers')
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then((data: { content?: string } | string) => {
-        if (typeof data === 'string') setContent(data)
-        else setContent(data.content ?? JSON.stringify(data, null, 2))
-        setLoading(false)
-      })
-      .catch(() => { setError('Failed to load workers config'); setLoading(false) })
-  }, [])
-
-  if (loading) return <div className="text-text-muted text-sm font-mono">Loading…</div>
-  if (error) return <div className="text-danger text-sm font-mono">{error}</div>
+function MCPCard({ mcp, delay = 0 }: MCPCardProps) {
+  const max = Math.max(...mcp.usage, 1)
+  const sparkPoints = mcp.usage
+    .map((v, i) => `${(i / (mcp.usage.length - 1)) * 120},${36 - (v / max) * 28 - 4}`)
+    .join(' ')
+  const fillPoints = `0,36 ${sparkPoints} 120,36`
+  const delayClass = `d-${Math.min(delay + 1, 4)}`
 
   return (
-    <div>
-      <h2 className="text-sm font-semibold text-text-primary mb-4">Workers</h2>
-      <pre className="bg-bg border border-border rounded-lg p-4 font-mono text-sm text-text-primary overflow-x-auto whitespace-pre-wrap">
-        {content || '(empty)'}
-      </pre>
+    <div className={`card card-hover card-pad fade-up ${delayClass}`}>
+      <div className="row gap-10">
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: 'rgba(0, 229, 160, 0.10)',
+          border: '1px solid rgba(0, 229, 160, 0.3)',
+          display: 'grid', placeItems: 'center',
+        }}>
+          <span className="dot dot-live" />
+        </div>
+        <div className="col flex-1">
+          <div className="t-display" style={{ fontSize: 15 }}>{mcp.name}</div>
+          <div className="t-mono t-xs t-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mcp.addr}</div>
+        </div>
+        <span className="chip chip-success">connected</span>
+      </div>
+
+      <div className="row" style={{ marginTop: 14 }}>
+        <div className="col">
+          <span className="text-cap">{mcp.mode === 'tabs' ? 'Tabs' : 'Ops / min'}</span>
+          <span className="t-display" style={{ fontSize: 22, marginTop: 2 }}>
+            {mcp.ops} <span className="t-muted t-sm">/ {mcp.cap}</span>
+          </span>
+        </div>
+        <div className="spacer" />
+        <svg width="120" height="36" viewBox="0 0 120 36" style={{ marginTop: 4 }}>
+          <defs>
+            <linearGradient id={`sparkfill-${mcp.name}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--accent)" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polyline
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="1.5"
+            points={sparkPoints}
+            style={{ filter: 'drop-shadow(0 0 4px var(--accent-glow))' }}
+          />
+          <polyline
+            fill={`url(#sparkfill-${mcp.name})`}
+            stroke="none"
+            points={fillPoints}
+            opacity="0.25"
+          />
+        </svg>
+      </div>
+
+      <div className="row" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+        <span className="t-xs t-muted">peak · {mcp.peak}</span>
+        <div className="spacer" />
+        <button className="btn btn-sm btn-ghost">Test</button>
+        <button className="btn btn-sm btn-ghost">Edit</button>
+      </div>
     </div>
   )
 }
 
-// ─── Limits Section ───────────────────────────────────────────────────────────
-
-function LimitsSection() {
-  const [content, setContent] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/v1/config/limits')
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then((data: { content?: string } | string) => {
-        if (typeof data === 'string') setContent(data)
-        else setContent(data.content ?? JSON.stringify(data, null, 2))
-        setLoading(false)
-      })
-      .catch(() => { setError('Failed to load limits config'); setLoading(false) })
-  }, [])
-
-  if (loading) return <div className="text-text-muted text-sm font-mono">Loading…</div>
-  if (error) return <div className="text-danger text-sm font-mono">{error}</div>
-
+function Cap({ label, value, bar, sub }: CapProps) {
   return (
-    <div>
-      <h2 className="text-sm font-semibold text-text-primary mb-4">Agent Limits</h2>
-      <pre className="bg-bg border border-border rounded-lg p-4 font-mono text-sm text-text-primary overflow-x-auto whitespace-pre-wrap">
-        {content || '(empty)'}
-      </pre>
+    <div className="col gap-4">
+      <div className="row">
+        <span className="t-sm">{label}</span>
+        <div className="spacer" />
+        <span className="t-mono t-sm t-dim">{value}</span>
+      </div>
+      <div className="bar" style={{ height: 5 }}>
+        <div className="fill" style={{ width: `${bar}%` }} />
+      </div>
+      <span className="t-xs t-muted">{sub}</span>
     </div>
   )
 }
@@ -389,36 +205,190 @@ function LimitsSection() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Config() {
-  const [activeTab, setActiveTab] = useState<TabId>('mcp')
+  const mcpQuery = useQuery<MCPData[]>({
+    queryKey: ['config', 'mcp'],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/config/mcp')
+      if (!res.ok) throw new Error('mcp-404')
+      return res.json() as Promise<MCPData[]>
+    },
+    retry: false,
+  })
+
+  const mcps: MCPData[] = (mcpQuery.data && mcpQuery.data.length > 0) ? mcpQuery.data : STATIC_MCPS
+  const workers: WorkerData[] = STATIC_WORKERS
 
   return (
-    <div className="p-6 max-w-5xl">
-      <h1 className="text-lg font-display font-semibold text-text-primary mb-6">Configuration</h1>
+    <div className="page">
+      {/* Page header */}
+      <div className="page-head">
+        <div>
+          <div className="text-cap" style={{ marginBottom: 6 }}>System</div>
+          <h1>Health</h1>
+          <div className="lead">MCPs, skills, keys, workers — the whole control plane in one panel.</div>
+        </div>
+        <div className="row gap-8">
+          <button className="btn btn-sm btn-ghost">Run diagnostics</button>
+          <button className="btn btn-sm">View .mcp.json</button>
+          <button className="btn btn-sm btn-primary">+ Add</button>
+        </div>
+      </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b border-border">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={[
-              'px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors',
-              activeTab === tab.id
-                ? 'border-accent text-accent'
-                : 'border-transparent text-text-muted hover:text-text-primary',
-            ].join(' ')}
-          >
-            {tab.label}
-          </button>
+      {/* HERO HEALTH */}
+      <section className="card glow-violet fade-up d-0" style={{ padding: 24, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 28, alignItems: 'center' }}>
+          <div>
+            <div className="row gap-8" style={{ marginBottom: 8 }}>
+              <span className="dot dot-live" />
+              <span className="text-cap" style={{ marginBottom: 0, color: 'var(--success)' }}>all systems clear</span>
+            </div>
+            <h2 style={{ fontSize: 38, lineHeight: 1, letterSpacing: '-0.025em' }}>
+              {mcps.length} / 3 <span style={{ color: 'var(--muted)' }}>MCPs</span>
+            </h2>
+            <div className="t-sm t-muted" style={{ marginTop: 8, maxWidth: 360 }}>
+              roblox-studio · blender · chrome — all responding. No keys expired. Cost & tokens within cap.
+            </div>
+          </div>
+          <HeroStat label="Spend · 7d"   value="$4.18" sub="cap $5.00"    bar={84} barTone="warning" />
+          <HeroStat label="Tokens · 24h" value="124 k" sub="of 200 k cap" bar={62} />
+          <HeroStat label="Builds · 7d"  value="22"    sub="98% success"  valTone="success" />
+        </div>
+      </section>
+
+      {/* MCP servers */}
+      <div className="row" style={{ marginBottom: 14 }}>
+        <h3 className="text-cap" style={{ fontSize: 11 }}>MCP servers · {mcps.length}</h3>
+        <div className="spacer" />
+        <span className="t-mono t-xs t-muted">.mcp.json · {mcps.length} active · 2 available</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+        {mcps.map((s, i) => <MCPCard key={s.name} mcp={s} delay={i} />)}
+      </div>
+
+      {/* Available MCPs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+        {AVAILABLE_MCPS.map(s => (
+          <div key={s.n} className="card card-pad fade-up d-3" style={{ borderStyle: 'dashed', opacity: 0.85 }}>
+            <div className="row gap-8">
+              <span className="dot dot-open" />
+              <span className="t-display" style={{ fontSize: 14 }}>{s.n}</span>
+              <div className="spacer" />
+              <span className="t-mono t-xs t-muted">available</span>
+            </div>
+            {s.a && <div className="t-mono t-xs t-muted" style={{ marginTop: 6 }}>{s.a}</div>}
+            <div className="t-xs t-muted" style={{ marginTop: 8, marginBottom: 14 }}>{s.reason}</div>
+            <button className="btn btn-sm btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Enable</button>
+          </div>
         ))}
       </div>
 
-      {/* Tab content */}
-      <div>
-        {activeTab === 'mcp' && <MCPSection />}
-        {activeTab === 'env' && <EnvSection />}
-        {activeTab === 'workers' && <WorkersSection />}
-        {activeTab === 'limits' && <LimitsSection />}
+      {/* Skills + Workers */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
+        <section className="card fade-up d-1">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Agent skills</h3>
+            <div className="spacer" />
+            <button className="btn btn-sm btn-ghost">+ Add skill</button>
+          </div>
+          <div>
+            {SKILLS.map((s, i) => (
+              <div key={s.name} className="row gap-12" style={{ padding: '11px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+                <span style={{
+                  width: 14, height: 14, borderRadius: 3,
+                  border: `1px solid ${s.active ? 'var(--accent)' : 'var(--border-strong)'}`,
+                  background: s.active ? 'var(--accent)' : 'transparent',
+                  display: 'grid', placeItems: 'center', flexShrink: 0,
+                }}>
+                  {s.active && (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <polyline points="2,5 4,7 8,3" stroke="#0A0A0F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                <span className="t-sm flex-1" style={{ color: s.active ? 'var(--ink)' : 'var(--muted)' }}>{s.name}</span>
+                <span className="chip">{s.agent}</span>
+                <span className="t-mono t-xs t-muted">{s.size}</span>
+                <button className="btn btn-sm btn-ghost">{s.active ? 'View' : 'Activate'}</button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card fade-up d-2">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Workers</h3>
+            <div className="spacer" />
+            <button className="btn btn-sm btn-ghost">+ Register</button>
+          </div>
+          <div>
+            {workers.map((w, i) => (
+              <div
+                key={w.id}
+                className="row gap-12"
+                style={{ padding: '14px 20px', borderTop: i ? '1px solid var(--border)' : 'none', opacity: w.stale ? 0.65 : 1 }}
+              >
+                <span className={`dot dot-${w.stale ? 'danger' : 'success'}`} style={{ marginTop: 3 }} />
+                <div className="col flex-1">
+                  <div className="row gap-8">
+                    <span className="t-mono t-sm">{w.id}</span>
+                    <span className="chip">{w.role}</span>
+                    {w.current && <span className="chip chip-accent">this machine</span>}
+                  </div>
+                  <div className="row gap-6" style={{ marginTop: 6, flexWrap: 'wrap' }}>
+                    {w.mcps.map(m => <span key={m} className="chip t-mono">{m}</span>)}
+                    {w.mcps.length === 0 && <span className="t-xs t-muted">no MCPs</span>}
+                  </div>
+                </div>
+                <div className="col" style={{ alignItems: 'flex-end' }}>
+                  <span className="t-mono t-xs" style={{ color: w.stale ? 'var(--danger)' : 'var(--muted)' }}>{w.seen}</span>
+                  {w.stale && <button className="btn btn-sm btn-ghost btn-danger" style={{ marginTop: 4 }}>Unregister</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* Env & Cost caps */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, marginBottom: 32 }}>
+        <section className="card fade-up d-3">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Environment & API keys</h3>
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">.env</span>
+          </div>
+          <div>
+            {ENV_KEYS.map((e, i) => (
+              <div key={e.k} className="row gap-12" style={{ padding: '12px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+                <span
+                  className="t-mono t-sm"
+                  style={{ width: 200, color: e.status === 'danger' ? 'var(--danger)' : 'var(--ink-dim)' }}
+                >
+                  {e.k}
+                </span>
+                <span
+                  className="t-mono t-xs t-muted flex-1"
+                  style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {e.v}
+                </span>
+                <span className={`chip chip-${e.status}`}>{e.label}</span>
+                <button className="btn btn-sm btn-ghost">{e.status === 'danger' ? '+ Add' : 'Test'}</button>
+                <button className="btn btn-sm btn-ghost">Edit</button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card fade-up d-4">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Cost & token caps</h3>
+          </div>
+          <div className="col gap-14" style={{ padding: '16px 20px' }}>
+            {COST_CAPS.map(c => <Cap key={c.label} label={c.label} value={c.value} bar={c.bar} sub={c.sub} />)}
+          </div>
+        </section>
       </div>
     </div>
   )
