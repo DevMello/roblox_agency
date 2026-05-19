@@ -1,639 +1,13 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useGame } from '../hooks/useGames'
 import { ROUTES } from '../router'
+import type { Game } from '../types'
 
-type TabId = 'overview' | 'sprint' | 'plan' | 'progress' | 'overrides' | 'blockers'
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-// ── Status badge helpers ──────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  done: 'bg-green-900/40 text-green-400 border-green-700/40',
-  approved: 'bg-green-900/40 text-green-400 border-green-700/40',
-  complete: 'bg-green-900/40 text-green-400 border-green-700/40',
-  active: 'bg-blue-900/40 text-blue-400 border-blue-700/40',
-  planned: 'bg-blue-900/40 text-blue-400 border-blue-700/40',
-  'in-progress': 'bg-blue-900/40 text-blue-400 border-blue-700/40',
-  pending: 'bg-surface text-text-muted border-border',
-  failed: 'bg-red-900/40 text-red-400 border-red-700/40',
-  blocked: 'bg-orange-900/40 text-orange-400 border-orange-700/40',
-  open: 'bg-red-900/40 text-red-400 border-red-700/40',
-  superseded: 'bg-surface text-text-muted border-border',
-  rejected: 'bg-red-900/40 text-red-400 border-red-700/40',
-  expired: 'bg-surface text-text-muted border-border',
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  scripting: 'bg-purple-900/30 text-purple-300',
-  'game-mechanic': 'bg-blue-900/30 text-blue-300',
-  ui: 'bg-pink-900/30 text-pink-300',
-  data: 'bg-yellow-900/30 text-yellow-300',
-  config: 'bg-gray-700/50 text-gray-300',
-  asset: 'bg-amber-900/30 text-amber-300',
-  'live-edit': 'bg-orange-900/30 text-orange-300',
-  'design-decision': 'bg-blue-900/30 text-blue-300',
-  'feature-block': 'bg-red-900/30 text-red-300',
-  'feature-require': 'bg-green-900/30 text-green-300',
-  'cost-cap-override': 'bg-yellow-900/30 text-yellow-300',
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_COLORS[status?.toLowerCase()] ?? 'bg-surface text-text-muted border-border'
-  return (
-    <span className={`px-2 py-0.5 rounded border text-xs font-mono font-semibold ${cls}`}>
-      {status}
-    </span>
-  )
-}
-
-function TypeBadge({ type }: { type: string }) {
-  const cls = TYPE_COLORS[type?.toLowerCase()] ?? 'bg-gray-700/50 text-gray-300'
-  return (
-    <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${cls}`}>
-      {type}
-    </span>
-  )
-}
-
-// ── Sprint Log Tab ────────────────────────────────────────────────────────────
-
-interface SprintTask {
-  task_id: string
-  title: string
-  type: string
-  description: string
-  estimated_minutes?: number
-  status: string
-  attempt_count: number
-  pr_reference?: string
-  qa_verdict?: string
-  qa_notes?: string
-  depends_on: string[]
-}
-
-interface SprintData {
-  sprint_id?: string
-  date?: string
-  game_name?: string
-  milestone_ref?: string
-  status: string
-  total_estimated_minutes?: number
-  tasks: SprintTask[]
-  notes: Array<{ timestamp: string; type: string; message: string }>
-  raw: string
-}
-
-function SprintTab({ data }: { data: SprintData }) {
-  const [filter, setFilter] = useState<string>('all')
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-
-  const statuses = ['all', ...Array.from(new Set(data.tasks.map(t => t.status))).sort()]
-  const filtered = filter === 'all' ? data.tasks : data.tasks.filter(t => t.status === filter)
-
-  const toggle = (id: string) =>
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-
-  if (!data.tasks.length) {
-    return (
-      <div className="p-6">
-        <div className="text-text-muted font-mono text-sm italic">No sprint tasks yet.</div>
-        <div className="mt-4 text-xs text-text-muted">
-          Sprint ID: {data.sprint_id ?? '—'} · Status: {data.status}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="p-6 space-y-4 max-w-5xl">
-      {/* Header meta */}
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <StatusBadge status={data.status} />
-        {data.sprint_id && (
-          <span className="font-mono text-text-muted text-xs">{data.sprint_id}</span>
-        )}
-        {data.date && (
-          <span className="text-text-muted text-xs">{data.date}</span>
-        )}
-        {data.total_estimated_minutes && (
-          <span className="text-text-muted text-xs">
-            ~{Math.round(data.total_estimated_minutes / 60)}h estimated
-          </span>
-        )}
-        <span className="text-text-muted text-xs ml-auto">
-          {data.tasks.filter(t => t.status === 'done').length}/{data.tasks.length} done
-        </span>
-      </div>
-
-      {/* Filter pills */}
-      <div className="flex flex-wrap gap-2">
-        {statuses.map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              filter === s
-                ? 'bg-accent text-white'
-                : 'bg-surface border border-border text-text-muted hover:text-text-primary'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {/* Task cards */}
-      <div className="space-y-2">
-        {filtered.map(task => {
-          const open = expanded.has(task.task_id)
-          return (
-            <div key={task.task_id} className="bg-surface border border-border rounded-lg overflow-hidden">
-              {/* Task row */}
-              <button
-                onClick={() => toggle(task.task_id)}
-                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-border/30 transition-colors"
-              >
-                <span className="font-mono text-xs text-text-muted w-20 shrink-0">{task.task_id}</span>
-                <span className="flex-1 text-sm text-text-primary font-medium truncate">{task.title}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {task.type && <TypeBadge type={task.type} />}
-                  <StatusBadge status={task.status} />
-                  {task.qa_verdict && task.qa_verdict !== task.status && (
-                    <span className="text-xs font-mono text-text-muted">QA: <StatusBadge status={task.qa_verdict} /></span>
-                  )}
-                  {task.estimated_minutes && (
-                    <span className="text-xs text-text-muted font-mono">{task.estimated_minutes}m</span>
-                  )}
-                  <span className="text-text-muted ml-1">{open ? '▲' : '▼'}</span>
-                </div>
-              </button>
-
-              {/* Expanded detail */}
-              {open && (
-                <div className="border-t border-border px-4 py-3 space-y-3 bg-bg/40">
-                  {task.description && (
-                    <div>
-                      <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1">Description</p>
-                      <p className="text-sm text-text-primary whitespace-pre-wrap font-mono leading-relaxed">
-                        {task.description}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-xs text-text-muted font-mono">
-                    {task.attempt_count > 0 && (
-                      <span>Attempts: {task.attempt_count}</span>
-                    )}
-                    {task.depends_on.length > 0 && (
-                      <span>Depends on: {task.depends_on.join(', ')}</span>
-                    )}
-                    {task.pr_reference && (
-                      <a
-                        href={task.pr_reference.startsWith('http') ? task.pr_reference : undefined}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-accent hover:underline"
-                      >
-                        PR: {task.pr_reference}
-                      </a>
-                    )}
-                  </div>
-
-                  {task.qa_notes && (
-                    <div className="bg-orange-900/10 border border-orange-700/30 rounded p-3">
-                      <p className="text-xs font-semibold text-orange-400 uppercase tracking-wide mb-1">QA Notes</p>
-                      <p className="text-xs text-text-primary whitespace-pre-wrap font-mono">
-                        {task.qa_notes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Planner notes */}
-      {data.notes.length > 0 && (
-        <details className="mt-4">
-          <summary className="text-xs text-text-muted cursor-pointer hover:text-text-primary">
-            {data.notes.length} planner note{data.notes.length !== 1 ? 's' : ''}
-          </summary>
-          <div className="mt-2 space-y-2">
-            {data.notes.map((n, i) => (
-              <div key={i} className="bg-surface border border-border rounded px-3 py-2">
-                <p className="text-xs font-mono text-text-muted mb-1">{n.timestamp} · {n.type}</p>
-                <p className="text-xs text-text-primary whitespace-pre-wrap">{n.message}</p>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-    </div>
-  )
-}
-
-// ── Plan Tab ──────────────────────────────────────────────────────────────────
-
-interface Milestone {
-  id: string
-  title: string
-  short_title: string
-  goal: string
-  estimated_nights: string
-  actual_nights: string
-  status: string
-  critical_path: string
-  task_ids: string[]
-  success_criteria: string[]
-}
-
-interface PlanData {
-  milestones: Milestone[]
-  task_index: Array<Record<string, string>>
-  dependency_table: Array<Record<string, string>>
-  status_text: string
-  raw: string
-}
-
-function PlanTab({ data }: { data: PlanData }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [view, setView] = useState<'milestones' | 'tasks'>('milestones')
-
-  const toggle = (id: string) =>
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-
-  const milestoneStatusOrder = ['in-progress', 'active', 'pending', 'complete']
-  const sorted = [...data.milestones].sort(
-    (a, b) => milestoneStatusOrder.indexOf(a.status) - milestoneStatusOrder.indexOf(b.status)
-  )
-
-  return (
-    <div className="p-6 space-y-4 max-w-5xl">
-      {/* Summary bar */}
-      <div className="flex flex-wrap items-center gap-4 text-sm">
-        <div className="flex gap-3">
-          <span className="text-text-muted">Milestones:</span>
-          <span className="text-green-400 font-mono">
-            {data.milestones.filter(m => m.status === 'complete').length} complete
-          </span>
-          <span className="text-text-muted font-mono">
-            / {data.milestones.length} total
-          </span>
-        </div>
-        <div className="flex gap-2 ml-auto">
-          {(['milestones', 'tasks'] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                view === v ? 'bg-accent text-white' : 'bg-surface border border-border text-text-muted hover:text-text-primary'
-              }`}
-            >
-              {v === 'milestones' ? 'Milestones' : 'Task Index'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {view === 'milestones' && (
-        <div className="space-y-2">
-          {sorted.map(ms => {
-            const open = expanded.has(ms.id)
-            return (
-              <div key={ms.id} className="bg-surface border border-border rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggle(ms.id)}
-                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-border/30 transition-colors"
-                >
-                  <span className="font-mono text-xs text-text-muted w-8 shrink-0">{ms.id}</span>
-                  <span className="flex-1 text-sm text-text-primary font-medium">{ms.short_title}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {ms.critical_path?.toLowerCase().startsWith('yes') && (
-                      <span className="text-xs bg-red-900/30 text-red-400 px-1.5 py-0.5 rounded font-mono">critical</span>
-                    )}
-                    <StatusBadge status={ms.status} />
-                    <span className="text-xs text-text-muted font-mono">{ms.task_ids.length} tasks</span>
-                    <span className="text-text-muted ml-1">{open ? '▲' : '▼'}</span>
-                  </div>
-                </button>
-
-                {open && (
-                  <div className="border-t border-border px-4 py-3 space-y-3 bg-bg/40">
-                    {ms.goal && (
-                      <div>
-                        <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1">Goal</p>
-                        <p className="text-sm text-text-primary">{ms.goal}</p>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-4 text-xs text-text-muted font-mono">
-                      <span>Estimated: {ms.estimated_nights} night{ms.estimated_nights !== '1' ? 's' : ''}</span>
-                      <span>Actual: {ms.actual_nights || '0'} nights</span>
-                      {ms.task_ids.length > 0 && (
-                        <span>Tasks: {ms.task_ids.join(', ')}</span>
-                      )}
-                    </div>
-
-                    {ms.success_criteria.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Success criteria</p>
-                        <ul className="space-y-1">
-                          {ms.success_criteria.map((c, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-text-primary">
-                              <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                              <span>{c}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {view === 'tasks' && data.task_index.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-xs font-mono">
-            <thead>
-              <tr className="bg-surface border-b border-border">
-                {Object.keys(data.task_index[0]).map(h => (
-                  <th key={h} className="px-3 py-2 text-left text-text-muted font-semibold uppercase tracking-wide whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.task_index.map((row, i) => (
-                <tr key={i} className="border-b border-border/50 hover:bg-surface/50 transition-colors">
-                  {Object.values(row).map((val, j) => (
-                    <td key={j} className="px-3 py-2 text-text-primary whitespace-nowrap">
-                      {j === Object.values(row).length - 1 && val !== '—' ? (
-                        <StatusBadge status={val} />
-                      ) : (
-                        val
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {view === 'tasks' && data.task_index.length === 0 && (
-        <div className="text-text-muted font-mono text-sm italic">No task index found.</div>
-      )}
-    </div>
-  )
-}
-
-// ── Progress Tab ──────────────────────────────────────────────────────────────
-
-interface ProgressEntry {
-  date: string
-  task_id: string
-  title: string
-  pr: string
-  pr_url: string
-  status: string
-  notes: string
-}
-
-interface ProgressData {
-  entries: ProgressEntry[]
-  raw: string
-}
-
-function ProgressTab({ data }: { data: ProgressData }) {
-  const [search, setSearch] = useState('')
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-
-  const filtered = data.entries.filter(e =>
-    !search ||
-    e.title.toLowerCase().includes(search.toLowerCase()) ||
-    e.task_id.toLowerCase().includes(search.toLowerCase()) ||
-    e.notes.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const toggle = (i: number) =>
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(i) ? next.delete(i) : next.add(i)
-      return next
-    })
-
-  if (data.entries.length === 0) {
-    return (
-      <div className="p-6 text-text-muted font-mono text-sm italic">No progress entries yet.</div>
-    )
-  }
-
-  return (
-    <div className="p-6 space-y-4 max-w-4xl">
-      <div className="flex items-center gap-3">
-        <input
-          type="text"
-          placeholder="Search entries..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 px-3 py-1.5 bg-surface border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
-        />
-        <span className="text-xs text-text-muted font-mono whitespace-nowrap">
-          {filtered.length} / {data.entries.length} entries
-        </span>
-      </div>
-
-      <div className="space-y-2">
-        {filtered.map((entry, i) => {
-          const open = expanded.has(i)
-          return (
-            <div key={i} className="bg-surface border border-border rounded-lg overflow-hidden">
-              <button
-                onClick={() => toggle(i)}
-                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-border/30 transition-colors"
-              >
-                <span className="font-mono text-xs text-text-muted w-24 shrink-0">{entry.date}</span>
-                <span className="font-mono text-xs text-accent w-16 shrink-0">{entry.task_id}</span>
-                <span className="flex-1 text-sm text-text-primary truncate">{entry.title}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {entry.pr && (
-                    <span className="text-xs font-mono text-text-muted">PR #{entry.pr}</span>
-                  )}
-                  <StatusBadge status={entry.status} />
-                  <span className="text-text-muted ml-1">{open ? '▲' : '▼'}</span>
-                </div>
-              </button>
-
-              {open && entry.notes && (
-                <div className="border-t border-border px-4 py-3 bg-bg/40">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Notes</p>
-                    {entry.pr_url && (
-                      <a
-                        href={entry.pr_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-accent hover:underline font-mono"
-                      >
-                        View PR →
-                      </a>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-primary whitespace-pre-wrap font-mono leading-relaxed">
-                    {entry.notes}
-                  </p>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ── Overrides Tab ─────────────────────────────────────────────────────────────
-
-interface OverrideEntry {
-  id: string
-  timestamp: string
-  game: string
-  type: string
-  description: string
-  status: string
-  request: string
-  applied_by: string
-  requested_by: string
-}
-
-interface OverridesData {
-  entries: OverrideEntry[]
-  filtered: boolean
-  raw: string
-}
-
-function OverridesTab({ data }: { data: OverridesData }) {
-  const [filter, setFilter] = useState<string>('all')
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-
-  const statuses = ['all', ...Array.from(new Set(data.entries.map(e => e.status))).filter(Boolean).sort()]
-  const filtered = filter === 'all' ? data.entries : data.entries.filter(e => e.status === filter)
-
-  const toggle = (i: number) =>
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(i) ? next.delete(i) : next.add(i)
-      return next
-    })
-
-  if (data.entries.length === 0) {
-    return (
-      <div className="p-6 text-text-muted font-mono text-sm italic">No overrides recorded yet.</div>
-    )
-  }
-
-  return (
-    <div className="p-6 space-y-4 max-w-4xl">
-      {!data.filtered && (
-        <div className="bg-blue-900/20 border border-blue-700/30 rounded px-3 py-2 text-xs text-blue-300">
-          Showing all overrides (none specific to this game yet)
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {statuses.map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              filter === s
-                ? 'bg-accent text-white'
-                : 'bg-surface border border-border text-text-muted hover:text-text-primary'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        {filtered.map((entry, i) => {
-          const open = expanded.has(i)
-          const isActive = entry.status?.toLowerCase() === 'active'
-          return (
-            <div
-              key={i}
-              className={`bg-surface border rounded-lg overflow-hidden ${
-                isActive ? 'border-accent/40' : 'border-border'
-              }`}
-            >
-              <button
-                onClick={() => toggle(i)}
-                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-border/30 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-text-primary font-medium truncate">
-                      {entry.description || entry.id || 'Override'}
-                    </span>
-                    {entry.game && (
-                      <span className="text-xs font-mono text-text-muted">{entry.game}</span>
-                    )}
-                  </div>
-                  {entry.timestamp && (
-                    <p className="text-xs text-text-muted font-mono mt-0.5">{entry.timestamp}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {entry.type && <TypeBadge type={entry.type} />}
-                  <StatusBadge status={entry.status || 'active'} />
-                  <span className="text-text-muted ml-1">{open ? '▲' : '▼'}</span>
-                </div>
-              </button>
-
-              {open && (
-                <div className="border-t border-border px-4 py-3 space-y-3 bg-bg/40">
-                  {entry.request && (
-                    <div>
-                      <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1">Request</p>
-                      <p className="text-sm text-text-primary whitespace-pre-wrap font-mono leading-relaxed">
-                        {entry.request}
-                      </p>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-4 text-xs text-text-muted font-mono">
-                    {entry.id && <span>ID: {entry.id}</span>}
-                    {entry.requested_by && <span>Requested by: {entry.requested_by}</span>}
-                    {entry.applied_by && <span>Applied by: {entry.applied_by}</span>}
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ── Blockers Tab ──────────────────────────────────────────────────────────────
+type TabKey = 'overview' | 'plan' | 'sprint' | 'progress' | 'prs' | 'reports' | 'overrides'
 
 interface Blocker {
   id: string
@@ -641,300 +15,455 @@ interface Blocker {
   status: string
   game: string
   description: string
+  opened_by?: string
+  sprint?: string
+  age?: string
 }
 
-function BlockersTab({ blockers }: { blockers: Blocker[] }) {
-  if (!blockers.length) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center gap-2 text-green-400 text-sm font-mono">
-          <span>✓</span>
-          <span>No open blockers</span>
-        </div>
-      </div>
-    )
-  }
+interface MilestoneItem {
+  label: string
+  pct: number
+  done?: boolean
+  active?: boolean
+  notes: string
+}
 
+interface CommitItem {
+  t: string
+  sha: string
+  msg: string
+  branch: string
+}
+
+interface PRItem {
+  number: number
+  title: string
+  state: 'QA' | 'approved' | 'open'
+  detail: string
+}
+
+// ── Shared icons ──────────────────────────────────────────────────────────────
+
+function FileIcon({ size = 14 }: { size?: number }) {
   return (
-    <div className="p-6 max-w-4xl space-y-3">
-      {blockers.map(blocker => (
-        <div key={blocker.id} className="bg-surface border border-danger/30 rounded-lg p-4 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="text-text-primary font-semibold text-sm">{blocker.title}</h3>
-              <p className="text-text-muted font-mono text-xs mt-0.5">{blocker.id}</p>
-            </div>
-            <StatusBadge status={blocker.status} />
-          </div>
-          {blocker.description && (
-            <p className="text-xs text-text-muted leading-relaxed">{blocker.description}</p>
-          )}
-        </div>
-      ))}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  )
+}
+
+// ── Donut SVG ─────────────────────────────────────────────────────────────────
+
+function Donut({ pct }: { pct: number }) {
+  const r = 32
+  const c = 2 * Math.PI * r
+  return (
+    <svg width="80" height="80" viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r={r} fill="none" stroke="var(--border-2)" strokeWidth="6" />
+      <circle
+        cx="40" cy="40" r={r} fill="none" stroke="var(--accent)" strokeWidth="6"
+        strokeDasharray={c} strokeDashoffset={c - (c * pct) / 100}
+        strokeLinecap="round" transform="rotate(-90 40 40)"
+        style={{ filter: 'drop-shadow(0 0 8px var(--accent-glow))' }}
+      />
+      <text
+        x="40" y="46" textAnchor="middle"
+        fontFamily="var(--f-display)" fontSize="18" fill="var(--ink)" fontWeight="600"
+      >
+        {pct}%
+      </text>
+    </svg>
+  )
+}
+
+// ── Placeholder Tab ───────────────────────────────────────────────────────────
+
+function PlaceholderTab({ title, file, tail }: { title: string; file: string; tail?: boolean }) {
+  return (
+    <div className="card card-pad fade-up" style={{ textAlign: 'center', padding: '60px 20px' }}>
+      <div style={{ opacity: 0.6, color: 'var(--accent-soft)' }}>
+        <FileIcon size={28} />
+      </div>
+      <h3 style={{ fontSize: 18, marginTop: 14 }}>{title}</h3>
+      <div className="t-sm t-muted" style={{ marginTop: 6 }}>
+        Renders the underlying markdown live{tail ? ', with tail mode for append-only streams' : ''}.
+      </div>
+      <div className="t-mono t-xs t-muted" style={{ marginTop: 14 }}>{file}</div>
     </div>
   )
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ gameState, gameSlug }: { gameState: any; gameSlug: string }) {
-  return (
-    <div className="p-6 space-y-6 max-w-4xl">
-      <section>
-        <h2 className="text-text-primary font-semibold mb-3">Summary</h2>
-        <div className="bg-surface border border-border rounded-lg p-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-text-muted">Slug:</span>
-            <span className="font-mono text-text-primary">{gameState.slug}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-text-muted">Current Sprint:</span>
-            <span className="font-mono text-text-primary">
-              {gameState.current_sprint ?? 'None'}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-text-muted">Tasks Completed:</span>
-            <span className="font-mono text-accent">
-              {gameState.tasks_done} / {gameState.task_count}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-text-muted">Milestones:</span>
-            <span className="font-mono text-text-primary">
-              {gameState.milestones_done} / {gameState.milestone_count}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-text-muted">Open PRs:</span>
-            <span className="font-mono text-text-primary">{gameState.open_pr_count}</span>
-          </div>
-          {gameState.blocker_count > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-text-muted">Blockers:</span>
-              <span className="font-mono text-danger">{gameState.blocker_count}</span>
-            </div>
-          )}
-          {gameState.last_run_at && (
-            <div className="flex justify-between text-sm">
-              <span className="text-text-muted">Last Run:</span>
-              <span className="font-mono text-text-primary">
-                {new Date(gameState.last_run_at).toLocaleString()}
-              </span>
-            </div>
-          )}
-        </div>
-      </section>
+function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
+  const navigate = useNavigate()
 
-      {gameState.plan_milestones?.length > 0 && (
-        <section>
-          <h2 className="text-text-primary font-semibold mb-3">Milestones</h2>
-          <div className="space-y-2">
-            {gameState.plan_milestones.map((ms: any) => (
-              <div key={ms.title} className="flex items-center gap-3 bg-surface border border-border rounded px-3 py-2">
-                <StatusBadge status={ms.status} />
-                <span className="text-sm text-text-primary">{ms.title}</span>
+  const { data: blockersRaw } = useQuery<Blocker[]>({
+    queryKey: ['blockers', gameSlug],
+    queryFn: () => fetch(`/api/v1/games/${gameSlug}/blockers`).then(r => r.json()),
+  })
+
+  const blockers: Blocker[] = blockersRaw ?? []
+
+  const milestones: MilestoneItem[] = useMemo(
+    () => (game as any).plan_milestones?.map((ms: any) => ({
+      label: ms.title ?? ms.short_title ?? ms.id,
+      pct: ms.status === 'complete' ? 100 : ms.status === 'in-progress' || ms.status === 'active' ? 50 : 0,
+      done: ms.status === 'complete',
+      active: ms.status === 'in-progress' || ms.status === 'active',
+      notes: ms.goal ?? '',
+    })) ?? [],
+    [game],
+  )
+
+  const tasksDone: number = game.tasks_done ?? 0
+  const taskCount: number = game.task_count ?? 0
+  const sprintPct: number = taskCount > 0 ? Math.round((tasksDone / taskCount) * 100) : 0
+
+  const recentCommits: CommitItem[] = (game as any).recent_commits ?? []
+
+  const openPRs: PRItem[] = (game as any).open_prs ?? []
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 }}>
+      {/* Left column */}
+      <div className="col gap-20">
+        {/* Milestones */}
+        <section className="card glow-violet fade-up d-0">
+          <div className="row" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 15 }}>Milestones</h3>
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">plan.md</span>
+          </div>
+          <div style={{ padding: 4 }}>
+            {milestones.length === 0 && (
+              <div className="t-sm t-muted" style={{ padding: '16px 20px' }}>No milestones yet.</div>
+            )}
+            {milestones.map((m, i) => (
+              <div
+                key={i}
+                className="row"
+                style={{ padding: '14px 20px', gap: 16, borderTop: i ? '1px solid var(--border)' : 'none' }}
+              >
+                <div style={{
+                  width: 22, height: 22, borderRadius: 6,
+                  border: '1px solid ' + (m.active ? 'var(--accent)' : 'var(--border-2)'),
+                  background: m.done ? 'var(--accent)' : m.active ? 'var(--accent-wash)' : 'transparent',
+                  display: 'grid', placeItems: 'center', flexShrink: 0,
+                }}>
+                  {m.done && (
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                      <polyline points="2,7 5,10 11,3" stroke="#0A0A0F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                  {m.active && <span className="dot dot-live" style={{ width: 6, height: 6 }} />}
+                </div>
+                <div className="col" style={{ flex: 1 }}>
+                  <div className="row">
+                    <span className="t-display" style={{ fontSize: 14, color: m.done ? 'var(--muted)' : 'var(--ink)' }}>
+                      {m.label}
+                    </span>
+                    <div className="spacer" />
+                    <span className="t-mono t-xs" style={{ color: m.active ? 'var(--accent-soft)' : 'var(--muted)' }}>
+                      {m.pct}%
+                    </span>
+                  </div>
+                  <div className="row gap-12" style={{ marginTop: 6 }}>
+                    <div className="bar" style={{ flex: 1 }}>
+                      <div className="fill" style={{ width: `${m.pct}%`, background: m.done ? 'var(--success)' : undefined }} />
+                    </div>
+                    <span className="t-xs t-muted" style={{ minWidth: 160, textAlign: 'right' }}>{m.notes}</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </section>
-      )}
 
-      <section>
-        <h2 className="text-text-primary font-semibold mb-3">Actions</h2>
-        <div className="flex gap-2">
-          <Link
-            to={ROUTES.run(gameSlug)}
-            className="px-4 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent/80 transition-colors"
+        {/* Blockers */}
+        <section className="card fade-up d-1" style={{ borderColor: 'rgba(255,74,110,0.3)' }}>
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,74,110,0.2)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <h3 style={{ fontSize: 14, marginLeft: 8 }}>Blockers · {blockers.length}</h3>
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">memory/blockers.md</span>
+          </div>
+          {blockers.length === 0 ? (
+            <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No open blockers.</div>
+          ) : (
+            <div style={{ padding: '14px 20px' }}>
+              {blockers.map((b, i) => (
+                <div
+                  key={b.id}
+                  className="row gap-12"
+                  style={{ alignItems: 'flex-start', marginTop: i ? 16 : 0, paddingTop: i ? 16 : 0, borderTop: i ? '1px solid rgba(255,74,110,0.15)' : 'none' }}
+                >
+                  <span className="chip chip-danger" style={{ marginTop: 2 }}>{b.id}</span>
+                  <div className="col flex-1">
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{b.title}</div>
+                    <div className="t-sm t-muted">{b.description}</div>
+                    <div className="row gap-12" style={{ marginTop: 10 }}>
+                      {b.opened_by && (
+                        <span className="t-mono t-xs t-muted">opened by {b.opened_by}</span>
+                      )}
+                      {b.age && <span className="t-mono t-xs t-muted">{b.age}</span>}
+                    </div>
+                  </div>
+                  <div className="col gap-6">
+                    <button className="btn btn-sm btn-primary">Resolve</button>
+                    <button className="btn btn-sm btn-ghost">Snooze</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Recent commits */}
+        <section className="card fade-up d-2">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Recent commits</h3>
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">feature/*</span>
+          </div>
+          {recentCommits.length === 0 ? (
+            <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No recent commits.</div>
+          ) : (
+            <div>
+              {recentCommits.map((c, i) => (
+                <div
+                  key={i}
+                  className="row gap-12"
+                  style={{ padding: '11px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}
+                >
+                  <span className="t-mono t-xs t-muted" style={{ width: 28 }}>{c.t}</span>
+                  <span className="t-mono t-xs t-accent" style={{ width: 60 }}>{c.sha}</span>
+                  <span className="t-sm flex-1" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.msg}
+                  </span>
+                  <span className="chip">{c.branch}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Right sidebar */}
+      <div className="col gap-20">
+        {/* Sprint donut */}
+        <section className="card card-pad fade-up d-1" style={{ position: 'relative' }}>
+          <div className="text-cap">This sprint</div>
+          <div className="row gap-16" style={{ alignItems: 'center', marginTop: 12 }}>
+            <Donut pct={sprintPct} />
+            <div className="col gap-2">
+              <div className="t-display" style={{ fontSize: 28 }}>{tasksDone} / {taskCount}</div>
+              <div className="t-xs t-muted">tasks done</div>
+              {(game as any).active_task && (
+                <div className="t-xs t-accent" style={{ marginTop: 8 }}>
+                  ● {(game as any).active_task}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="divider" />
+          <div className="col gap-6">
+            {([
+              ['Milestones done', `${game.milestones_done} / ${game.milestone_count}`],
+              ['Open PRs', String(game.open_pr_count)],
+              ['Blockers', String(game.blocker_count)],
+              ['Last run', game.last_run_at ? new Date(game.last_run_at).toLocaleString() : '—'],
+            ] as [string, string][]).map(([l, v], i) => (
+              <div key={i} className="row">
+                <span className="t-xs t-muted">{l}</span>
+                <div className="spacer" />
+                <span className="t-mono t-xs t-dim">{v}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: 16, width: '100%', justifyContent: 'center' }}
+            onClick={() => navigate(ROUTES.run(gameSlug))}
           >
-            Start Sprint Run
-          </Link>
-          <Link
-            to={ROUTES.edit(gameSlug)}
-            className="px-4 py-2 rounded bg-surface border border-border text-text-primary text-sm font-semibold hover:bg-border transition-colors"
-          >
-            Live Edit
-          </Link>
-          <Link
-            to={ROUTES.gameRepo(gameSlug)}
-            className="px-4 py-2 rounded bg-surface border border-border text-text-primary text-sm font-semibold hover:bg-border transition-colors"
-          >
-            View Repo
-          </Link>
-        </div>
-      </section>
+            Open Live Run
+          </button>
+        </section>
+
+        {/* File quick-links */}
+        <section className="card fade-up d-2">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>Files</h3>
+          </div>
+          <div>
+            {([
+              ['plan.md', `games/${gameSlug}/plan.md`],
+              ['sprint-log.md', `games/${gameSlug}/sprint-log.md`],
+              ['spec.md', `games/${gameSlug}/spec.md`],
+              ['progress.md', `games/${gameSlug}/progress.md`],
+            ] as [string, string][]).map(([label, path], i) => (
+              <div
+                key={i}
+                className="row gap-10"
+                style={{ padding: '10px 20px', borderTop: i ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}
+              >
+                <FileIcon />
+                <div className="col" style={{ flex: 1, minWidth: 0 }}>
+                  <div className="t-sm">{label}</div>
+                  <div className="t-mono t-xs t-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {path}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* PRs mini-list */}
+        <section className="card fade-up d-3">
+          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: 14 }}>PRs open · {game.open_pr_count}</h3>
+            <div className="spacer" />
+            <span className="t-mono t-xs t-muted">github</span>
+          </div>
+          {openPRs.length === 0 ? (
+            <div className="t-sm t-muted" style={{ padding: '12px 20px' }}>No open PRs.</div>
+          ) : (
+            <div>
+              {openPRs.map((pr, i) => (
+                <div key={pr.number} style={{ padding: '12px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+                  <div className="row gap-8">
+                    <span className={`dot ${pr.state === 'approved' ? 'dot-success' : pr.state === 'QA' ? 'dot-warning' : 'dot-accent'}`} />
+                    <span className={`t-mono t-xs ${pr.state === 'approved' ? 't-success' : pr.state === 'QA' ? 't-warning' : 't-accent'}`}>
+                      {pr.state}
+                    </span>
+                    <span className="t-sm">#{pr.number} · {pr.title}</span>
+                  </div>
+                  {pr.detail && (
+                    <div className="t-xs t-muted" style={{ marginTop: 4, marginLeft: 16 }}>{pr.detail}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+const TABS: { id: TabKey; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'sprint', label: 'Sprint log' },
+  { id: 'progress', label: 'Progress' },
+  { id: 'prs', label: 'PRs' },
+  { id: 'reports', label: 'Reports' },
+  { id: 'overrides', label: 'Overrides' },
+]
+
+function humanize(slug: string): string {
+  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export default function GameDetail() {
   const { game: gameSlug } = useParams<{ game: string }>()
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  const navigate = useNavigate()
+  const [tab, setTab] = useState<TabKey>('overview')
 
   if (!gameSlug) {
-    return <div className="p-8 text-danger">Missing game parameter</div>
+    return <div style={{ padding: 32, color: 'var(--danger)', fontFamily: 'var(--f-mono)' }}>Missing game parameter.</div>
   }
 
-  const { data: gameState, isLoading: stateLoading, error: stateError } = useGame(gameSlug)
+  const { data: game, isLoading, error } = useGame(gameSlug)
 
-  const { data: sprintData, isLoading: sprintLoading } = useQuery<SprintData>({
-    queryKey: ['game', gameSlug, 'sprint'],
-    queryFn: () => fetch(`/api/v1/games/${gameSlug}/sprint-log`).then(r => r.json()),
-    enabled: activeTab === 'sprint',
-  })
-
-  const { data: planData, isLoading: planLoading } = useQuery<PlanData>({
-    queryKey: ['game', gameSlug, 'plan'],
-    queryFn: () => fetch(`/api/v1/games/${gameSlug}/plan`).then(r => r.json()),
-    enabled: activeTab === 'plan',
-  })
-
-  const { data: progressData, isLoading: progressLoading } = useQuery<ProgressData>({
-    queryKey: ['game', gameSlug, 'progress'],
-    queryFn: () => fetch(`/api/v1/games/${gameSlug}/progress`).then(r => r.json()),
-    enabled: activeTab === 'progress',
-  })
-
-  const { data: overridesData, isLoading: overridesLoading } = useQuery<OverridesData>({
-    queryKey: ['game', gameSlug, 'overrides'],
-    queryFn: () => fetch(`/api/v1/games/${gameSlug}/overrides`).then(r => r.json()),
-    enabled: activeTab === 'overrides',
-  })
-
-  const { data: blockersData, isLoading: blockersLoading } = useQuery<Blocker[]>({
-    queryKey: ['game', gameSlug, 'blockers'],
-    queryFn: () => fetch(`/api/v1/games/${gameSlug}/blockers`).then(r => r.json()),
-    enabled: activeTab === 'blockers',
-  })
-
-  if (stateLoading) {
-    return <div className="p-8 text-text-muted font-mono text-sm">Loading game...</div>
+  if (isLoading) {
+    return <div style={{ padding: 32, color: 'var(--muted)', fontFamily: 'var(--f-mono)', fontSize: 13 }}>Loading game…</div>
   }
 
-  if (stateError || !gameState) {
+  if (error || !game) {
     return (
-      <div className="p-8">
-        <div className="mb-4">
-          <Link to={ROUTES.projects} className="text-accent hover:underline">
-            ← Back to Projects
-          </Link>
-        </div>
-        <div className="text-danger font-mono text-sm">Game not found or failed to load</div>
+      <div style={{ padding: 32 }}>
+        <button className="btn btn-ghost" onClick={() => navigate(ROUTES.projects)} style={{ marginBottom: 16 }}>
+          ← Projects
+        </button>
+        <div style={{ color: 'var(--danger)', fontFamily: 'var(--f-mono)', fontSize: 13 }}>Game not found or failed to load.</div>
       </div>
     )
   }
 
-  function humanize(slug: string): string {
-    return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  }
-
-  const tabs: Array<{ id: TabId; label: string; count?: number }> = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'sprint', label: 'Sprint Log', count: gameState.task_count || undefined },
-    { id: 'plan', label: 'Plan', count: gameState.milestone_count || undefined },
-    { id: 'progress', label: 'Progress' },
-    { id: 'overrides', label: 'Overrides' },
-    { id: 'blockers', label: 'Blockers', count: gameState.blocker_count || undefined },
-  ]
+  const sprintN = game.current_sprint ?? '?'
+  const prCount = game.open_pr_count
+  const overrideCount = (game as any).override_count as number | undefined
 
   return (
-    <div className="flex flex-col h-full bg-bg">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-bg/80 backdrop-blur border-b border-border px-6 py-4 shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Link to={ROUTES.projects} className="text-accent hover:text-accent/80">
-              ← Projects
-            </Link>
-            <h1 className="text-text-primary font-display font-bold text-2xl">
-              {humanize(gameState.name || gameSlug)}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              to={ROUTES.run(gameSlug)}
-              className="px-3 py-1.5 rounded bg-accent text-white text-xs font-semibold hover:bg-accent/80 transition-colors"
-            >
-              Run Sprint
-            </Link>
-            <Link
-              to={ROUTES.edit(gameSlug)}
-              className="px-3 py-1.5 rounded bg-surface border border-border text-text-primary text-xs font-semibold hover:bg-border transition-colors"
-            >
-              Live Edit
-            </Link>
-          </div>
+    <div className="page">
+      {/* Page header */}
+      <div className="page-head">
+        <div>
+          <div className="t-mono t-xs t-muted" style={{ marginBottom: 4 }}>Game · sprint {sprintN}</div>
+          <h1>{humanize(game.name || gameSlug)}</h1>
+          <div className="lead">{(game as any).description ?? `${game.slug} · ${game.registry_status}`}</div>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
-                activeTab === tab.id
-                  ? 'text-accent border-accent'
-                  : 'text-text-muted border-transparent hover:text-text-primary'
-              }`}
-            >
-              {tab.label}
-              {tab.count !== undefined && tab.count > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono ${
-                  activeTab === tab.id ? 'bg-accent/20 text-accent' : 'bg-surface text-text-muted'
-                }`}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="row gap-8">
+          <button className="btn" onClick={() => navigate(ROUTES.edit(gameSlug))}>
+            Live edit
+          </button>
+          <button className="btn" onClick={() => navigate(ROUTES.gameRepo(gameSlug))}>
+            Open repo
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate(ROUTES.run(gameSlug))}>
+            Run now
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {activeTab === 'overview' && <OverviewTab gameState={gameState} gameSlug={gameSlug} />}
-
-        {activeTab === 'sprint' && (
-          sprintLoading
-            ? <div className="p-6 text-text-muted font-mono text-sm">Loading sprint log...</div>
-            : sprintData
-              ? <SprintTab data={sprintData} />
-              : <div className="p-6 text-text-muted font-mono text-sm italic">No sprint log yet.</div>
-        )}
-
-        {activeTab === 'plan' && (
-          planLoading
-            ? <div className="p-6 text-text-muted font-mono text-sm">Loading plan...</div>
-            : planData
-              ? <PlanTab data={planData} />
-              : <div className="p-6 text-text-muted font-mono text-sm italic">No plan yet.</div>
-        )}
-
-        {activeTab === 'progress' && (
-          progressLoading
-            ? <div className="p-6 text-text-muted font-mono text-sm">Loading progress log...</div>
-            : progressData
-              ? <ProgressTab data={progressData} />
-              : <div className="p-6 text-text-muted font-mono text-sm italic">No progress log yet.</div>
-        )}
-
-        {activeTab === 'overrides' && (
-          overridesLoading
-            ? <div className="p-6 text-text-muted font-mono text-sm">Loading overrides...</div>
-            : overridesData
-              ? <OverridesTab data={overridesData} />
-              : <div className="p-6 text-text-muted font-mono text-sm italic">No overrides.</div>
-        )}
-
-        {activeTab === 'blockers' && (
-          blockersLoading
-            ? <div className="p-6 text-text-muted font-mono text-sm">Loading blockers...</div>
-            : <BlockersTab blockers={blockersData ?? []} />
-        )}
+      {/* Tabs */}
+      <div className="tabs">
+        {TABS.map(t => (
+          <div
+            key={t.id}
+            className={`tab${tab === t.id ? ' active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            {t.id === 'prs' && prCount > 0 && (
+              <span className="chip chip-accent" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{prCount}</span>
+            )}
+            {t.id === 'overrides' && overrideCount != null && overrideCount > 0 && (
+              <span className="chip" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{overrideCount}</span>
+            )}
+          </div>
+        ))}
       </div>
+
+      {/* Tab content */}
+      {tab === 'overview' && <OverviewTab game={game} gameSlug={gameSlug} />}
+      {tab === 'plan' && (
+        <PlaceholderTab title="Plan" file={`games/${gameSlug}/plan.md`} />
+      )}
+      {tab === 'sprint' && (
+        <PlaceholderTab title="Sprint log" file={`games/${gameSlug}/sprint-log.md`} />
+      )}
+      {tab === 'progress' && (
+        <PlaceholderTab title="Progress" file={`games/${gameSlug}/progress.md`} tail />
+      )}
+      {tab === 'prs' && (
+        <PlaceholderTab title="Pull requests" file="gh pr list" />
+      )}
+      {tab === 'reports' && (
+        <PlaceholderTab title="Reports" file="reports/morning/*.md" />
+      )}
+      {tab === 'overrides' && (
+        <PlaceholderTab title="Overrides" file={`games/${gameSlug}/memory/human-overrides.md`} />
+      )}
     </div>
   )
 }
