@@ -15,7 +15,7 @@ async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabKey = 'overview' | 'plan' | 'sprint' | 'progress' | 'prs' | 'reports' | 'overrides'
+type TabKey = 'overview' | 'plan' | 'sprint' | 'progress' | 'reports' | 'overrides'
 
 interface Blocker {
   id: string
@@ -41,13 +41,6 @@ interface CommitItem {
   sha: string
   msg: string
   branch: string
-}
-
-interface PRItem {
-  number: number
-  title: string
-  state: 'QA' | 'approved' | 'open'
-  detail: string
 }
 
 // ── Shared icons ──────────────────────────────────────────────────────────────
@@ -263,37 +256,6 @@ function ProgressTab({ gameSlug }: { gameSlug: string }) {
   )
 }
 
-// ── PRs Tab ───────────────────────────────────────────────────────────────────
-
-function PRsTab({ game }: { game: Game }) {
-  const openPRs: PRItem[] = (game as any).open_prs ?? []
-
-  return (
-    <div className="col gap-16">
-      <section className="card">
-        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: 14 }}>Open PRs · {openPRs.length}</h3>
-          <div className="spacer" />
-          <span className="t-mono t-xs t-muted">github</span>
-        </div>
-        {openPRs.length === 0
-          ? <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No open PRs.</div>
-          : openPRs.map((pr: PRItem, i: number) => (
-            <div key={pr.number} style={{ padding: '14px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
-              <div className="row gap-10">
-                <span className={`dot ${pr.state === 'approved' ? 'dot-success' : pr.state === 'QA' ? 'dot-warning' : 'dot-accent'}`} />
-                <span className={`chip chip-${pr.state === 'approved' ? 'success' : pr.state === 'QA' ? '' : 'accent'}`}>{pr.state}</span>
-                <span className="t-sm flex-1">#{pr.number} · {pr.title}</span>
-              </div>
-              {pr.detail && <div className="t-xs t-muted" style={{ marginTop: 6, marginLeft: 20 }}>{pr.detail}</div>}
-            </div>
-          ))
-        }
-      </section>
-    </div>
-  )
-}
-
 // ── Reports Tab ───────────────────────────────────────────────────────────────
 
 function ReportsTab() {
@@ -459,12 +421,10 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
   )
 
   const tasksDone: number = game.tasks_done ?? 0
-  const tasksTotal: number = game.tasks_total ?? 0
-  const sprintPct: number = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0
+  const taskCount: number = game.tasks_total ?? 0
+  const sprintPct: number = taskCount > 0 ? Math.round((tasksDone / taskCount) * 100) : 0
 
   const recentCommits: CommitItem[] = (game as any).recent_commits ?? []
-
-  const openPRs: PRItem[] = (game as any).open_prs ?? []
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 }}>
@@ -609,7 +569,7 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
           <div className="row gap-16" style={{ alignItems: 'center', marginTop: 12 }}>
             <Donut pct={sprintPct} />
             <div className="col gap-2">
-              <div className="t-display" style={{ fontSize: 28 }}>{tasksDone} / {tasksTotal}</div>
+              <div className="t-display" style={{ fontSize: 28 }}>{tasksDone} / {taskCount}</div>
               <div className="t-xs t-muted">tasks done</div>
               {(game as any).active_task && (
                 <div className="t-xs t-accent" style={{ marginTop: 8 }}>
@@ -622,7 +582,6 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
           <div className="col gap-6">
             {([
               ['Milestones done', `${game.milestones_done} / ${game.milestone_count}`],
-              ['Tasks done', `${game.tasks_done} / ${game.tasks_total}`],
               ['Blockers', String(game.blocker_count)],
             ] as [string, string][]).map(([l, v], i) => (
               <div key={i} className="row">
@@ -670,34 +629,6 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
           </div>
         </section>
 
-        {/* PRs mini-list */}
-        <section className="card fade-up d-3">
-          <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-            <h3 style={{ fontSize: 14 }}>Tasks pending · {game.tasks_pending}</h3>
-            <div className="spacer" />
-            <span className="t-mono t-xs t-muted">github</span>
-          </div>
-          {openPRs.length === 0 ? (
-            <div className="t-sm t-muted" style={{ padding: '12px 20px' }}>No open PRs.</div>
-          ) : (
-            <div>
-              {openPRs.map((pr, i) => (
-                <div key={pr.number} style={{ padding: '12px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
-                  <div className="row gap-8">
-                    <span className={`dot ${pr.state === 'approved' ? 'dot-success' : pr.state === 'QA' ? 'dot-warning' : 'dot-accent'}`} />
-                    <span className={`t-mono t-xs ${pr.state === 'approved' ? 't-success' : pr.state === 'QA' ? 't-warning' : 't-accent'}`}>
-                      {pr.state}
-                    </span>
-                    <span className="t-sm">#{pr.number} · {pr.title}</span>
-                  </div>
-                  {pr.detail && (
-                    <div className="t-xs t-muted" style={{ marginTop: 4, marginLeft: 16 }}>{pr.detail}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
     </div>
   )
@@ -710,7 +641,6 @@ const TABS: { id: TabKey; label: string }[] = [
   { id: 'plan', label: 'Plan' },
   { id: 'sprint', label: 'Sprint log' },
   { id: 'progress', label: 'Progress' },
-  { id: 'prs', label: 'PRs' },
   { id: 'reports', label: 'Reports' },
   { id: 'overrides', label: 'Overrides' },
 ]
@@ -745,7 +675,6 @@ export default function GameDetail() {
     )
   }
 
-  const nightsElapsed = game.nights_elapsed ?? 0
   const overrideCount = (game as any).override_count as number | undefined
 
   return (
@@ -753,7 +682,7 @@ export default function GameDetail() {
       {/* Page header */}
       <div className="page-head">
         <div>
-          <div className="t-mono t-xs t-muted" style={{ marginBottom: 4 }}>Game · night {nightsElapsed}</div>
+          <div className="t-mono t-xs t-muted" style={{ marginBottom: 4 }}>Game · sprint {game.nights_elapsed}</div>
           <h1>{humanize(game.name || gameSlug)}</h1>
           <div className="lead">{(game as any).description ?? `${game.slug} · ${game.status}`}</div>
         </div>
@@ -779,9 +708,6 @@ export default function GameDetail() {
             onClick={() => setTab(t.id)}
           >
             {t.label}
-            {t.id === 'prs' && (game.tasks_pending ?? 0) > 0 && (
-              <span className="chip chip-accent" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{game.tasks_pending}</span>
-            )}
             {t.id === 'overrides' && overrideCount != null && overrideCount > 0 && (
               <span className="chip" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{overrideCount}</span>
             )}
@@ -794,7 +720,6 @@ export default function GameDetail() {
       {tab === 'plan' && <PlanTab gameSlug={gameSlug} />}
       {tab === 'sprint' && <SprintTab gameSlug={gameSlug} />}
       {tab === 'progress' && <ProgressTab gameSlug={gameSlug} />}
-      {tab === 'prs' && <PRsTab game={game} />}
       {tab === 'reports' && <ReportsTab />}
       {tab === 'overrides' && <OverridesTab gameSlug={gameSlug} />}
     </div>
