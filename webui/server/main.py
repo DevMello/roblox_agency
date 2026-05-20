@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from webui.server import config
 from webui.server.db.init_db import init_db
-from webui.server.routes import games, specs, runs, edits, files, git, schedule, cfg, ws
+from webui.server.routes import games, specs, runs, edits, files, git, schedule, cfg, ws, workers
 from webui.server.services.scheduler import scheduler_service
 from webui.server.services.process import process_manager
 
@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(git.router, prefix=f"{prefix}/git", tags=["git"])
     app.include_router(schedule.router, prefix=f"{prefix}/schedule", tags=["schedule"])
     app.include_router(cfg.router, prefix=f"{prefix}/config", tags=["config"])
+    app.include_router(workers.router, prefix=f"{prefix}/workers", tags=["workers"])
     app.include_router(ws.router, tags=["ws"])
 
     # Serve built React app — must be last

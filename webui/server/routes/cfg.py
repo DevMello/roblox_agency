@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 import os
 
+from webui.server.db import get_db
+
 router = APIRouter(tags=["config"])
 
 @router.get("/mcp")
@@ -56,10 +58,21 @@ async def get_env():
 
 @router.get("/workers")
 async def get_workers():
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM workers ORDER BY last_seen_at DESC"
+        ).fetchall()
+
+    if rows:
+        return {"workers": [dict(r) for r in rows]}
+
+    # Fallback: markdown content
     try:
         from webui.server.services.repo import repo_service
-        return {"content": repo_service.read_file("memory/workers.md")}
-    except Exception: return {"content": ""}
+        content = repo_service.read_file("memory/workers.md")
+        return {"content": content, "workers": []}
+    except FileNotFoundError:
+        return {"content": "", "workers": []}
 
 @router.get("/limits")
 async def get_limits():
