@@ -10,11 +10,11 @@ A browser-based control plane for managing games, monitoring runs, editing specs
 
 **Quick start:**
 ```bash
-pip install -e ./webui
+pip install -e .
 agency
 ```
 
-Opens `http://127.0.0.1:7432` in your browser. See [`webui/README.md`](webui/README.md) for full docs and options.
+Opens `http://127.0.0.1:7432` in your browser. See [`LAUNCH.md`](LAUNCH.md) for full docs and options.
 
 ---
 

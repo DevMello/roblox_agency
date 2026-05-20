@@ -7,10 +7,11 @@ config/worker-id
 # Local AI tool configuration — copy .env.example to .env and fill in values
 .env
 temp.md
-webui/client/dist/
-webui/client/node_modules/
-webui/server/db/agency.db
-webui/__pycache__/
+client/dist/
+client/node_modules/
+server/db/agency.db
+__pycache__/
+bin/__pycache__/
 
 *.pyc
 

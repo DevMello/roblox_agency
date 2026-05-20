@@ -29,9 +29,8 @@ Write-Host ""
 Write-Host "Checking environment..." -ForegroundColor Cyan
 
 $repoRoot = Find-RepoRoot
-$webuiDir = "$repoRoot\webui"
-$serverDir = "$webuiDir\server"
-$clientDir = "$webuiDir\client"
+$serverDir = "$repoRoot\server"
+$clientDir = "$repoRoot\client"
 
 # Validate directories
 if (-not (Test-Path $repoRoot)) {
@@ -39,12 +38,6 @@ if (-not (Test-Path $repoRoot)) {
   exit 1
 }
 Write-Host "  OK: Repo root" -ForegroundColor Green
-
-if (-not (Test-Path $webuiDir)) {
-  Write-Host "  ERROR: WebUI not found" -ForegroundColor Red
-  exit 1
-}
-Write-Host "  OK: WebUI" -ForegroundColor Green
 
 if (-not (Test-Path $serverDir)) {
   Write-Host "  ERROR: Backend not found" -ForegroundColor Red
@@ -92,7 +85,7 @@ Write-Host "Starting servers..." -ForegroundColor Cyan
 Write-Host "  Starting Backend on http://127.0.0.1:$Port" -ForegroundColor Cyan
 $backendProc = Start-Process `
   -FilePath python `
-  -ArgumentList "-m uvicorn webui.server.main:app --host 127.0.0.1 --port $Port --reload" `
+  -ArgumentList "-m uvicorn server.main:app --host 127.0.0.1 --port $Port --reload" `
   -WorkingDirectory $repoRoot `
   -PassThru `
   -NoNewWindow

@@ -23,11 +23,11 @@ dependencies = [
 ]
 
 [project.scripts]
-agency = "webui.bin.agency:main"
+agency = "bin.agency:main"
 
 [tool.setuptools.packages.find]
-where = [".."]
-include = ["webui*"]
+where = ["."]
+include = ["server*", "bin*"]
 
 [tool.setuptools.package-data]
-"webui" = ["client/dist/**/*"]
+"server" = ["client/dist/**/*"]

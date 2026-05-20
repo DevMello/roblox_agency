@@ -48,9 +48,8 @@ if [[ -z "$REPO_ROOT" ]]; then
   exit 1
 fi
 
-WEBUI_DIR="$REPO_ROOT/webui"
-SERVER_DIR="$WEBUI_DIR/server"
-CLIENT_DIR="$WEBUI_DIR/client"
+SERVER_DIR="$REPO_ROOT/server"
+CLIENT_DIR="$REPO_ROOT/client"
 
 # Colors
 RED='\033[0;31m'
@@ -71,7 +70,6 @@ echo -e "${CYAN}Checking environment...${NC}"
 # Check directories
 for name path in \
   "Repo root" "$REPO_ROOT" \
-  "WebUI" "$WEBUI_DIR" \
   "Backend" "$SERVER_DIR" \
   "Frontend" "$CLIENT_DIR"
 do
@@ -132,7 +130,7 @@ trap cleanup SIGINT SIGTERM
 # Start backend
 echo -e "  ${CYAN}→${NC} Backend on http://127.0.0.1:$PORT"
 cd "$REPO_ROOT"
-python3 -m uvicorn webui.server.main:app --host 127.0.0.1 --port $PORT --reload > /tmp/webui-backend.log 2>&1 &
+python3 -m uvicorn server.main:app --host 127.0.0.1 --port $PORT --reload > /tmp/agency-backend.log 2>&1 &
 BACKEND_PID=$!
 echo -e "  ${GREEN}✓${NC} Backend started (PID: $BACKEND_PID)"
 
@@ -150,7 +148,7 @@ done
 # Start frontend
 echo -e "  ${CYAN}→${NC} Frontend on http://127.0.0.1:$FRONTEND_PORT"
 cd "$CLIENT_DIR"
-npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT > /tmp/webui-frontend.log 2>&1 &
+npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT > /tmp/agency-frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo -e "  ${GREEN}✓${NC} Frontend started (PID: $FRONTEND_PID)"
 

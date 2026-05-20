@@ -6,13 +6,11 @@ Two simple scripts to launch the complete Roblox Agency WebUI stack (backend + f
 
 ### Windows (PowerShell)
 ```powershell
-cd webui
 .\launch.ps1
 ```
 
 ### macOS / Linux (Bash)
 ```bash
-cd webui
 chmod +x launch.sh
 ./launch.sh
 ```
@@ -94,7 +92,7 @@ The script will:
 | **Port already in use** | Use `--port` or `--frontend-port` to specify different ports |
 | **Python not found** | Ensure Python 3.10+ is installed: `python --version` |
 | **Node/npm not found** | Ensure Node.js 18+ is installed: `node --version` |
-| **npm modules missing** | Run `npm install` in `webui/client/` first |
+| **npm modules missing** | Run `npm install` in `client/` first |
 | **Backend won't start** | Check Python dependencies: `pip list | grep uvicorn` |
 | **Frontend won't load** | Check browser console (F12) for errors; verify backend is running |
 | **WebSocket connection fails** | Ensure backend is fully started; check Network tab in DevTools |
@@ -112,10 +110,10 @@ If you haven't set up dependencies yet:
 
 ```bash
 # Install Python dependencies (from repo root)
-pip install -e webui
+pip install -e .
 
 # Install Node dependencies
-cd webui/client
+cd client
 npm install
 ```
 
@@ -125,18 +123,18 @@ Then run the launcher script.
 
 ### Run Frontend Only
 ```bash
-cd webui/client
+cd client
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 ### Run Backend Only
 ```bash
-python -m uvicorn webui.server.main:app --host 127.0.0.1 --port 7432 --reload
+python -m uvicorn server.main:app --host 127.0.0.1 --port 7432 --reload
 ```
 
 ### Production Build
 ```bash
-cd webui/client
+cd client
 npm run build        # Creates dist/ folder
 npm run preview      # Serves production build locally
 ```
