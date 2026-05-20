@@ -20,6 +20,13 @@ export default defineConfig({
         target: 'ws://127.0.0.1:7432',
         ws: true,
         changeOrigin: true,
+        configure: (proxy) => {
+          // Suppress ECONNRESET noise when uvicorn reloads and drops WS connections.
+          // The frontend reconnects automatically via exponential backoff.
+          proxy.on('error', (err: NodeJS.ErrnoException) => {
+            if (err.code !== 'ECONNRESET') console.error('[ws proxy]', err)
+          })
+        },
       },
     },
   },
