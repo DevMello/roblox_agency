@@ -211,7 +211,7 @@ async def get_plan(game: str):
             md = dict(m)
             try:
                 md["success_criteria"] = json.loads(md["success_criteria"] or "[]")
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 md["success_criteria"] = []
             md["task_ids"] = [
                 t["task_id"] for t in t_rows if t["milestone_id"] == md["milestone_id"]
@@ -288,7 +288,6 @@ async def create_tasks(game: str, body: dict):
         raise HTTPException(400, "tasks array required")
 
     now = datetime.datetime.utcnow().isoformat()
-    inserted = 0
     with get_db() as conn:
         for task in task_list:
             conn.execute(
@@ -314,8 +313,7 @@ async def create_tasks(game: str, body: dict):
                     now, now,
                 ),
             )
-            inserted += 1
-    return {"inserted": inserted}
+    return {"inserted": len(task_list)}
 
 
 @router.get("/{game}/progress")
