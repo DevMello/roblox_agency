@@ -7,7 +7,6 @@ export interface Game {
   status: string
   repo_url?: string | null
   created_at?: string | null
-  // Game state (from game_state table)
   phase?: string | null
   active_milestone?: string | null
   nights_elapsed: number
@@ -138,6 +137,7 @@ export type WSEvent =
   | { type: 'run.log'; run_id?: string; line: string; agent?: string }
   | { type: 'run.task'; run_id?: string; task: Partial<Task> }
   | { type: 'run.status'; run_id?: string; status: RunStatus }
+  | { type: 'git.pr'; action: 'opened' | 'merged' | 'closed'; pr: PR }
   | { type: 'git.commit'; commit: Commit }
   | { type: 'file.changed'; path: string }
   | { type: 'schedule.fired'; job_id: string; run_id: string }

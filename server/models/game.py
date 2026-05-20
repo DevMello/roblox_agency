@@ -6,18 +6,22 @@ from pydantic import BaseModel
 class GameSummary(BaseModel):
     name: str
     slug: str
-    spec_path: str
-    plan_path: str
-    sprint_log_path: str
-    progress_path: str
-    current_sprint: int = 0
+    status: str = "active"
+    repo_url: Optional[str] = None
+    created_at: Optional[str] = None
+    # Game state
+    phase: Optional[str] = None
+    active_milestone: Optional[str] = None
+    nights_elapsed: int = 0
+    estimated_nights_to_mvp: Optional[int] = None
+    tasks_total: int = 0
+    tasks_done: int = 0
+    tasks_pending: int = 0
+    tasks_failed: int = 0
+    tasks_blocked: int = 0
     milestone_count: int = 0
     milestones_done: int = 0
-    task_count: int = 0
-    tasks_done: int = 0
-    open_pr_count: int = 0
     blocker_count: int = 0
-    last_run_at: Optional[str] = None
 
 
 class Blocker(BaseModel):
