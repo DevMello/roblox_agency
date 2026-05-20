@@ -10,26 +10,23 @@ from __future__ import annotations
 import datetime
 import json
 import re
-import sys
 import uuid
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Bootstrap: ensure repo root is on sys.path so webui imports work.
+# Bootstrap: REPO_ROOT used for resolving game/memory paths.
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 # Initialise config so REPO_ROOT and DB_PATH are set before other imports.
-from webui.server import config as _config
+from server import config as _config
 
 _config.init(repo_override=str(REPO_ROOT))
 
-from webui.server.db import get_db
-from webui.server.db.init_db import init_db
-from webui.server.services.markdown import MarkdownService
+from server.db import get_db
+from server.db.init_db import init_db
+from server.services.markdown import MarkdownService
 
 _md = MarkdownService()
 
