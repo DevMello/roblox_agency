@@ -81,14 +81,14 @@ async def get_sprint_log(game: str):
                     "skipped_due_to_override", "active_workers", "morning_report_flags"):
             try:
                 sprint[col] = json.loads(sprint[col]) if sprint[col] else []
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 sprint[col] = sprint[col] or []
         tasks = []
         for t in task_rows:
             td = dict(t)
             try:
                 td["depends_on"] = json.loads(td.get("depends_on") or "[]")
-            except Exception:
+            except (ValueError, json.JSONDecodeError):
                 td["depends_on"] = []
             tasks.append(td)
         sprint["task_list"] = tasks
