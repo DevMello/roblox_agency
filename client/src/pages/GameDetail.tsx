@@ -459,8 +459,8 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
   )
 
   const tasksDone: number = game.tasks_done ?? 0
-  const taskCount: number = game.task_count ?? 0
-  const sprintPct: number = taskCount > 0 ? Math.round((tasksDone / taskCount) * 100) : 0
+  const tasksTotal: number = game.tasks_total ?? 0
+  const sprintPct: number = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0
 
   const recentCommits: CommitItem[] = (game as any).recent_commits ?? []
 
@@ -609,7 +609,7 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
           <div className="row gap-16" style={{ alignItems: 'center', marginTop: 12 }}>
             <Donut pct={sprintPct} />
             <div className="col gap-2">
-              <div className="t-display" style={{ fontSize: 28 }}>{tasksDone} / {taskCount}</div>
+              <div className="t-display" style={{ fontSize: 28 }}>{tasksDone} / {tasksTotal}</div>
               <div className="t-xs t-muted">tasks done</div>
               {(game as any).active_task && (
                 <div className="t-xs t-accent" style={{ marginTop: 8 }}>
@@ -622,9 +622,8 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
           <div className="col gap-6">
             {([
               ['Milestones done', `${game.milestones_done} / ${game.milestone_count}`],
-              ['Open PRs', String(game.open_pr_count)],
+              ['Tasks done', `${game.tasks_done} / ${game.tasks_total}`],
               ['Blockers', String(game.blocker_count)],
-              ['Last run', game.last_run_at ? new Date(game.last_run_at).toLocaleString() : '—'],
             ] as [string, string][]).map(([l, v], i) => (
               <div key={i} className="row">
                 <span className="t-xs t-muted">{l}</span>
@@ -674,7 +673,7 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
         {/* PRs mini-list */}
         <section className="card fade-up d-3">
           <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-            <h3 style={{ fontSize: 14 }}>PRs open · {game.open_pr_count}</h3>
+            <h3 style={{ fontSize: 14 }}>Tasks pending · {game.tasks_pending}</h3>
             <div className="spacer" />
             <span className="t-mono t-xs t-muted">github</span>
           </div>
@@ -746,8 +745,7 @@ export default function GameDetail() {
     )
   }
 
-  const sprintN = game.current_sprint ?? '?'
-  const prCount = game.open_pr_count
+  const nightsElapsed = game.nights_elapsed ?? 0
   const overrideCount = (game as any).override_count as number | undefined
 
   return (
@@ -755,9 +753,9 @@ export default function GameDetail() {
       {/* Page header */}
       <div className="page-head">
         <div>
-          <div className="t-mono t-xs t-muted" style={{ marginBottom: 4 }}>Game · sprint {sprintN}</div>
+          <div className="t-mono t-xs t-muted" style={{ marginBottom: 4 }}>Game · night {nightsElapsed}</div>
           <h1>{humanize(game.name || gameSlug)}</h1>
-          <div className="lead">{(game as any).description ?? `${game.slug} · ${game.registry_status}`}</div>
+          <div className="lead">{(game as any).description ?? `${game.slug} · ${game.status}`}</div>
         </div>
         <div className="row gap-8">
           <button className="btn" onClick={() => navigate(ROUTES.edit(gameSlug))}>
@@ -781,8 +779,8 @@ export default function GameDetail() {
             onClick={() => setTab(t.id)}
           >
             {t.label}
-            {t.id === 'prs' && prCount > 0 && (
-              <span className="chip chip-accent" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{prCount}</span>
+            {t.id === 'prs' && (game.tasks_pending ?? 0) > 0 && (
+              <span className="chip chip-accent" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{game.tasks_pending}</span>
             )}
             {t.id === 'overrides' && overrideCount != null && overrideCount > 0 && (
               <span className="chip" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10 }}>{overrideCount}</span>

@@ -84,11 +84,8 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
     game.milestone_count > 0
       ? Math.round((game.milestones_done / game.milestone_count) * 100)
       : 0
-  const sprintNum = game.current_sprint ?? 1
-  const lastRun = game.last_run_at
-    ? new Date(game.last_run_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : 'never'
-  const spend = (0.4 + sprintNum * 0.3).toFixed(2)
+  const nightsElapsed = game.nights_elapsed ?? 0
+  const spend = (0.4 + nightsElapsed * 0.3).toFixed(2)
 
   return (
     <article
@@ -110,9 +107,9 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
         </div>
         <div className="col flex-1" style={{ minWidth: 0 }}>
           <div className="t-display" style={{ fontSize: 16, lineHeight: 1.2 }}>{game.name}</div>
-          <div className="t-xs t-muted">Sprint {sprintNum} · {lastRun}</div>
+          <div className="t-xs t-muted">Night {nightsElapsed}</div>
         </div>
-        {statusChip(game.registry_status)}
+        {statusChip(game.status)}
       </div>
 
       {/* progress */}
@@ -130,8 +127,8 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
       {/* stats row */}
       <div className="row gap-16" style={{ marginTop: 16 }}>
         <div className="col">
-          <span className="text-cap">PRs open</span>
-          <span className="t-display" style={{ fontSize: 16, marginTop: 2 }}>{game.open_pr_count}</span>
+          <span className="text-cap">Tasks pending</span>
+          <span className="t-display" style={{ fontSize: 16, marginTop: 2 }}>{game.tasks_pending}</span>
         </div>
         <div className="col">
           <span className="text-cap">Blockers</span>
@@ -306,7 +303,7 @@ export default function Projects() {
   const games: Game[] = data ?? []
 
   const activeCount = games.filter((g) =>
-    g.registry_status === 'active' || g.registry_status === 'running'
+    g.status === 'active' || g.status === 'running'
   ).length
   const blockerCount = games.reduce((sum, g) => sum + (g.blocker_count ?? 0), 0)
 

@@ -4,19 +4,22 @@
 export interface Game {
   name: string
   slug: string
-  spec_path: string
-  plan_path: string
-  sprint_log_path: string
-  progress_path: string
-  current_sprint: number
+  status: string
+  repo_url?: string | null
+  created_at?: string | null
+  // Game state (from game_state table)
+  phase?: string | null
+  active_milestone?: string | null
+  nights_elapsed: number
+  estimated_nights_to_mvp?: number | null
+  tasks_total: number
+  tasks_done: number
+  tasks_pending: number
+  tasks_failed: number
+  tasks_blocked: number
   milestone_count: number
   milestones_done: number
-  task_count: number
-  tasks_done: number
-  open_pr_count: number
   blocker_count: number
-  last_run_at: string | null
-  registry_status: string
 }
 
 export interface Run {
@@ -135,7 +138,6 @@ export type WSEvent =
   | { type: 'run.log'; run_id?: string; line: string; agent?: string }
   | { type: 'run.task'; run_id?: string; task: Partial<Task> }
   | { type: 'run.status'; run_id?: string; status: RunStatus }
-  | { type: 'git.pr'; action: 'opened' | 'merged' | 'closed'; pr: PR }
   | { type: 'git.commit'; commit: Commit }
   | { type: 'file.changed'; path: string }
   | { type: 'schedule.fired'; job_id: string; run_id: string }
