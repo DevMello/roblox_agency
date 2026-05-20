@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
+import sqlite3
 import uuid
 from pathlib import Path
 
@@ -550,12 +551,178 @@ def seed_reports(db: object) -> None:  # type: ignore[type-arg]
 
 
 # ---------------------------------------------------------------------------
+# 10. Seed specs from games/{game}/spec.md
+# ---------------------------------------------------------------------------
+
+def seed_specs(root: Path, db_path: Path) -> None:
+    """Seed specs table from games/{game}/spec.md files."""
+    conn = sqlite3.connect(db_path)
+    try:
+        games_dir = root / "games"
+        if not games_dir.exists():
+            return
+        count = 0
+        for game_dir in sorted(games_dir.iterdir()):
+            if not game_dir.is_dir():
+                continue
+            game_slug = game_dir.name
+            content = _read(game_dir / "spec.md")
+            if content is None:
+                continue
+
+            def extract(pattern: str, default: str = "") -> str:
+                m = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
+                return m.group(1).strip() if m else default
+
+            genre = extract(r"^\s*-?\s*\*?\*?genre\*?\*?\s*[:\|]\s*(.+)$")
+            target_age = extract(r"target_age_range\s*[:\|]\s*(.+)$")
+            session_len = extract(r"target_session_length\s*[:\|]\s*(.+)$")
+            monetisation = extract(r"primary_model\s*[:\|]\s*(.+)$")
+            fps_str = extract(r"fps_target\s*[:\|]\s*(\d+)")
+            fps_target = int(fps_str) if fps_str.isdigit() else None
+            max_str = extract(r"max_players\s*[:\|]\s*(\d+)")
+            max_players = int(max_str) if max_str.isdigit() else None
+
+            exists = conn.execute(
+                "SELECT 1 FROM specs WHERE game_slug = ?", (game_slug,)
+            ).fetchone()
+            if exists:
+                conn.execute(
+                    "UPDATE specs SET content=?, genre=?, target_age_range=?, "
+                    "target_session_length=?, primary_monetisation=?, fps_target=?, "
+                    "max_players=?, updated_at=? WHERE game_slug=?",
+                    (content, genre, target_age, session_len, monetisation,
+                     fps_target, max_players, _NOW, game_slug),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO specs (game_slug, content, genre, target_age_range, "
+                    "target_session_length, primary_monetisation, fps_target, max_players, updated_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (game_slug, content, genre, target_age, session_len, monetisation,
+                     fps_target, max_players, _NOW),
+                )
+            count += 1
+        conn.commit()
+        print(f"  specs: {count} rows upserted")
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 11. Seed game_state from games/{game}/memory/state.md
+# ---------------------------------------------------------------------------
+
+def seed_game_state(root: Path, db_path: Path) -> None:
+    """Seed game_state table from games/{game}/memory/state.md files."""
+    conn = sqlite3.connect(db_path)
+    try:
+        games_dir = root / "games"
+        if not games_dir.exists():
+            return
+        count = 0
+        for game_dir in sorted(games_dir.iterdir()):
+            if not game_dir.is_dir():
+                continue
+            game_slug = game_dir.name
+            content = _read(game_dir / "memory" / "state.md")
+            if content is None:
+                continue
+
+            def extract(pattern: str, default: str = "") -> str:
+                m = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
+                return m.group(1).strip() if m else default
+
+            def count_field(label: str) -> int:
+                s = extract(rf"{label}\s*[:\|]\s*(\d+)")
+                return int(s) if s.isdigit() else 0
+
+            phase = extract(r"phase\s*[:\|]\s*(.+)$")
+            active_milestone = extract(r"active_milestone\s*[:\|]\s*(.+)$")
+            nights_str = extract(r"nights_elapsed\s*[:\|]\s*(\d+)")
+            nights_elapsed = int(nights_str) if nights_str.isdigit() else None
+            est_str = extract(r"estimated_nights_to_mvp\s*[:\|]\s*(\d+)")
+            estimated_nights = int(est_str) if est_str.isdigit() else None
+
+            exists = conn.execute(
+                "SELECT 1 FROM game_state WHERE game_slug = ?", (game_slug,)
+            ).fetchone()
+            row = (game_slug, phase, active_milestone, nights_elapsed, estimated_nights,
+                   count_field("tasks_total"), count_field("tasks_done"),
+                   count_field("tasks_pending"), count_field("tasks_failed"),
+                   count_field("tasks_blocked"), _NOW)
+            if exists:
+                conn.execute(
+                    "UPDATE game_state SET phase=?, active_milestone=?, nights_elapsed=?, "
+                    "estimated_nights_to_mvp=?, tasks_total=?, tasks_done=?, tasks_pending=?, "
+                    "tasks_failed=?, tasks_blocked=?, updated_at=? WHERE game_slug=?",
+                    (*row[1:], game_slug),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO game_state (game_slug, phase, active_milestone, nights_elapsed, "
+                    "estimated_nights_to_mvp, tasks_total, tasks_done, tasks_pending, "
+                    "tasks_failed, tasks_blocked, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    row,
+                )
+            count += 1
+        conn.commit()
+        print(f"  game_state: {count} rows upserted")
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 12. Seed weekly_reports from reports/weekly/**/*.md
+# ---------------------------------------------------------------------------
+
+def seed_weekly_reports(root: Path, db_path: Path) -> None:
+    """Seed weekly_reports table from reports/weekly/**/*.md files."""
+    conn = sqlite3.connect(db_path)
+    try:
+        weekly_dir = root / "reports" / "weekly"
+        if not weekly_dir.exists():
+            return
+        count = 0
+        for week_dir in sorted(weekly_dir.iterdir()):
+            if not week_dir.is_dir():
+                continue
+            week = week_dir.name
+            for md_file in sorted(week_dir.glob("*.md")):
+                content = _read(md_file)
+                if content is None:
+                    continue
+                fname = md_file.stem.lower()
+                if "market" in fname:
+                    rtype = "market-research"
+                elif "idea" in fname:
+                    rtype = "game-ideas"
+                else:
+                    rtype = "weekly"
+                report_id = f"weekly-{week}-{rtype}"
+                exists = conn.execute(
+                    "SELECT 1 FROM weekly_reports WHERE id = ?", (report_id,)
+                ).fetchone()
+                if not exists:
+                    conn.execute(
+                        "INSERT INTO weekly_reports (id, week, type, content, created_at) VALUES (?,?,?,?,?)",
+                        (report_id, week, rtype, content, _NOW),
+                    )
+                    count += 1
+        conn.commit()
+        print(f"  weekly_reports: {count} rows inserted")
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
     print(f"Initialising DB at {_config.DB_PATH} ...")
     init_db(_config.DB_PATH)
+    print("Schema initialized.")
 
     with get_db() as db:
         print("Seeding games ...")
@@ -608,6 +775,15 @@ def main() -> None:
 
         print("Seeding reports ...")
         seed_reports(db)
+
+    print("Seeding specs ...")
+    seed_specs(REPO_ROOT, _config.DB_PATH)
+
+    print("Seeding game state ...")
+    seed_game_state(REPO_ROOT, _config.DB_PATH)
+
+    print("Seeding weekly reports ...")
+    seed_weekly_reports(REPO_ROOT, _config.DB_PATH)
 
     print("\nMigration complete. Rows inserted per table:")
     for table, count in sorted(_counts.items()):

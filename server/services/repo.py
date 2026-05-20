@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import datetime
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import HTTPException
 
+from server import config as cfg
 from server.services.markdown import markdown_service
 
 
@@ -17,6 +19,11 @@ class RepoService:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _db_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(cfg.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
 
     def _root(self) -> Path:
         from server import config
@@ -106,7 +113,23 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def game_names(self) -> list[str]:
-        """Returns sorted list of game directory names under games/."""
+        """Returns sorted list of active game slugs (DB-first, filesystem fallback)."""
+        try:
+            conn = self._db_conn()
+            try:
+                rows = conn.execute(
+                    "SELECT slug FROM games WHERE status != 'retired' ORDER BY slug"
+                ).fetchall()
+                if rows:
+                    return [r["slug"] for r in rows]
+            finally:
+                conn.close()
+        except Exception:
+            pass
+        return self._game_names_from_markdown()
+
+    def _game_names_from_markdown(self) -> list[str]:
+        """Fallback: returns sorted list of game directory names under games/."""
         games_dir = self._root() / "games"
         if not games_dir.is_dir():
             return []
@@ -204,7 +227,36 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def game_state(self, name: str) -> dict[str, Any]:
-        """Reads plan.md, sprint-log.md, progress.md for a game. Returns merged dict."""
+        """Returns merged game state dict (DB-first, markdown fallback)."""
+        try:
+            conn = self._db_conn()
+            try:
+                g = conn.execute("SELECT * FROM games WHERE slug=?", (name,)).fetchone()
+                if g:
+                    state_row = conn.execute(
+                        "SELECT * FROM game_state WHERE game_slug=?", (name,)
+                    ).fetchone()
+                    milestones = conn.execute(
+                        "SELECT * FROM milestones WHERE game_slug=? ORDER BY id", (name,)
+                    ).fetchall()
+                    open_blockers = conn.execute(
+                        "SELECT COUNT(*) as cnt FROM blockers "
+                        "WHERE (game_slug=? OR scope='agency') AND status='open'", (name,)
+                    ).fetchone()["cnt"]
+                    result = dict(g)
+                    if state_row:
+                        result.update(dict(state_row))
+                    result["milestones"] = [dict(m) for m in milestones]
+                    result["open_blocker_count"] = open_blockers
+                    return result
+            finally:
+                conn.close()
+        except Exception:
+            pass
+        return self._game_state_from_markdown(name)
+
+    def _game_state_from_markdown(self, name: str) -> dict[str, Any]:
+        """Fallback: reads plan.md, sprint-log.md, progress.md for a game. Returns merged dict."""
         root = self._root()
         base = root / "games" / name
 
@@ -276,6 +328,27 @@ class RepoService:
             "last_run_at": None,
             "registry_status": registry_status,
         }
+
+    def open_blocker_count(self, game: str) -> int:
+        """Returns count of open blockers for a game (DB-first, markdown fallback)."""
+        try:
+            conn = sqlite3.connect(cfg.DB_PATH)
+            try:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM blockers "
+                    "WHERE (game_slug=? OR scope='agency') AND status='open'",
+                    (game,)
+                ).fetchone()
+                return row[0]
+            finally:
+                conn.close()
+        except Exception:
+            pass
+        return self._open_blocker_count_from_markdown(game)
+
+    def _open_blocker_count_from_markdown(self, game: str) -> int:
+        """Fallback: count open blockers from markdown files."""
+        return self._count_open_blockers(game, self._root())
 
     # ------------------------------------------------------------------
     # Override / blocker mutations

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 import os
 
@@ -9,9 +10,14 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from server import config as cfg
+from server.db import get_db
 from server.services.repo import repo_service  # type: ignore[attr-defined]
 
 router = APIRouter(tags=["specs"])
+
+
+def _now() -> str:
+    return datetime.datetime.utcnow().isoformat()
 
 
 @router.get("/")
@@ -33,6 +39,18 @@ async def list_specs():
 
 @router.get("/{game}")
 async def get_spec(game: str):
+    # --- DB-first ---
+    try:
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT content FROM specs WHERE game_slug = ?", (game,)
+            ).fetchone()
+        if row and row["content"]:
+            return {"content": row["content"]}
+    except Exception:
+        pass
+
+    # --- Markdown fallback ---
     try:
         return {"content": repo_service.read_file(f"games/{game}/spec.md")}
     except FileNotFoundError:
@@ -42,7 +60,21 @@ async def get_spec(game: str):
 @router.put("/{game}")
 async def update_spec(game: str, body: dict):
     content = body.get("content", "")
+
+    # Write to markdown file (existing behaviour)
     repo_service.write_spec(game, content)
+
+    # Upsert into DB
+    try:
+        with get_db() as conn:
+            conn.execute(
+                """INSERT OR REPLACE INTO specs (game_slug, content, updated_at)
+                   VALUES (?, ?, ?)""",
+                (game, content, _now()),
+            )
+    except Exception:
+        pass
+
     return {"saved": True}
 
 
