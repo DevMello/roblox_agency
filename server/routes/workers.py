@@ -7,7 +7,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException
 
-from webui.server.db import get_db
+from server.db import get_db
 
 router = APIRouter(tags=["workers"])
 

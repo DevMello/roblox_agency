@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 import os
 
+from server.db import get_db
+
 router = APIRouter(tags=["config"])
 
 def _mcp():
@@ -61,8 +63,23 @@ def _repo():
 @router.get("/workers")
 async def get_workers():
     try:
-        return {"content": _repo().read_file("memory/workers.md")}
-    except Exception: return {"content": ""}
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT id, slug, machine_name, status, last_seen_at, registered_at "
+                "FROM workers ORDER BY last_seen_at DESC"
+            ).fetchall()
+            if rows:
+                workers = [dict(r) for r in rows]
+                return {"workers": workers, "source": "db"}
+    except Exception:
+        pass
+    # Fallback: read memory/workers.md
+    from server import config as cfg
+    md_path = cfg.REPO_ROOT / "memory" / "workers.md"
+    try:
+        return {"workers": [], "raw": md_path.read_text(encoding="utf-8"), "source": "markdown"}
+    except OSError:
+        return {"workers": [], "source": "empty"}
 
 @router.get("/limits")
 async def get_limits():
