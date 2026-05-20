@@ -189,6 +189,41 @@ Before using the Roblox Studio MCP, verify that Roblox Studio is open and the ba
 
 ---
 
+## Agent HTTP Write API
+
+Agents write structured data to the agency database via HTTP instead of writing markdown files. The server runs at `http://localhost:7432` during night cycles (or any time the server is running).
+
+| Instead of writing to... | Use this HTTP endpoint |
+|---|---|
+| `games/{game}/sprint-log.md` | `POST /api/v1/games/{game}/sprint-log` |
+| `games/{game}/sprint-log.md` (task update) | `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}` |
+| `games/{game}/plan.md` (milestone) | `POST /api/v1/games/{game}/plan/milestones` |
+| `games/{game}/plan.md` (task tree) | `POST /api/v1/games/{game}/plan/tasks` |
+| `games/{game}/progress.md` | `POST /api/v1/games/{game}/progress` |
+| `games/{game}/memory/blockers.md` | `POST /api/v1/games/{game}/blockers` |
+| `games/{game}/memory/human-overrides.md` | `POST /api/v1/games/{game}/overrides` |
+| `memory/workers/{id}.md` (heartbeat) | `POST /api/v1/workers/{worker_id}/heartbeat` |
+
+All endpoints accept and return JSON. No authentication required (localhost only).
+
+**Example — Builder appending a progress entry:**
+```bash
+curl -s -X POST http://localhost:7432/api/v1/games/industrial-tycoon/progress \
+  -H "Content-Type: application/json" \
+  -d '{"agent":"builder","task_id":"it-019","message":"Implemented currency system. PR #50 merged."}'
+```
+
+**Example — Builder updating a sprint task status:**
+```bash
+curl -s -X PATCH http://localhost:7432/api/v1/games/industrial-tycoon/sprint-log/industrial-tycoon-2026-05-19/tasks/it-019 \
+  -H "Content-Type: application/json" \
+  -d '{"status":"done","completed_at":"2026-05-19T03:42:00Z","pr_reference":"https://github.com/org/repo/pull/50"}'
+```
+
+The server must be running for agents to use this API. If the server is not running, agents fall back to writing markdown files as before (the DB endpoints are optional during the transition period).
+
+---
+
 ## Prompts Are Instructions
 
 Files in `agents/*/prompts/` are step-by-step instructions for specific operations. When performing one of these operations, read the corresponding prompt file and follow it exactly. Do not improvise a process that already has a prompt.
