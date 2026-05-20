@@ -3,13 +3,10 @@ from __future__ import annotations
 
 import datetime
 import json
-import re
 
 from fastapi import APIRouter, HTTPException
 
 from server.db import get_db
-from server.services.repo import repo_service  # type: ignore[attr-defined]
-from server.services.markdown import markdown_service
 
 router = APIRouter(tags=["games"])
 
@@ -32,41 +29,6 @@ def _loads(val: str | None, default=None):
         return default
 
 
-def _matching_prs(prs: list, slug: str) -> list:
-    """Return PRs whose branch name or title contains the game slug."""
-    return [
-        pr for pr in prs
-        if slug in (pr.get("headRefName") or "").lower()
-        or slug in (pr.get("title") or "").lower()
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Legacy markdown helper (used in blockers fallback)
-# ---------------------------------------------------------------------------
-
-def _parse_open_blockers(content: str, default_game: str) -> list:
-    sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
-    blockers = []
-    for s in sections:
-        if not s.strip():
-            continue
-        id_match = re.search(r"ID:\s*(\S+)", s)
-        status_match = re.search(r"Status:\s*(\S+)", s)
-        title_match = re.match(r"## Blocker:\s*(.+)", s)
-        game_match = re.search(r"Game:\s*(\S+)", s)
-        desc_match = re.search(r"Description:\s*(.+)", s, re.DOTALL)
-        if id_match and status_match and status_match.group(1) == "open":
-            blockers.append({
-                "id": id_match.group(1),
-                "title": title_match.group(1).strip() if title_match else "",
-                "status": status_match.group(1),
-                "game": game_match.group(1) if game_match else default_game,
-                "description": desc_match.group(1).strip()[:200] if desc_match else "",
-            })
-    return blockers
-
-
 # ---------------------------------------------------------------------------
 # GET /
 # ---------------------------------------------------------------------------
@@ -74,41 +36,37 @@ def _parse_open_blockers(content: str, default_game: str) -> list:
 @router.get("/")
 async def list_games():
     """Returns list of Game objects as expected by the frontend."""
-    try:
-        from server.services.git_service import git_service
-        prs = git_service.open_prs()
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT g.slug, g.name, g.status, g.repo_url, g.created_at,
+                   gs.tasks_total, gs.tasks_done, gs.tasks_pending,
+                   gs.tasks_failed, gs.tasks_blocked, gs.nights_elapsed,
+                   gs.active_milestone, gs.phase,
+                   (SELECT COUNT(*) FROM milestones m WHERE m.game_slug = g.slug) AS milestone_count,
+                   (SELECT COUNT(*) FROM milestones m WHERE m.game_slug = g.slug AND m.status = 'complete') AS milestones_done,
+                   (SELECT COUNT(*) FROM blockers b WHERE b.game_slug = g.slug AND b.status = 'open') AS blocker_count
+            FROM games g
+            LEFT JOIN game_state gs ON g.slug = gs.game_slug
+            ORDER BY g.slug
+        """).fetchall()
+    return [dict(r) for r in rows]
 
-        # --- DB-first ---
-        with get_db() as conn:
-            rows = conn.execute(
-                "SELECT slug, name, status FROM games ORDER BY slug"
-            ).fetchall()
 
-        if rows:
-            result = []
-            for row in rows:
-                slug = row["slug"]
-                result.append({
-                    "name": row["name"] or slug,
-                    "slug": slug,
-                    "status": row["status"],
-                    "open_pr_count": len(_matching_prs(prs, slug)),
-                })
-            return result
+# ---------------------------------------------------------------------------
+# POST /
+# ---------------------------------------------------------------------------
 
-        # --- Markdown fallback ---
-        names = repo_service.game_names()
-        result = []
-        for name in names:
-            try:
-                state = repo_service.game_state(name)
-                state["open_pr_count"] = len(_matching_prs(prs, name))
-                result.append(state)
-            except Exception as e:
-                result.append({"name": name, "slug": name, "error": str(e)})
-        return result
-    except Exception:
-        return []
+@router.post("/")
+async def create_game(body: dict):
+    slug = body.get("slug")
+    if not slug:
+        raise HTTPException(400, "slug is required")
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO games (slug, name, repo_url, status, created_at) VALUES (?,?,?,?,?)",
+            (slug, body.get("name", slug), body.get("repo_url"), body.get("status", "active"), _now()),
+        )
+    return {"saved": True, "slug": slug}
 
 
 # ---------------------------------------------------------------------------
@@ -117,37 +75,43 @@ async def list_games():
 
 @router.get("/{game}")
 async def get_game(game: str):
-    try:
-        from server.services.git_service import git_service
-        prs = git_service.open_prs()
-        game_prs = _matching_prs(prs, game)
-
-        # --- DB-first ---
-        with get_db() as conn:
-            row = conn.execute(
-                """SELECT g.*, s.phase, s.active_milestone, s.nights_elapsed,
-                          s.estimated_nights_to_mvp, s.tasks_total, s.tasks_done,
-                          s.tasks_pending, s.tasks_failed, s.tasks_blocked,
-                          s.open_questions, s.updated_at AS state_updated_at
-                   FROM games g
-                   LEFT JOIN game_state s ON g.slug = s.game_slug
-                   WHERE g.slug = ?""",
-                (game,),
-            ).fetchone()
-
-        if row:
-            data = dict(row)
-            data["open_questions"] = _loads(data.get("open_questions"), [])
-            data["open_pr_count"] = len(game_prs)
-            data["slug"] = game
-            return data
-
-        # --- Markdown fallback ---
-        state = repo_service.game_state(game)
-        state["open_pr_count"] = len(game_prs)
-        return state
-    except FileNotFoundError:
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT g.*, gs.phase, gs.active_milestone, gs.nights_elapsed,
+                   gs.estimated_nights_to_mvp, gs.tasks_total, gs.tasks_done,
+                   gs.tasks_pending, gs.tasks_failed, gs.tasks_blocked,
+                   gs.open_questions, gs.updated_at AS state_updated_at,
+                   (SELECT COUNT(*) FROM milestones m WHERE m.game_slug = g.slug) AS milestone_count,
+                   (SELECT COUNT(*) FROM milestones m WHERE m.game_slug = g.slug AND m.status = 'complete') AS milestones_done,
+                   (SELECT COUNT(*) FROM blockers b WHERE b.game_slug = g.slug AND b.status = 'open') AS blocker_count
+            FROM games g
+            LEFT JOIN game_state gs ON g.slug = gs.game_slug
+            WHERE g.slug = ?
+        """, (game,)).fetchone()
+    if not row:
         raise HTTPException(404, f"Game '{game}' not found")
+    data = dict(row)
+    data["open_questions"] = _loads(data.get("open_questions"), [])
+    return data
+
+
+# ---------------------------------------------------------------------------
+# PUT /{game}
+# ---------------------------------------------------------------------------
+
+@router.put("/{game}")
+async def update_game(game: str, body: dict):
+    allowed = {"name", "repo_url", "status"}
+    updates = {k: v for k, v in body.items() if k in allowed and v is not None}
+    if not updates:
+        raise HTTPException(400, "No updatable fields")
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    with get_db() as conn:
+        conn.execute(
+            f"UPDATE games SET {set_clause} WHERE slug = ?",
+            list(updates.values()) + [game],
+        )
+    return {"updated": True}
 
 
 # ---------------------------------------------------------------------------
@@ -157,44 +121,35 @@ async def get_game(game: str):
 @router.get("/{game}/sprint-log")
 async def get_sprint_log(game: str):
     """Return structured sprint log data."""
-    # --- DB-first ---
-    try:
-        with get_db() as conn:
-            sprint_row = conn.execute(
-                "SELECT * FROM sprints WHERE game_slug = ? ORDER BY date DESC LIMIT 1",
-                (game,),
-            ).fetchone()
-            if sprint_row:
-                task_rows = conn.execute(
-                    "SELECT * FROM sprint_tasks WHERE sprint_id = ?",
-                    (sprint_row["sprint_id"],),
-                ).fetchall()
-
+    with get_db() as conn:
+        sprint_row = conn.execute(
+            "SELECT * FROM sprints WHERE game_slug = ? ORDER BY date DESC LIMIT 1",
+            (game,),
+        ).fetchone()
         if sprint_row:
-            sprint = dict(sprint_row)
-            for field in ("active_workers", "skipped_due_to_blocker",
-                          "skipped_due_to_override", "conflict_report"):
-                sprint[field] = _loads(sprint.get(field), [])
+            task_rows = conn.execute(
+                "SELECT * FROM sprint_tasks WHERE sprint_id = ?",
+                (sprint_row["sprint_id"],),
+            ).fetchall()
+        else:
+            task_rows = []
 
-            tasks = []
-            for t in task_rows:
-                td = dict(t)
-                td["depends_on"] = _loads(td.get("depends_on"), [])
-                tasks.append(td)
+    if not sprint_row:
+        raise HTTPException(404, f"No sprint log found for game '{game}'")
 
-            sprint["tasks"] = tasks
-            return sprint
-    except Exception:
-        pass
+    sprint = dict(sprint_row)
+    for field in ("active_workers", "skipped_due_to_blocker",
+                  "skipped_due_to_override", "conflict_report"):
+        sprint[field] = _loads(sprint.get(field), [])
 
-    # --- Markdown fallback ---
-    try:
-        content = repo_service.read_file(f"games/{game}/sprint-log.md")
-        parsed = markdown_service.parse_sprint_log(content)
-        parsed["raw"] = content
-        return parsed
-    except FileNotFoundError:
-        raise HTTPException(404)
+    tasks = []
+    for t in task_rows:
+        td = dict(t)
+        td["depends_on"] = _loads(td.get("depends_on"), [])
+        tasks.append(td)
+
+    sprint["tasks"] = tasks
+    return sprint
 
 
 # ---------------------------------------------------------------------------
@@ -303,34 +258,23 @@ async def update_sprint_task(game: str, sprint_id: str, task_id: str, body: dict
 @router.get("/{game}/plan")
 async def get_plan(game: str):
     """Return structured plan data."""
-    # --- DB-first ---
-    try:
-        with get_db() as conn:
-            milestone_rows = conn.execute(
-                "SELECT * FROM milestones WHERE game_slug = ? ORDER BY id",
-                (game,),
-            ).fetchall()
-            task_rows = conn.execute(
-                "SELECT * FROM tasks WHERE game_slug = ? ORDER BY task_id",
-                (game,),
-            ).fetchall()
+    with get_db() as conn:
+        milestone_rows = conn.execute(
+            "SELECT * FROM milestones WHERE game_slug = ? ORDER BY id",
+            (game,),
+        ).fetchall()
+        task_rows = conn.execute(
+            "SELECT * FROM tasks WHERE game_slug = ? ORDER BY task_id",
+            (game,),
+        ).fetchall()
 
-        if milestone_rows or task_rows:
-            return {
-                "milestones": [dict(r) for r in milestone_rows],
-                "tasks": [dict(r) for r in task_rows],
-            }
-    except Exception:
-        pass
+    if not milestone_rows and not task_rows:
+        raise HTTPException(404, f"No plan found for game '{game}'")
 
-    # --- Markdown fallback ---
-    try:
-        content = repo_service.read_file(f"games/{game}/plan.md")
-        parsed = markdown_service.parse_plan(content)
-        parsed["raw"] = content
-        return parsed
-    except FileNotFoundError:
-        raise HTTPException(404)
+    return {
+        "milestones": [dict(r) for r in milestone_rows],
+        "tasks": [dict(r) for r in task_rows],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -424,29 +368,16 @@ async def create_task(game: str, body: dict):
 @router.get("/{game}/progress")
 async def get_progress(game: str):
     """Return progress log entries."""
-    # --- DB-first ---
-    try:
-        with get_db() as conn:
-            rows = conn.execute(
-                """SELECT * FROM progress_log
-                   WHERE game_slug = ?
-                   ORDER BY created_at DESC
-                   LIMIT 50""",
-                (game,),
-            ).fetchall()
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT * FROM progress_log
+               WHERE game_slug = ?
+               ORDER BY created_at DESC
+               LIMIT 50""",
+            (game,),
+        ).fetchall()
 
-        if rows:
-            return {"entries": [dict(r) for r in rows]}
-    except Exception:
-        pass
-
-    # --- Markdown fallback ---
-    try:
-        content = repo_service.read_file(f"games/{game}/progress.md")
-        entries = markdown_service.parse_progress_log(content)
-        return {"entries": entries, "raw": content}
-    except FileNotFoundError:
-        raise HTTPException(404)
+    return {"entries": [dict(r) for r in rows]}
 
 
 # ---------------------------------------------------------------------------
@@ -477,36 +408,15 @@ async def add_progress(game: str, body: dict):
 
 @router.get("/{game}/blockers")
 async def get_blockers(game: str):
-    # --- DB-first ---
-    try:
-        with get_db() as conn:
-            rows = conn.execute(
-                """SELECT * FROM blockers
-                   WHERE (game_slug = ? OR scope = 'agency') AND status = 'open'
-                   ORDER BY created_at DESC""",
-                (game,),
-            ).fetchall()
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT * FROM blockers
+               WHERE (game_slug = ? OR scope = 'agency') AND status = 'open'
+               ORDER BY created_at DESC""",
+            (game,),
+        ).fetchall()
 
-        if rows:
-            return [dict(r) for r in rows]
-    except Exception:
-        pass
-
-    # --- Markdown fallback ---
-    blockers: list = []
-    try:
-        game_content = repo_service.read_file(f"games/{game}/memory/blockers.md")
-        blockers += _parse_open_blockers(game_content, game)
-    except FileNotFoundError:
-        pass
-    try:
-        agency_content = repo_service.read_file("memory/blockers.md")
-        for b in _parse_open_blockers(agency_content, game):
-            if b["game"].lower() == game.lower():
-                blockers.append(b)
-    except Exception:
-        pass
-    return blockers
+    return [dict(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -549,21 +459,15 @@ async def resolve_blockers(game: str, body: dict):
 
     now = _now()
 
-    # --- DB update ---
-    try:
-        with get_db() as conn:
-            for bid in ids:
-                conn.execute(
-                    """UPDATE blockers
-                       SET status = 'resolved', resolved_at = ?, resolution = ?
-                       WHERE id = ?""",
-                    (now, body.get("resolution", ""), bid),
-                )
-    except Exception:
-        pass
+    with get_db() as conn:
+        for bid in ids:
+            conn.execute(
+                """UPDATE blockers
+                   SET status = 'resolved', resolved_at = ?, resolution = ?
+                   WHERE id = ?""",
+                (now, body.get("resolution", ""), bid),
+            )
 
-    # --- Markdown fallback ---
-    repo_service.resolve_blockers(game, ids)
     return {"resolved": ids}
 
 
@@ -574,45 +478,18 @@ async def resolve_blockers(game: str, body: dict):
 @router.get("/{game}/overrides")
 async def get_overrides(game: str):
     """Return structured overrides from DB (game-scoped + agency-level)."""
-    # --- DB-first ---
-    try:
-        with get_db() as conn:
-            rows = conn.execute(
-                """SELECT * FROM human_overrides
-                   WHERE (game_slug = ? OR scope = 'agency')
-                   ORDER BY created_at DESC""",
-                (game,),
-            ).fetchall()
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT * FROM human_overrides
+               WHERE (game_slug = ? OR scope = 'agency')
+               ORDER BY created_at DESC""",
+            (game,),
+        ).fetchall()
 
-        if rows:
-            entries = [dict(r) for r in rows]
-            for e in entries:
-                e["affected_files"] = _loads(e.get("affected_files"), [])
-            return {"entries": entries, "filtered": True}
-    except Exception:
-        pass
-
-    # --- Markdown fallback ---
-    combined_entries: list = []
-    combined_raw = ""
-
-    try:
-        game_content = repo_service.read_file(f"games/{game}/memory/human-overrides.md")
-        combined_entries += markdown_service.parse_overrides(game_content)
-        combined_raw += game_content
-    except FileNotFoundError:
-        pass
-
-    try:
-        agency_content = repo_service.read_file("memory/human-overrides.md")
-        agency_entries = markdown_service.parse_overrides(agency_content, game_filter=game)
-        combined_entries += agency_entries
-        if agency_entries:
-            combined_raw += "\n" + agency_content
-    except FileNotFoundError:
-        pass
-
-    return {"entries": combined_entries, "filtered": True, "raw": combined_raw}
+    entries = [dict(r) for r in rows]
+    for e in entries:
+        e["affected_files"] = _loads(e.get("affected_files"), [])
+    return {"entries": entries, "filtered": True}
 
 
 # ---------------------------------------------------------------------------
@@ -627,30 +504,24 @@ async def add_override(game: str, body: dict):
 
     now = _now()
 
-    # --- DB insert ---
-    try:
-        with get_db() as conn:
-            conn.execute(
-                """INSERT INTO human_overrides
-                   (scope, game_slug, type, requested_by, request,
-                    affected_files, status, created_at)
-                   VALUES (?,?,?,?,?,?,?,?)""",
-                (
-                    body.get("scope", "game"),
-                    game,
-                    body.get("type", "live-edit"),
-                    body.get("requested_by"),
-                    text,
-                    json.dumps(body.get("affected_files") or []),
-                    body.get("status", "active"),
-                    now,
-                ),
-            )
-    except Exception:
-        pass
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO human_overrides
+               (scope, game_slug, type, requested_by, request,
+                affected_files, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (
+                body.get("scope", "game"),
+                game,
+                body.get("type", "live-edit"),
+                body.get("requested_by"),
+                text,
+                json.dumps(body.get("affected_files") or []),
+                body.get("status", "active"),
+                now,
+            ),
+        )
 
-    # --- Dual-write to markdown ---
-    repo_service.append_override(game, text)
     return {"saved": True}
 
 
