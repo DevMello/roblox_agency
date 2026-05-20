@@ -127,20 +127,20 @@ def seed_sprints(db: object, game_slug: str) -> None:  # type: ignore[type-arg]
 
     # Reuse existing sprint row if already present (dedup by sprint_id + game_slug)
     existing_sprint = db.execute(  # type: ignore[attr-defined]
-        "SELECT id FROM sprints WHERE sprint_id=? AND game_slug=?",
+        "SELECT sprint_id FROM sprints WHERE sprint_id=? AND game_slug=?",
         (sprint_id, game_slug),
     ).fetchone()
     if existing_sprint:
-        sprint_row_id = existing_sprint["id"]
+        sprint_row_id = existing_sprint["sprint_id"]
     else:
-        sprint_row_id = _uid()
+        sprint_row_id = sprint_id  # sprint_id IS the TEXT primary key
         db.execute(  # type: ignore[attr-defined]
             """INSERT INTO sprints
-               (id, sprint_id, game_slug, milestone_id, date, status,
-                total_estimated_minutes, notes)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            (sprint_row_id, sprint_id, game_slug, milestone_ref,
-             date_val, status, total_mins, notes_json),
+               (sprint_id, game_slug, milestone_ref, date, status,
+                total_estimated_minutes)
+               VALUES (?,?,?,?,?,?)""",
+            (sprint_row_id, game_slug, milestone_ref,
+             date_val, status, total_mins),
         )
         _inc("sprints")
 
@@ -154,13 +154,12 @@ def seed_sprints(db: object, game_slug: str) -> None:  # type: ignore[type-arg]
             continue
         db.execute(  # type: ignore[attr-defined]
             """INSERT INTO sprint_tasks
-               (id, sprint_id, task_id, assigned_agent, status, worker_id,
+               (sprint_id, task_id, assigned_agent, status, worker_id,
                 started_at, completed_at, worker_started_at, attempt_count,
                 pr_reference, failure_reason, qa_verdict, qa_notes,
                 estimated_minutes)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                _uid(),
                 sprint_row_id,
                 task_id_val,
                 str(task.get("assigned_agent") or "builder"),
@@ -207,25 +206,27 @@ def seed_plan(db: object, game_slug: str) -> None:  # type: ignore[type-arg]
         critical_raw = str(ms.get("critical_path") or "").lower()
         critical = 1 if critical_raw in ("yes", "true", "1") else 0
 
+        # Scope ID to game to avoid collision across games with same natural IDs
+        scoped_ms_id = f"{game_slug}/{ms_natural_id}" if ms_natural_id else _uid()
         existing_ms = db.execute(  # type: ignore[attr-defined]
-            "SELECT id FROM milestones WHERE game_slug=? AND milestone_id=?",
-            (game_slug, ms_natural_id),
+            "SELECT id FROM milestones WHERE id=? AND game_slug=?",
+            (scoped_ms_id, game_slug),
         ).fetchone()
         if existing_ms:
             ms_row_id = existing_ms["id"]
         else:
-            ms_row_id = _uid()
+            ms_row_id = scoped_ms_id
             db.execute(  # type: ignore[attr-defined]
-                """INSERT INTO milestones
-                   (id, game_slug, milestone_id, name, goal, estimated_nights,
-                    actual_nights, success_criteria, status, critical_path, created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                """INSERT OR IGNORE INTO milestones
+                   (id, game_slug, title, goal, estimated_nights,
+                    actual_nights, status, created_at)
+                   VALUES (?,?,?,?,?,?,?,?)""",
                 (
-                    ms_row_id, game_slug, ms_natural_id,
+                    ms_row_id, game_slug,
                     str(ms.get("title") or ""),
                     str(ms.get("goal") or ""),
-                    est_nights, act_nights, json.dumps(success),
-                    str(ms.get("status") or "pending"), critical, _NOW,
+                    est_nights, act_nights,
+                    str(ms.get("status") or "pending"), _NOW,
                 ),
             )
             _inc("milestones")
@@ -239,9 +240,9 @@ def seed_plan(db: object, game_slug: str) -> None:  # type: ignore[type-arg]
             if not exists:
                 db.execute(  # type: ignore[attr-defined]
                     """INSERT INTO tasks
-                       (id, task_id, game_slug, milestone_id, status, created_at)
-                       VALUES (?,?,?,?,?,?)""",
-                    (_uid(), task_id, game_slug, ms_row_id, "pending", _NOW),
+                       (task_id, game_slug, milestone_id, status, created_at)
+                       VALUES (?,?,?,?,?)""",
+                    (task_id, game_slug, ms_row_id, "pending", _NOW),
                 )
                 _inc("tasks")
 
@@ -259,9 +260,9 @@ def seed_plan(db: object, game_slug: str) -> None:  # type: ignore[type-arg]
             status = (row.get("Status") or row.get("status") or "pending").lower()
             db.execute(  # type: ignore[attr-defined]
                 """INSERT INTO tasks
-                   (id, task_id, game_slug, title, status, created_at)
-                   VALUES (?,?,?,?,?,?)""",
-                (_uid(), task_id, game_slug, title, status, _NOW),
+                   (task_id, game_slug, title, status, created_at)
+                   VALUES (?,?,?,?,?)""",
+                (task_id, game_slug, title, status, _NOW),
             )
             _inc("tasks")
 
@@ -294,9 +295,9 @@ def seed_progress(db: object, game_slug: str) -> None:  # type: ignore[type-arg]
         if not exists:
             db.execute(  # type: ignore[attr-defined]
                 """INSERT INTO progress_log
-                   (game_slug, task_id, sprint_id, agent, message, created_at)
-                   VALUES (?,?,?,?,?,?)""",
-                (game_slug, task_id, None, "builder", message, created_at),
+                   (game_slug, task_id, agent, message, created_at)
+                   VALUES (?,?,?,?,?)""",
+                (game_slug, task_id, "builder", message, created_at),
             )
             _inc("progress_log")
 
@@ -340,28 +341,28 @@ def seed_blockers(db: object, game_slug: str | None, path: Path, scope: str) -> 
     if not content:
         return
     for entry in _parse_blockers_md(content, game_slug, scope):
+        # Use the natural blocker_id as the TEXT PK; fold title into description
+        desc = entry["description"] or entry["title"]
         db.execute(  # type: ignore[attr-defined]
             """INSERT OR IGNORE INTO blockers
-               (id, blocker_id, game_slug, scope, title, description, type,
-                status, responsible, priority, added_by, task_blocked,
-                added_at, resolved_at, resolution)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               (id, game_slug, scope, task_blocked, description, type,
+                status, responsible, priority, added_by,
+                resolved_at, resolution, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                _uid(),
                 entry["blocker_id"],
                 entry["game_slug"],
                 entry["scope"],
-                entry["title"],
-                entry["description"],
-                entry["type"],
+                entry["task_blocked"] or None,
+                desc,
+                entry["type"] or None,
                 entry["status"],
-                entry["responsible"],
+                entry["responsible"] or None,
                 entry["priority"],
-                entry["added_by"],
-                entry["task_blocked"],
-                entry["added_at"],
+                entry["added_by"] or None,
                 entry["resolved_at"] or None,
                 entry["resolution"] or None,
+                entry["added_at"],
             ),
         )
         _inc("blockers")
@@ -403,19 +404,17 @@ def seed_decisions(db: object, game_slug: str | None, path: Path, scope: str) ->
     for entry in _parse_decisions_md(content, game_slug, scope):
         db.execute(  # type: ignore[attr-defined]
             """INSERT OR IGNORE INTO decisions
-               (id, decision_id, game_slug, scope, description, agent,
-                decision_text, rationale, alternatives_considered, status, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               (id, game_slug, scope, agent, decision, rationale,
+                alternatives, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (
-                _uid(),
                 entry["decision_id"],
                 entry["game_slug"],
                 entry["scope"],
-                entry["description"],
-                entry["agent"],
-                entry["decision_text"],
-                entry["rationale"],
-                entry["alternatives_considered"],
+                entry["agent"] or None,
+                entry["decision_text"] or entry["description"],
+                entry["rationale"] or None,
+                entry["alternatives_considered"] or None,
                 entry["status"],
                 entry["created_at"],
             ),
@@ -435,20 +434,18 @@ def seed_overrides(db: object, game_slug: str | None, path: Path, scope: str) ->
     for entry in overrides:
         db.execute(  # type: ignore[attr-defined]
             """INSERT OR IGNORE INTO human_overrides
-               (id, override_id, game_slug, scope, description, type,
-                requested_by, request_text, status, applied_by, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               (id, game_slug, scope, type, requested_by, request,
+                status, applied_by, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (
-                _uid(),
                 str(entry.get("id") or _uid()),
                 game_slug,
                 scope,
-                str(entry.get("description") or ""),
                 str(entry.get("type") or "live-edit"),
-                str(entry.get("requested_by") or ""),
-                str(entry.get("request") or ""),
+                str(entry.get("requested_by") or "") or None,
+                str(entry.get("request") or "") or None,
                 str(entry.get("status") or "active"),
-                str(entry.get("applied_by") or ""),
+                str(entry.get("applied_by") or "") or None,
                 str(entry.get("timestamp") or _NOW),
             ),
         )
@@ -529,11 +526,11 @@ def seed_reports(db: object) -> None:  # type: ignore[type-arg]
             return
         date_val = _date_from_path(rpt)
         exists = db.execute(  # type: ignore[attr-defined]
-            "SELECT 1 FROM reports WHERE type=? AND date=?", (rpt_type, date_val)
+            "SELECT 1 FROM reports WHERE type=? AND report_date=?", (rpt_type, date_val)
         ).fetchone()
         if not exists:
             db.execute(  # type: ignore[attr-defined]
-                """INSERT INTO reports (id, type, date, game_slug, content, created_at)
+                """INSERT INTO reports (id, type, report_date, game_slug, content, created_at)
                    VALUES (?,?,?,?,?,?)""",
                 (_uid(), rpt_type, date_val, None, content, _NOW),
             )
