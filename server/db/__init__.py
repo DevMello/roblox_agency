@@ -5,12 +5,12 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Generator
 
-from webui.server import config
+from server import config
 
 
 @contextmanager
 def get_db() -> Generator[sqlite3.Connection, None, None]:
-    conn = sqlite3.connect(str(config.DB_PATH))
+    conn = sqlite3.connect(config.DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     try:
