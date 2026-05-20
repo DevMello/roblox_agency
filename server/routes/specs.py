@@ -8,8 +8,8 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from webui.server import config as cfg
-from webui.server.services.repo import repo_service  # type: ignore[attr-defined]
+from server import config as cfg
+from server.services.repo import repo_service  # type: ignore[attr-defined]
 
 router = APIRouter(tags=["specs"])
 

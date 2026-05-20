@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 router = APIRouter(tags=["schedule"])
 
 def _svc():
-    from webui.server.services.scheduler import scheduler_service
+    from server.services.scheduler import scheduler_service
     return scheduler_service
 
 @router.get("/")
