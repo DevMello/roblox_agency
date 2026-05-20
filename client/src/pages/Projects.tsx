@@ -84,12 +84,6 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
     game.milestone_count > 0
       ? Math.round((game.milestones_done / game.milestone_count) * 100)
       : 0
-  const sprintNum = game.current_sprint ?? 1
-  const lastRun = game.last_run_at
-    ? new Date(game.last_run_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : 'never'
-  const spend = (0.4 + sprintNum * 0.3).toFixed(2)
-
   return (
     <article
       className={`card card-hover card-pad fade-up d-${Math.min(delay + 1, 4)}`}
@@ -110,9 +104,9 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
         </div>
         <div className="col flex-1" style={{ minWidth: 0 }}>
           <div className="t-display" style={{ fontSize: 16, lineHeight: 1.2 }}>{game.name}</div>
-          <div className="t-xs t-muted">Sprint {sprintNum} · {lastRun}</div>
+          <div className="t-xs t-muted">Sprint {game.nights_elapsed} · {game.phase ?? 'unknown'}</div>
         </div>
-        {statusChip(game.registry_status)}
+        {statusChip(game.status)}
       </div>
 
       {/* progress */}
@@ -130,8 +124,8 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
       {/* stats row */}
       <div className="row gap-16" style={{ marginTop: 16 }}>
         <div className="col">
-          <span className="text-cap">PRs open</span>
-          <span className="t-display" style={{ fontSize: 16, marginTop: 2 }}>{game.open_pr_count}</span>
+          <span className="text-cap">Tasks done</span>
+          <span className="t-display" style={{ fontSize: 16, marginTop: 2 }}>{game.tasks_done}/{game.tasks_total}</span>
         </div>
         <div className="col">
           <span className="text-cap">Blockers</span>
@@ -143,8 +137,8 @@ function ProjectCard({ game, delay = 0 }: ProjectCardProps) {
           </span>
         </div>
         <div className="col">
-          <span className="text-cap">Spend · 7d</span>
-          <span className="t-display" style={{ fontSize: 16, marginTop: 2 }}>${spend}</span>
+          <span className="text-cap">Milestones</span>
+          <span className="t-display" style={{ fontSize: 16, marginTop: 2 }}>{game.milestones_done}/{game.milestone_count}</span>
         </div>
       </div>
 
@@ -306,9 +300,11 @@ export default function Projects() {
   const games: Game[] = data ?? []
 
   const activeCount = games.filter((g) =>
-    g.registry_status === 'active' || g.registry_status === 'running'
+    g.status === 'active' || g.status === 'running'
   ).length
-  const blockerCount = games.reduce((sum, g) => sum + (g.blocker_count ?? 0), 0)
+  const tasksDone = games.reduce((sum, g) => sum + g.tasks_done, 0)
+  const blockerCount = games.reduce((sum, g) => sum + g.blocker_count, 0)
+  const sprintsRun = games.reduce((sum, g) => sum + g.nights_elapsed, 0)
 
   return (
     <div className="page">
@@ -327,16 +323,16 @@ export default function Projects() {
 
       {/* KPI hero row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-        <KPI label="Active games" value={String(activeCount)} hint="all building or scheduled" tone="accent" delay={0} />
-        <KPI label="Velocity · 7d" value="—" unit="tasks" hint="data not yet available" tone="muted" delay={1} />
-        <KPI label="Spend · 7d" value="—" unit="of $5" hint="tracking coming soon" bar={0} delay={2} />
+        <KPI label="Active games" value={String(activeCount)} hint="building or scheduled" tone="accent" delay={0} />
+        <KPI label="Tasks done" value={String(tasksDone)} unit="tasks" hint="across all games" tone="success" delay={1} />
         <KPI
-          label="Workers online"
-          value={blockerCount > 0 ? `${blockerCount} blocker${blockerCount !== 1 ? 's' : ''}` : 'OK'}
+          label="Blockers"
+          value={String(blockerCount)}
           hint={blockerCount > 0 ? 'resolve blockers' : 'no blockers'}
-          tone={blockerCount > 0 ? 'warning' : 'success'}
-          delay={3}
+          tone={blockerCount > 0 ? 'danger' : 'success'}
+          delay={2}
         />
+        <KPI label="Sprints run" value={String(sprintsRun)} unit="nights" hint="total nights elapsed" tone="muted" delay={3} />
       </div>
 
       {/* Active section header */}
