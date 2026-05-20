@@ -186,7 +186,7 @@ function ScheduleSection() {
   const { data } = useQuery<ScheduleJob[]>({
     queryKey: ['schedule', 'jobs'],
     queryFn: () =>
-      fetch('/api/v1/schedule/jobs').then((r) => {
+      fetch('/api/v1/schedule/').then((r) => {
         if (!r.ok) return []
         return r.json()
       }),
