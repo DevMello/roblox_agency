@@ -3,19 +3,30 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-import json
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from webui.server import config as cfg
+from server import config as cfg
 
 
 class SchedulerService:
     def __init__(self) -> None:
         self._scheduler = BackgroundScheduler()
+
+    @staticmethod
+    @contextmanager
+    def _db(row_factory: bool = False):  # type: ignore[return]
+        conn = sqlite3.connect(str(cfg.DB_PATH))
+        if row_factory:
+            conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -24,14 +35,8 @@ class SchedulerService:
     def start(self) -> None:
         """Load saved schedules from DB and start APScheduler."""
         self._ensure_table()
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        conn.row_factory = sqlite3.Row
-        try:
-            rows = conn.execute(
-                "SELECT * FROM schedules WHERE active=1"
-            ).fetchall()
-        finally:
-            conn.close()
+        with self._db(row_factory=True) as conn:
+            rows = conn.execute("SELECT * FROM schedules WHERE active=1").fetchall()
 
         for row in rows:
             self._add_to_apscheduler(
@@ -54,8 +59,7 @@ class SchedulerService:
         """Add cron job, save to DB, return job_id."""
         job_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc).isoformat()
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        try:
+        with self._db() as conn:
             conn.execute(
                 """
                 INSERT INTO schedules (id, label, game, script, cron_expr, active, created_at)
@@ -64,23 +68,16 @@ class SchedulerService:
                 (job_id, label, game, script, cron, created_at),
             )
             conn.commit()
-        finally:
-            conn.close()
 
         self._add_to_apscheduler(job_id, game, script, cron)
         return job_id
 
     def remove_job(self, job_id: str) -> bool:
         """Remove from APScheduler and DB. Returns True if found."""
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        try:
-            result = conn.execute(
-                "DELETE FROM schedules WHERE id=?", (job_id,)
-            )
+        with self._db() as conn:
+            result = conn.execute("DELETE FROM schedules WHERE id=?", (job_id,))
             conn.commit()
             found = result.rowcount > 0
-        finally:
-            conn.close()
 
         if self._scheduler.get_job(job_id) is not None:
             self._scheduler.remove_job(job_id)
@@ -89,12 +86,8 @@ class SchedulerService:
 
     def list_jobs(self) -> list[dict]:
         """Return all jobs from DB with next_run_time from APScheduler."""
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        conn.row_factory = sqlite3.Row
-        try:
+        with self._db(row_factory=True) as conn:
             rows = conn.execute("SELECT * FROM schedules").fetchall()
-        finally:
-            conn.close()
 
         result = []
         for row in rows:
@@ -108,32 +101,21 @@ class SchedulerService:
 
     def pause_job(self, job_id: str) -> None:
         """Pause a running APScheduler job and mark inactive in DB."""
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        try:
-            conn.execute(
-                "UPDATE schedules SET active=0 WHERE id=?", (job_id,)
-            )
+        with self._db() as conn:
+            conn.execute("UPDATE schedules SET active=0 WHERE id=?", (job_id,))
             conn.commit()
-        finally:
-            conn.close()
 
         if self._scheduler.get_job(job_id) is not None:
             self._scheduler.pause_job(job_id)
 
     def resume_job(self, job_id: str) -> None:
         """Resume a paused APScheduler job and mark active in DB."""
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        conn.row_factory = sqlite3.Row
-        try:
-            conn.execute(
-                "UPDATE schedules SET active=1 WHERE id=?", (job_id,)
-            )
+        with self._db(row_factory=True) as conn:
+            conn.execute("UPDATE schedules SET active=1 WHERE id=?", (job_id,))
             conn.commit()
             row = conn.execute(
                 "SELECT * FROM schedules WHERE id=?", (job_id,)
             ).fetchone()
-        finally:
-            conn.close()
 
         if row is None:
             return
@@ -170,8 +152,7 @@ class SchedulerService:
 
     def _ensure_table(self) -> None:
         """Create schedules and runs tables if they don't exist yet."""
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        try:
+        with self._db() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS schedules (
@@ -201,8 +182,6 @@ class SchedulerService:
                 """
             )
             conn.commit()
-        finally:
-            conn.close()
 
     def _add_to_apscheduler(
         self, job_id: str, game: str, script: str, cron_expr: str
@@ -236,8 +215,7 @@ class SchedulerService:
         run_id = str(uuid.uuid4())
         started_at = datetime.now(timezone.utc).isoformat()
 
-        conn = sqlite3.connect(str(cfg.DB_PATH))
-        try:
+        with self._db() as conn:
             conn.execute(
                 """
                 INSERT INTO runs (id, game, script, started_at, status)
@@ -246,16 +224,10 @@ class SchedulerService:
                 (run_id, game, script, started_at),
             )
             conn.commit()
-        finally:
-            conn.close()
 
-        # Delegate to process_manager if available
         try:
-            from webui.server.services.process import process_manager  # type: ignore[attr-defined]
-
-            launch = getattr(process_manager, "launch", None)
-            if callable(launch):
-                launch(script, [game], run_id=run_id)
+            from server.services.process import process_manager
+            process_manager.launch(script, [game], run_id=run_id)
         except Exception:
             pass
 

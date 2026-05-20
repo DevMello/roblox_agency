@@ -6,8 +6,9 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml
 from fastapi import HTTPException
+
+from server.services.markdown import markdown_service
 
 
 class RepoService:
@@ -18,19 +19,19 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def _root(self) -> Path:
-        from webui.server import config
+        from server import config
         return config.REPO_ROOT
 
     def _resolve(self, path: str) -> Path:
         """Resolve a repo-relative path with traversal protection."""
-        from webui.server import config
+        from server import config
         try:
             return config.resolve_repo_path(path)
         except ValueError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     def _check_write(self, path: str) -> None:
-        from webui.server import config
+        from server import config
         if not config.is_write_allowed(path):
             raise HTTPException(
                 status_code=403,
@@ -122,23 +123,16 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def _parse_sprint_frontmatter(self, content: str) -> dict[str, Any]:
-        """Extract YAML front-matter block from sprint-log.md."""
-        # The front-matter is delimited by --- lines
-        match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
-        if not match:
-            return {}
-        try:
-            return yaml.safe_load(match.group(1)) or {}
-        except yaml.YAMLError:
-            return {}
+        fm, _ = markdown_service.parse_frontmatter(content)
+        return fm
 
     # ------------------------------------------------------------------
     # Plan.md milestone parser
     # ------------------------------------------------------------------
 
-    def _parse_registry_status(self) -> dict[str, str]:
+    def _parse_registry_status(self, root: Optional[Path] = None) -> dict[str, str]:
         """Returns {game_name: status} from games/registry.md table."""
-        registry_path = self._root() / "games" / "registry.md"
+        registry_path = (root or self._root()) / "games" / "registry.md"
         if not registry_path.exists():
             return {}
         statuses: dict[str, str] = {}
@@ -192,13 +186,14 @@ class RepoService:
                 count += 1
         return count
 
-    def _count_open_blockers(self, game: str) -> int:
+    def _count_open_blockers(self, game: str, root: Optional[Path] = None) -> int:
         """Count unresolved blockers from both agency and game-scoped blockers.md."""
+        r = root or self._root()
         count = 0
-        agency_path = self._root() / "memory" / "blockers.md"
+        agency_path = r / "memory" / "blockers.md"
         if agency_path.exists():
             count += self._count_open_in_content(agency_path.read_text(encoding="utf-8"), game)
-        game_path = self._root() / "games" / game / "memory" / "blockers.md"
+        game_path = r / "games" / game / "memory" / "blockers.md"
         if game_path.exists():
             # Every entry in the game-scoped file belongs to this game
             count += self._count_open_in_content(game_path.read_text(encoding="utf-8"), "*")
@@ -210,7 +205,8 @@ class RepoService:
 
     def game_state(self, name: str) -> dict[str, Any]:
         """Reads plan.md, sprint-log.md, progress.md for a game. Returns merged dict."""
-        base = self._root() / "games" / name
+        root = self._root()
+        base = root / "games" / name
 
         # --- sprint-log.md ---
         sprint_id: Optional[str] = None
@@ -248,13 +244,13 @@ class RepoService:
         progress_path = base / "progress.md"
         if progress_path.exists():
             lines = progress_path.read_text(encoding="utf-8").splitlines()
-            recent_progress = [l for l in lines if l.strip()][-10:]
+            recent_progress = [ln for ln in lines if ln.strip()][-10:]
 
         # --- blockers ---
-        open_blockers = self._count_open_blockers(name)
+        open_blockers = self._count_open_blockers(name, root)
 
         # --- registry status ---
-        registry_statuses = self._parse_registry_status()
+        registry_statuses = self._parse_registry_status(root)
         registry_status = registry_statuses.get(name, "unknown")
 
         return {
@@ -302,24 +298,24 @@ class RepoService:
         if not abs_path.exists():
             return
         content = abs_path.read_text(encoding="utf-8")
-        for bid in blocker_ids:
-            sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
-            updated: list[str] = []
-            for section in sections:
-                if re.search(rf"^ID:\s*{re.escape(bid)}\s*$", section, re.MULTILINE):
+        sections = re.split(r"(?=^## Blocker:)", content, flags=re.MULTILINE)
+        id_set = set(blocker_ids)
+        updated: list[str] = []
+        for section in sections:
+            id_match = re.search(r"^ID:\s*(\S+)\s*$", section, re.MULTILINE)
+            if id_match and id_match.group(1) in id_set:
+                section = re.sub(
+                    r"^(Status:\s*)open\s*$", r"\1resolved", section, flags=re.MULTILINE
+                )
+                if not re.search(r"^Resolved-At:", section, re.MULTILINE):
                     section = re.sub(
-                        r"^(Status:\s*)open\s*$", rf"\1resolved", section, flags=re.MULTILINE
+                        r"^(Status:\s*resolved)\s*$",
+                        rf"\1\nResolved-At: {now}",
+                        section,
+                        flags=re.MULTILINE,
                     )
-                    if not re.search(r"^Resolved-At:", section, re.MULTILINE):
-                        section = re.sub(
-                            r"^(Status:\s*resolved)\s*$",
-                            rf"\1\nResolved-At: {now}",
-                            section,
-                            flags=re.MULTILINE,
-                        )
-                updated.append(section)
-            content = "".join(updated)
-        abs_path.write_text(content, encoding="utf-8")
+            updated.append(section)
+        abs_path.write_text("".join(updated), encoding="utf-8")
 
     def resolve_blockers(self, game: str, blocker_ids: list[str]) -> None:
         """Sets Status: resolved on specified blocker IDs in agency and game-scoped blockers.md."""
