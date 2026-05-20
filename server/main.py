@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from server import config
 from server.db.init_db import init_db
-from server.routes import games, specs, runs, edits, files, git, schedule, cfg, ws
+from server.routes import games, specs, runs, edits, files, git, schedule, cfg, ws, reports
 from server.services.scheduler import scheduler_service
 from server.services.process import process_manager
 
@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(schedule.router, prefix=f"{prefix}/schedule", tags=["schedule"])
     app.include_router(cfg.router, prefix=f"{prefix}/config", tags=["config"])
     app.include_router(ws.router, tags=["ws"])
+    app.include_router(reports.router, prefix=f"{prefix}/reports")
 
     # Serve built React app — must be last
     dist = Path(__file__).parent.parent / "client" / "dist"
