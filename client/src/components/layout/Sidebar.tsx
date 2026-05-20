@@ -68,7 +68,7 @@ export function Sidebar() {
             />
             <span className="t-mono t-sm">{game.slug}</span>
             <span className="count" style={{ background: 'transparent' }}>
-              s{game.nights_elapsed}
+              n{game.nights_elapsed}
             </span>
           </NavLink>
         ))}
