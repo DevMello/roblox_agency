@@ -194,7 +194,35 @@ async def update_sprint_task(game: str, sprint_id: str, task_id: str, body: dict
 
 @router.get("/{game}/plan")
 async def get_plan(game: str):
-    """Return structured plan data parsed from plan.md."""
+    """Return structured plan data: DB-backed when records exist, markdown fallback otherwise."""
+    with get_db() as conn:
+        m_rows = conn.execute(
+            "SELECT * FROM milestones WHERE game_slug=? ORDER BY milestone_id",
+            (game,),
+        ).fetchall()
+        t_rows = conn.execute(
+            "SELECT * FROM tasks WHERE game_slug=? ORDER BY task_id",
+            (game,),
+        ).fetchall()
+
+    if m_rows:
+        milestones = []
+        for m in m_rows:
+            md = dict(m)
+            try:
+                md["success_criteria"] = json.loads(md["success_criteria"] or "[]")
+            except Exception:
+                md["success_criteria"] = []
+            md["task_ids"] = [
+                t["task_id"] for t in t_rows if t["milestone_id"] == md["milestone_id"]
+            ]
+            milestones.append(md)
+        return {
+            "milestones": milestones,
+            "task_index": [dict(t) for t in t_rows],
+        }
+
+    # Fallback: markdown
     try:
         content = repo_service.read_file(f"games/{game}/plan.md")
         parsed = markdown_service.parse_plan(content)
@@ -202,6 +230,92 @@ async def get_plan(game: str):
         return parsed
     except FileNotFoundError:
         raise HTTPException(404)
+
+
+@router.post("/{game}/plan/milestones")
+async def create_milestone(game: str, body: dict):
+    """Architect creates or replaces a milestone."""
+    row_id = str(uuid.uuid4())
+    now = datetime.datetime.utcnow().isoformat()
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO milestones
+            (id, game_slug, milestone_id, name, goal, estimated_nights, actual_nights,
+             success_criteria, status, critical_path, started_at, completed_at, notes, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                row_id, game,
+                body.get("milestone_id") or body.get("id"),
+                body.get("name") or body.get("title"),
+                body.get("goal"),
+                body.get("estimated_nights"), body.get("actual_nights"),
+                json.dumps(body.get("success_criteria") or []),
+                body.get("status", "pending"),
+                1 if body.get("critical_path") else 0,
+                body.get("started_at"), body.get("completed_at"),
+                body.get("notes"), now,
+            ),
+        )
+    return {"id": row_id}
+
+
+@router.put("/{game}/plan/milestones/{milestone_id}")
+async def update_milestone(game: str, milestone_id: str, body: dict):
+    """Planner updates milestone status or progress fields."""
+    allowed = {"status", "actual_nights", "started_at", "completed_at", "notes"}
+    updates = {k: v for k, v in body.items() if k in allowed}
+    if not updates:
+        raise HTTPException(400, "No valid fields to update")
+
+    set_clause = ", ".join(f"{k}=?" for k in updates)
+    with get_db() as conn:
+        result = conn.execute(
+            f"UPDATE milestones SET {set_clause} WHERE game_slug=? AND milestone_id=?",
+            list(updates.values()) + [game, milestone_id],
+        )
+        if result.rowcount == 0:
+            raise HTTPException(404, "Milestone not found")
+    return {"updated": True}
+
+
+@router.post("/{game}/plan/tasks")
+async def create_tasks(game: str, body: dict):
+    """Architect bulk-inserts task tree items."""
+    task_list = body.get("tasks", [])
+    if not task_list:
+        raise HTTPException(400, "tasks array required")
+
+    now = datetime.datetime.utcnow().isoformat()
+    inserted = 0
+    with get_db() as conn:
+        for task in task_list:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO tasks
+                (id, task_id, game_slug, milestone_id, title, type, description, status,
+                 assignee, estimated_complexity, estimated_minutes, actual_minutes,
+                 depends_on, pr_reference, failure_reason, attempt_count, metadata, created_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    task.get("task_id"), game,
+                    task.get("milestone_id"),
+                    task.get("title"), task.get("type"), task.get("description"),
+                    task.get("status", "pending"),
+                    task.get("assignee"), task.get("estimated_complexity"),
+                    task.get("estimated_minutes"), task.get("actual_minutes"),
+                    json.dumps(task.get("depends_on") or []),
+                    task.get("pr_reference"), task.get("failure_reason"),
+                    task.get("attempt_count", 0),
+                    json.dumps(task.get("metadata") or {}),
+                    now, now,
+                ),
+            )
+            inserted += 1
+    return {"inserted": inserted}
 
 
 @router.get("/{game}/progress")
@@ -345,26 +459,91 @@ def _parse_open_blockers(content: str, default_game: str) -> list:
 
 @router.get("/{game}/blockers")
 async def get_blockers(game: str):
+    """Return active blockers — DB first, markdown fallback."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT * FROM blockers
+               WHERE status='active' AND (game_slug=? OR scope='agency')
+               ORDER BY added_at DESC""",
+            (game,),
+        ).fetchall()
+
+    if rows:
+        return [dict(r) for r in rows]
+
+    # Fallback: markdown
     blockers: list = []
-    # Game-scoped blockers (primary)
     try:
         game_content = repo_service.read_file(f"games/{game}/memory/blockers.md")
         blockers += _parse_open_blockers(game_content, game)
     except FileNotFoundError:
         pass
-    # Agency-level blockers filtered to this game
     try:
         agency_content = repo_service.read_file("memory/blockers.md")
         for b in _parse_open_blockers(agency_content, game):
-            if b["game"].lower() == game.lower():
+            if b.get("game", "").lower() == game.lower():
                 blockers.append(b)
     except Exception:
         pass
     return blockers
 
 
+@router.post("/{game}/blockers")
+async def add_blocker(game: str, body: dict):
+    """Planner/Builder/QA POST a new blocker."""
+    title = body.get("title", "").strip()
+    if not title:
+        raise HTTPException(400, "title is required")
+
+    now = datetime.datetime.utcnow().isoformat()
+    blocker_id = body.get("blocker_id") or f"blocker-{now[:16].replace('T', '-').replace(':', '-')}"
+    row_id = str(uuid.uuid4())
+
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO blockers
+               (id, blocker_id, game_slug, scope, title, description, type, status,
+                responsible, priority, added_by, task_blocked, added_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                row_id, blocker_id, game,
+                body.get("scope", "game"),
+                title,
+                body.get("description"),
+                body.get("type"),
+                "active",
+                body.get("responsible"),
+                body.get("priority", "medium"),
+                body.get("added_by"),
+                body.get("task_blocked"),
+                now,
+            ),
+        )
+    return {"id": row_id, "blocker_id": blocker_id}
+
+
 @router.post("/{game}/blockers/resolve")
 async def resolve_blockers(game: str, body: dict):
+    """Mark blockers resolved in DB; also update markdown files for backward compat."""
     ids = body.get("blocker_ids", [])
-    repo_service.resolve_blockers(game, ids)
+    if not ids:
+        raise HTTPException(400, "blocker_ids required")
+
+    now = datetime.datetime.utcnow().isoformat()
+    resolution = body.get("resolution", "Resolved via UI")
+
+    with get_db() as conn:
+        for bid in ids:
+            conn.execute(
+                """UPDATE blockers SET status='resolved', resolved_at=?, resolution=?
+                   WHERE blocker_id=? AND game_slug=?""",
+                (now, resolution, bid, game),
+            )
+
+    # Also update markdown files for backward compat
+    try:
+        repo_service.resolve_blockers(game, ids)
+    except Exception:
+        pass
+
     return {"resolved": ids}
