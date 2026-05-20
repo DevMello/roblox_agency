@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 router = APIRouter(tags=["git"])
 
 def _gs():
-    from webui.server.services.git_service import git_service
+    from server.services.git_service import git_service
     return git_service
 
 @router.get("/branches")

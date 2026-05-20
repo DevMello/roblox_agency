@@ -1,26 +1,26 @@
 from fastapi import APIRouter, HTTPException
 import os
 
-from webui.server.db import get_db
-
 router = APIRouter(tags=["config"])
+
+def _mcp():
+    from server.services.mcp_registry import mcp_registry
+    return mcp_registry
 
 @router.get("/mcp")
 async def get_mcp_servers():
     try:
-        from webui.server.services.mcp_registry import mcp_registry
-        return mcp_registry.load()
+        return _mcp().load()
     except Exception: return []
 
 @router.post("/mcp")
 async def add_mcp_server(body: dict):
     try:
-        from webui.server.services.mcp_registry import mcp_registry
         name = body.get("name")
         if not name:
             raise HTTPException(400, "name is required")
-        body = {k: v for k, v in body.items() if k != "name"}
-        mcp_registry.add_server(name, body)
+        payload = {k: v for k, v in body.items() if k != "name"}
+        _mcp().add_server(name, payload)
         return {"saved": True}
     except HTTPException:
         raise
@@ -29,21 +29,19 @@ async def add_mcp_server(body: dict):
 @router.delete("/mcp/{name}")
 async def remove_mcp_server(name: str):
     try:
-        from webui.server.services.mcp_registry import mcp_registry
-        removed = mcp_registry.remove_server(name)
+        removed = _mcp().remove_server(name)
         return {"removed": removed}
     except Exception as e: raise HTTPException(500, str(e))
 
 @router.get("/mcp/health")
 async def mcp_health():
     try:
-        from webui.server.services.mcp_registry import mcp_registry
-        return mcp_registry.health_check_all()
+        return _mcp().health_check_all()
     except Exception: return []
 
 @router.get("/env")
 async def get_env():
-    from webui.server import config as cfg
+    from server import config as cfg
     env_example = cfg.REPO_ROOT / ".env.example"
     if not env_example.exists():
         return []
@@ -56,34 +54,25 @@ async def get_env():
             result.append({"key": key, "has_value": bool(os.environ.get(key))})
     return result
 
+def _repo():
+    from server.services.repo import repo_service
+    return repo_service
+
 @router.get("/workers")
 async def get_workers():
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM workers ORDER BY last_seen_at DESC"
-        ).fetchall()
-
-    if rows:
-        return {"workers": [dict(r) for r in rows]}
-
-    # Fallback: markdown content
     try:
-        from webui.server.services.repo import repo_service
-        content = repo_service.read_file("memory/workers.md")
-        return {"content": content, "workers": []}
-    except FileNotFoundError:
-        return {"content": "", "workers": []}
+        return {"content": _repo().read_file("memory/workers.md")}
+    except Exception: return {"content": ""}
 
 @router.get("/limits")
 async def get_limits():
     try:
-        from webui.server.services.repo import repo_service
-        return {"content": repo_service.read_file("config/agent-limits.md")}
+        return {"content": _repo().read_file("config/agent-limits.md")}
     except Exception: return {"content": ""}
 
 @router.get("/ws/status")
 async def ws_status():
     try:
-        from webui.server.routes.ws import ws_hub
+        from server.routes.ws import ws_hub
         return {"connections": ws_hub.connection_count}
     except Exception: return {"connections": 0}
