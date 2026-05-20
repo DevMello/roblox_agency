@@ -42,9 +42,8 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _build_client(webui_dir: Path) -> None:
+def _build_client(client_dir: Path) -> None:
     """Build the React client if dist/ is missing or stale."""
-    client_dir = webui_dir / "client"
     dist_dir = client_dir / "dist"
     pkg_json = client_dir / "package.json"
 
@@ -126,7 +125,7 @@ def main() -> None:
     args = _parse_args()
 
     # Step 1: Resolve repo root
-    from webui.server import config as cfg
+    from server import config as cfg
     try:
         cfg.init(args.repo)
     except RuntimeError as exc:
@@ -134,20 +133,20 @@ def main() -> None:
         sys.exit(1)
 
     repo_root = cfg.REPO_ROOT
-    webui_dir = repo_root / "webui"
+    client_dir = repo_root / "client"
 
     if args.host != "127.0.0.1":
         _host_warning(args.host)
 
     # Step 2: Build React client if needed
     try:
-        _build_client(webui_dir)
+        _build_client(client_dir)
     except subprocess.CalledProcessError as exc:
         print(f"\n  ✖  Client build failed: {exc}\n")
         sys.exit(1)
 
     # Step 3: Initialise DB
-    from webui.server.db.init_db import init_db
+    from server.db.init_db import init_db
     init_db(cfg.DB_PATH)
 
     # Step 4+5: Discover metadata for banner
@@ -171,7 +170,7 @@ def main() -> None:
     # Step 5: Start uvicorn (blocking)
     import uvicorn
     uvicorn.run(
-        "webui.server.main:app",
+        "server.main:app",
         host=args.host,
         port=args.port,
         reload=args.reload,
