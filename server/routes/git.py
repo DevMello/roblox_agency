@@ -59,3 +59,21 @@ async def checkout(body: dict):
         _gs().checkout(branch)
         return {"checked_out": branch}
     except Exception as e: raise HTTPException(500, str(e))
+
+@router.get("/log")
+async def get_log(branch: str = "main", n: int = 40):
+    """Commits with lists of changed files for the recently-changed panel."""
+    try: return _gs().log_with_files(branch, n)
+    except Exception: return []
+
+@router.get("/file-history")
+async def get_file_history(path: str, n: int = 10):
+    """Last n commits that touched a given repo-relative path."""
+    try: return _gs().file_history(path, n)
+    except Exception: return []
+
+@router.get("/tree")
+async def get_tree(ref: str = "HEAD"):
+    """Flat list of all tracked files in the repo at the given ref."""
+    try: return _gs().tree(ref)
+    except Exception: return []

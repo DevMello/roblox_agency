@@ -119,5 +119,59 @@ class GitService:
             )
         return result
 
+    def log_with_files(self, branch: str = "main", n: int = 40) -> list[dict]:
+        """Returns last *n* commits with the list of files each commit touched."""
+        from server import config as cfg
+        try:
+            result = subprocess.run(
+                ["git", "log", branch, f"-{n}",
+                 "--pretty=format:COMMIT|%H|%s|%an|%ai",
+                 "--name-only"],
+                capture_output=True, text=True, cwd=str(cfg.REPO_ROOT), timeout=15,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return []
+        if result.returncode != 0:
+            return []
+
+        commits: list[dict] = []
+        current: dict[str, Any] | None = None
+        for line in result.stdout.splitlines():
+            if line.startswith("COMMIT|"):
+                if current:
+                    commits.append(current)
+                _, sha, msg, author, date = line.split("|", 4)
+                current = {"sha": sha, "message": msg, "author": author, "date": date, "files": []}
+            elif line.strip() and current is not None:
+                current["files"].append(line.strip())
+        if current:
+            commits.append(current)
+        return commits
+
+    def tree(self, ref: str = "HEAD") -> list[dict]:
+        """Returns all tracked files at *ref* as [{path, size, mode}]."""
+        from server import config as cfg
+        try:
+            result = subprocess.run(
+                ["git", "ls-tree", "-r", "--long", ref],
+                capture_output=True, text=True, cwd=str(cfg.REPO_ROOT), timeout=15,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return []
+        if result.returncode != 0:
+            return []
+
+        items: list[dict] = []
+        for line in result.stdout.splitlines():
+            # format: <mode> SP <type> SP <sha> SP <size> TAB <path>
+            parts = line.split("\t", 1)
+            if len(parts) != 2:
+                continue
+            meta, path = parts
+            meta_parts = meta.split()
+            size = int(meta_parts[3]) if meta_parts[3].isdigit() else 0
+            items.append({"path": path, "size": size})
+        return items
+
 
 git_service = GitService()
