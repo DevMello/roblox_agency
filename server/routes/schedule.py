@@ -29,6 +29,30 @@ async def add_job(body: dict):
     except Exception as e:
         raise HTTPException(500, str(e))
 
+@router.patch("/{job_id}")
+async def update_job(job_id: str, body: dict):
+    try:
+        cron = body.get("cron_expr") or body.get("cron")
+        if not cron:
+            raise KeyError("cron_expr")
+        found = _svc().update_job(
+            job_id=job_id,
+            label=body.get("label", ""),
+            game=body.get("game", ""),
+            script=body["script"],
+            cron=cron,
+            timezone=body.get("timezone", "America/New_York"),
+        )
+        if not found:
+            raise HTTPException(404, "Job not found")
+        return {"updated": True}
+    except KeyError as e:
+        raise HTTPException(400, f"Missing field: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
 @router.delete("/{job_id}")
 async def remove_job(job_id: str):
     try:

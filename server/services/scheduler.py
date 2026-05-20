@@ -131,6 +131,19 @@ class SchedulerService:
                 cron_expr=row["cron_expr"],
             )
 
+    def update_job(self, job_id: str, label: str, game: str, script: str, cron: str, timezone: str) -> bool:
+        """Update an existing job's fields. Returns False if not found."""
+        with self._db() as conn:
+            result = conn.execute(
+                "UPDATE schedules SET label=?, game=?, script=?, cron_expr=?, timezone=? WHERE id=?",
+                (label, game, script, cron, timezone, job_id),
+            )
+            conn.commit()
+            if result.rowcount == 0:
+                return False
+        self._add_to_apscheduler(job_id, game, script, cron)
+        return True
+
     def next_runs(self, n: int = 10) -> list[dict]:
         """Return the next n scheduled run previews sorted by fire time."""
         previews: list[dict] = []

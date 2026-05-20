@@ -279,15 +279,22 @@ interface MapTileProps {
   entry: DirEntry
   games?: string[]
   onFileClick: (path: string) => void
+  onFolderClick?: (path: string) => void
 }
 
-function MapTile({ entry, games, onFileClick }: MapTileProps) {
+function MapTile({ entry, games, onFileClick, onFolderClick }: MapTileProps) {
   const isAccent = ACCENT_DIRS.has(entry.name)
   const isLocked = LOCKED_DIRS.has(entry.name)
+  const isDir = entry.kind === 'dir'
+
+  function handleClick() {
+    if (isDir) onFolderClick?.(entry.path)
+    else onFileClick(entry.path)
+  }
 
   return (
     <div
-      onClick={() => entry.kind === 'file' ? onFileClick(entry.path) : undefined}
+      onClick={handleClick}
       style={{
         border: `1px solid ${isAccent ? 'var(--accent)' : isLocked ? 'var(--border)' : 'var(--border-2)'}`,
         background: isAccent
@@ -296,14 +303,14 @@ function MapTile({ entry, games, onFileClick }: MapTileProps) {
         borderRadius: 10,
         padding: 12,
         opacity: isLocked ? 0.6 : 1,
-        cursor: entry.kind === 'file' ? 'pointer' : 'default',
+        cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
         gap: 4,
         minHeight: 72,
         overflow: 'hidden',
       }}
-      className={entry.kind === 'file' ? 'card-hover' : ''}
+      className="card-hover"
     >
       <div className="row gap-6">
         {entry.kind === 'dir'
@@ -692,12 +699,20 @@ export default function RepoExplorer() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [branchMenuOpen, setBranchMenuOpen] = useState(false)
+  const [mapPath, setMapPath] = useState('')   // current dir being browsed in map view
 
-  // Data
+  // Data — root is always loaded; map also loads the current mapPath if non-root
   const { data: rootEntries = [], isLoading: rootLoading } = useQuery({
     queryKey: ['dir', ''],
     queryFn: () => fetchDir(''),
     staleTime: 30_000,
+  })
+
+  const { data: mapEntries = [], isLoading: mapLoading } = useQuery({
+    queryKey: ['dir', mapPath],
+    queryFn: () => fetchDir(mapPath),
+    staleTime: 30_000,
+    enabled: mapPath !== '',
   })
 
   const { data: branches = [] } = useQuery({
@@ -869,23 +884,45 @@ export default function RepoExplorer() {
           {view === 'map' && (
             <>
               <div className="card glow-violet fade-up d-1" style={{ padding: 22, marginBottom: 20 }}>
-                <div className="row" style={{ marginBottom: 14 }}>
-                  <span className="text-cap">
-                    {currentBranch ? `${currentBranch.name} @ ${currentBranch.last_commit_sha.slice(0, 7)}` : 'roblox-agency · root'}
-                  </span>
-                  <div className="spacer" />
+                {/* Breadcrumb for map navigation */}
+                <div className="row gap-8" style={{ marginBottom: 14 }}>
+                  <div className="row gap-4" style={{ flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-sm btn-ghost"
+                      style={{ fontFamily: 'var(--f-mono)', fontSize: 11, padding: '2px 8px' }}
+                      onClick={() => setMapPath('')}
+                    >
+                      root
+                    </button>
+                    {mapPath.split('/').filter(Boolean).map((seg, i, arr) => {
+                      const partialPath = arr.slice(0, i + 1).join('/')
+                      return (
+                        <span key={partialPath} className="row gap-4">
+                          <span className="t-muted">/</span>
+                          <button
+                            className="btn btn-sm btn-ghost"
+                            style={{ fontFamily: 'var(--f-mono)', fontSize: 11, padding: '2px 8px', color: i === arr.length - 1 ? 'var(--ink)' : undefined }}
+                            onClick={() => setMapPath(partialPath)}
+                          >
+                            {seg}
+                          </button>
+                        </span>
+                      )
+                    })}
+                  </div>
                   <span className="t-mono t-xs t-muted">
-                    {rootLoading ? 'loading…' : `${sortedRoot.length} top-level entries`}
+                    {rootLoading || mapLoading ? 'loading…' : `${(mapPath ? mapEntries : sortedRoot).length} entries`}
                   </span>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-                  {sortedRoot.map(entry => (
+                  {(mapPath ? [...mapEntries].sort((a, b) => a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'dir' ? -1 : 1) : sortedRoot).map(entry => (
                     <MapTile
                       key={entry.path}
                       entry={entry}
                       games={entry.name === 'games' ? gameSlugs : undefined}
                       onFileClick={handleFileClick}
+                      onFolderClick={setMapPath}
                     />
                   ))}
                 </div>

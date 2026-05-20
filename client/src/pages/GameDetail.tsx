@@ -1,9 +1,17 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useGame } from '../hooks/useGames'
 import { ROUTES } from '../router'
 import type { Game } from '../types'
+
+const API = '/api/v1'
+
+async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
+  const r = await fetch(url, opts)
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json() as Promise<T>
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,19 +85,341 @@ function Donut({ pct }: { pct: number }) {
   )
 }
 
-// ── Placeholder Tab ───────────────────────────────────────────────────────────
+// ── Status badge ──────────────────────────────────────────────────────────────
 
-function PlaceholderTab({ title, file, tail }: { title: string; file: string; tail?: boolean }) {
+function StatusChip({ status }: { status: string }) {
+  const tone =
+    status === 'done' || status === 'complete' || status === 'resolved' ? 'success'
+    : status === 'in-progress' || status === 'active' || status === 'running' ? 'accent'
+    : status === 'failed' ? 'danger'
+    : status === 'qa-failed' ? 'danger'
+    : ''
+  return <span className={`chip${tone ? ` chip-${tone}` : ''}`}>{status}</span>
+}
+
+// ── Plan Tab ──────────────────────────────────────────────────────────────────
+
+function PlanTab({ gameSlug }: { gameSlug: string }) {
+  const { data, isLoading } = useQuery<{ milestones: any[]; tasks: any[] }>({
+    queryKey: ['plan', gameSlug],
+    queryFn: () => apiFetch(`${API}/games/${gameSlug}/plan`),
+  })
+
+  if (isLoading) return <div className="t-sm t-muted" style={{ padding: 24 }}>Loading plan…</div>
+  if (!data) return <div className="t-sm t-muted" style={{ padding: 24 }}>No plan data.</div>
+
+  const { milestones = [], tasks = [] } = data
+
   return (
-    <div className="card card-pad fade-up" style={{ textAlign: 'center', padding: '60px 20px' }}>
-      <div style={{ opacity: 0.6, color: 'var(--accent-soft)' }}>
-        <FileIcon size={28} />
-      </div>
-      <h3 style={{ fontSize: 18, marginTop: 14 }}>{title}</h3>
-      <div className="t-sm t-muted" style={{ marginTop: 6 }}>
-        Renders the underlying markdown live{tail ? ', with tail mode for append-only streams' : ''}.
-      </div>
-      <div className="t-mono t-xs t-muted" style={{ marginTop: 14 }}>{file}</div>
+    <div className="col gap-16">
+      <section className="card">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>Milestones · {milestones.length}</h3>
+        </div>
+        {milestones.length === 0
+          ? <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No milestones yet.</div>
+          : milestones.map((m: any, i: number) => (
+            <div key={m.id} className="row gap-12" style={{ padding: '12px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+              <StatusChip status={m.status ?? 'pending'} />
+              <div className="col flex-1">
+                <span className="t-sm" style={{ fontWeight: 500 }}>{m.title}</span>
+                {m.goal && <span className="t-xs t-muted" style={{ marginTop: 2 }}>{m.goal}</span>}
+              </div>
+              {m.estimated_nights != null && (
+                <span className="t-mono t-xs t-muted">{m.estimated_nights}n est</span>
+              )}
+            </div>
+          ))
+        }
+      </section>
+
+      <section className="card">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>Tasks · {tasks.length}</h3>
+        </div>
+        {tasks.length === 0
+          ? <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No tasks yet.</div>
+          : tasks.map((t: any, i: number) => (
+            <div key={t.task_id} className="row gap-12" style={{ padding: '11px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+              <StatusChip status={t.status ?? 'pending'} />
+              <span className="t-mono t-xs t-muted" style={{ width: 80, flexShrink: 0 }}>{t.task_id}</span>
+              <span className="t-sm flex-1">{t.title}</span>
+              {t.assignee && <span className="chip">{t.assignee}</span>}
+              {t.estimated_minutes && <span className="t-mono t-xs t-muted">{t.estimated_minutes}m</span>}
+            </div>
+          ))
+        }
+      </section>
+    </div>
+  )
+}
+
+// ── Sprint Tab ────────────────────────────────────────────────────────────────
+
+function SprintTab({ gameSlug }: { gameSlug: string }) {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['sprint', gameSlug],
+    queryFn: () => apiFetch(`${API}/games/${gameSlug}/sprint-log`),
+    retry: false,
+  })
+
+  const patchTask = useMutation({
+    mutationFn: ({ sprintId, taskId, status }: { sprintId: string; taskId: string; status: string }) =>
+      apiFetch<void>(`${API}/games/${gameSlug}/sprint-log/${sprintId}/tasks/${taskId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['sprint', gameSlug] }),
+  })
+
+  if (isLoading) return <div className="t-sm t-muted" style={{ padding: 24 }}>Loading sprint log…</div>
+  if (!data) return <div className="t-sm t-muted" style={{ padding: 24 }}>No sprint data.</div>
+
+  const tasks: any[] = data.tasks ?? []
+  const done = tasks.filter(t => t.status === 'done').length
+
+  return (
+    <div className="col gap-16">
+      <section className="card">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>{data.sprint_id ?? 'Latest sprint'}</h3>
+          <div className="spacer" />
+          <StatusChip status={data.status ?? 'unknown'} />
+          <span className="t-mono t-xs t-muted" style={{ marginLeft: 12 }}>{data.date ?? ''}</span>
+        </div>
+        <div className="row gap-16" style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
+          {[
+            ['Milestone', data.milestone_ref ?? '—'],
+            ['Tasks', `${done} / ${tasks.length} done`],
+            ['Est. minutes', data.total_estimated_minutes ?? '—'],
+          ].map(([l, v]) => (
+            <div key={l} className="col">
+              <span className="text-cap" style={{ fontSize: 9 }}>{l}</span>
+              <span className="t-mono t-sm">{v}</span>
+            </div>
+          ))}
+        </div>
+        {tasks.map((t: any, i: number) => (
+          <div key={t.task_id ?? i} className="row gap-12" style={{ padding: '11px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+            <StatusChip status={t.status ?? 'pending'} />
+            <span className="t-mono t-xs t-muted" style={{ width: 80, flexShrink: 0 }}>{t.task_id}</span>
+            <span className="t-sm flex-1">{t.title}</span>
+            {t.assigned_agent && <span className="chip">{t.assigned_agent}</span>}
+            {t.qa_verdict && <StatusChip status={`qa-${t.qa_verdict}`} />}
+            {t.pr_reference && (
+              <a href={t.pr_reference} target="_blank" rel="noreferrer" className="t-mono t-xs t-accent">PR</a>
+            )}
+            <select
+              className="field"
+              style={{ padding: '2px 6px', fontSize: 11, height: 24, width: 90 }}
+              value={t.status ?? 'pending'}
+              onChange={e => patchTask.mutate({ sprintId: data.sprint_id, taskId: t.task_id, status: e.target.value })}
+            >
+              {['pending','in-progress','done','failed','blocked'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        ))}
+      </section>
+    </div>
+  )
+}
+
+// ── Progress Tab ──────────────────────────────────────────────────────────────
+
+function ProgressTab({ gameSlug }: { gameSlug: string }) {
+  const { data, isLoading, refetch } = useQuery<{ entries: any[] }>({
+    queryKey: ['progress', gameSlug],
+    queryFn: () => apiFetch(`${API}/games/${gameSlug}/progress`),
+    refetchInterval: 10_000,
+  })
+
+  const entries = data?.entries ?? []
+
+  return (
+    <div className="col gap-16">
+      <section className="card">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>Progress log · {entries.length} entries</h3>
+          <div className="spacer" />
+          <button className="btn btn-sm btn-ghost" onClick={() => void refetch()}>Refresh</button>
+        </div>
+        {isLoading && <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>Loading…</div>}
+        {entries.length === 0 && !isLoading && (
+          <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No progress entries yet.</div>
+        )}
+        {entries.map((e: any, i: number) => (
+          <div key={e.id ?? i} className="row gap-12" style={{ padding: '11px 20px', borderTop: i ? '1px solid var(--border)' : 'none', alignItems: 'flex-start' }}>
+            <span className="t-mono t-xs t-muted" style={{ width: 120, flexShrink: 0, marginTop: 2 }}>
+              {e.created_at ? new Date(e.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+            </span>
+            <span className="chip" style={{ flexShrink: 0 }}>{e.agent ?? 'system'}</span>
+            {e.task_id && <span className="t-mono t-xs t-muted" style={{ flexShrink: 0 }}>{e.task_id}</span>}
+            <span className="t-sm flex-1">{e.message}</span>
+          </div>
+        ))}
+      </section>
+    </div>
+  )
+}
+
+// ── PRs Tab ───────────────────────────────────────────────────────────────────
+
+function PRsTab({ game }: { game: Game }) {
+  const openPRs: PRItem[] = (game as any).open_prs ?? []
+
+  return (
+    <div className="col gap-16">
+      <section className="card">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>Open PRs · {openPRs.length}</h3>
+          <div className="spacer" />
+          <span className="t-mono t-xs t-muted">github</span>
+        </div>
+        {openPRs.length === 0
+          ? <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No open PRs.</div>
+          : openPRs.map((pr: PRItem, i: number) => (
+            <div key={pr.number} style={{ padding: '14px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+              <div className="row gap-10">
+                <span className={`dot ${pr.state === 'approved' ? 'dot-success' : pr.state === 'QA' ? 'dot-warning' : 'dot-accent'}`} />
+                <span className={`chip chip-${pr.state === 'approved' ? 'success' : pr.state === 'QA' ? '' : 'accent'}`}>{pr.state}</span>
+                <span className="t-sm flex-1">#{pr.number} · {pr.title}</span>
+              </div>
+              {pr.detail && <div className="t-xs t-muted" style={{ marginTop: 6, marginLeft: 20 }}>{pr.detail}</div>}
+            </div>
+          ))
+        }
+      </section>
+    </div>
+  )
+}
+
+// ── Reports Tab ───────────────────────────────────────────────────────────────
+
+function ReportsTab() {
+  const [selected, setSelected] = useState<string | null>(null)
+
+  const { data: files = [], isLoading } = useQuery<{ name: string; path?: string }[]>({
+    queryKey: ['dirs', 'reports/morning'],
+    queryFn: () => fetch('/api/v1/files/dirs/reports/morning').then(r => r.ok ? r.json() : []),
+  })
+
+  const { data: fileData } = useQuery<{ content: string }>({
+    queryKey: ['file', selected],
+    queryFn: () => apiFetch(`/api/v1/files/${selected}`),
+    enabled: !!selected,
+  })
+
+  const reports = files.filter((f: any) => (f.name ?? f.path ?? '').endsWith('.md')).reverse()
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16 }}>
+      <section className="card" style={{ alignSelf: 'flex-start' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 13 }}>Morning reports</h3>
+        </div>
+        {isLoading && <div className="t-sm t-muted" style={{ padding: 12 }}>Loading…</div>}
+        {reports.length === 0 && !isLoading && (
+          <div className="t-sm t-muted" style={{ padding: 12 }}>No reports yet.</div>
+        )}
+        {reports.map((f: any, i: number) => {
+          const name: string = f.name ?? f.path ?? ''
+          const path: string = f.path ?? `reports/morning/${name}`
+          return (
+            <div
+              key={name}
+              onClick={() => setSelected(path)}
+              className="card-hover"
+              style={{ padding: '9px 16px', borderTop: i ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: selected === path ? 'rgba(124,111,255,0.08)' : undefined }}
+            >
+              <span className="t-mono t-xs" style={{ color: selected === path ? 'var(--accent)' : 'var(--ink-dim)' }}>
+                {name.replace(/\.md$/, '')}
+              </span>
+            </div>
+          )
+        })}
+      </section>
+      <section className="card">
+        {!selected && <div className="t-sm t-muted" style={{ padding: 24 }}>Select a report to read.</div>}
+        {selected && !fileData && <div className="t-sm t-muted" style={{ padding: 24 }}>Loading…</div>}
+        {fileData && (
+          <pre style={{ margin: 0, padding: 20, fontSize: 12, fontFamily: 'var(--f-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--ink-dim)', lineHeight: 1.6 }}>
+            {fileData.content}
+          </pre>
+        )}
+      </section>
+    </div>
+  )
+}
+
+// ── Overrides Tab ─────────────────────────────────────────────────────────────
+
+function OverridesTab({ gameSlug }: { gameSlug: string }) {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery<{ entries: any[] }>({
+    queryKey: ['overrides', gameSlug],
+    queryFn: () => apiFetch(`${API}/games/${gameSlug}/overrides`),
+  })
+
+  const [showForm, setShowForm] = useState(false)
+  const [newText, setNewText] = useState('')
+
+  const addOverride = useMutation({
+    mutationFn: (text: string) =>
+      apiFetch<void>(`${API}/games/${gameSlug}/overrides`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      }),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['overrides', gameSlug] }); setNewText(''); setShowForm(false) },
+  })
+
+  const entries: any[] = data?.entries ?? []
+
+  return (
+    <div className="col gap-16">
+      <section className="card">
+        <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14 }}>Human overrides · {entries.length}</h3>
+          <div className="spacer" />
+          <button className="btn btn-sm btn-ghost" onClick={() => setShowForm(f => !f)}>+ Add override</button>
+        </div>
+        {showForm && (
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <textarea
+              className="field"
+              rows={3}
+              value={newText}
+              onChange={e => setNewText(e.target.value)}
+              placeholder="Describe the override decision…"
+              style={{ width: '100%', resize: 'vertical', fontFamily: 'var(--f-mono)', fontSize: 12 }}
+            />
+            <div className="row gap-8" style={{ marginTop: 8 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={() => addOverride.mutate(newText)} disabled={!newText.trim() || addOverride.isPending}>
+                {addOverride.isPending ? 'Saving…' : 'Save override'}
+              </button>
+            </div>
+          </div>
+        )}
+        {isLoading && <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>Loading…</div>}
+        {entries.length === 0 && !isLoading && (
+          <div className="t-sm t-muted" style={{ padding: '14px 20px' }}>No overrides recorded.</div>
+        )}
+        {entries.map((e: any, i: number) => (
+          <div key={e.id ?? i} style={{ padding: '12px 20px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+            <div className="row gap-10">
+              <StatusChip status={e.status ?? 'active'} />
+              {e.type && <span className="chip">{e.type}</span>}
+              {e.requested_by && <span className="t-xs t-muted">by {e.requested_by}</span>}
+              <div className="spacer" />
+              <span className="t-mono t-xs t-muted">
+                {e.created_at ? new Date(e.created_at).toLocaleDateString() : ''}
+              </span>
+            </div>
+            <div className="t-sm" style={{ marginTop: 8 }}>{e.request}</div>
+          </div>
+        ))}
+      </section>
     </div>
   )
 }
@@ -98,13 +428,24 @@ function PlaceholderTab({ title, file, tail }: { title: string; file: string; ta
 
 function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
 
-  const { data: blockersRaw } = useQuery<Blocker[]>({
+  const { data: blockersRaw, refetch: refetchBlockers } = useQuery<Blocker[]>({
     queryKey: ['blockers', gameSlug],
     queryFn: () => fetch(`/api/v1/games/${gameSlug}/blockers`).then(r => r.json()),
   })
 
   const blockers: Blocker[] = blockersRaw ?? []
+
+  const resolveBlocker = useMutation({
+    mutationFn: (blockerId: string) =>
+      fetch(`/api/v1/games/${gameSlug}/blockers/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocker_ids: [blockerId] }),
+      }),
+    onSuccess: () => { void refetchBlockers(); void qc.invalidateQueries({ queryKey: ['game', gameSlug] }) },
+  })
 
   const milestones: MilestoneItem[] = useMemo(
     () => (game as any).plan_milestones?.map((ms: any) => ({
@@ -215,7 +556,13 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
                     </div>
                   </div>
                   <div className="col gap-6">
-                    <button className="btn btn-sm btn-primary">Resolve</button>
+                    <button
+                      className="btn btn-sm btn-primary"
+                      disabled={resolveBlocker.isPending}
+                      onClick={() => resolveBlocker.mutate(b.id)}
+                    >
+                      {resolveBlocker.isPending ? '…' : 'Resolve'}
+                    </button>
                     <button className="btn btn-sm btn-ghost">Snooze</button>
                   </div>
                 </div>
@@ -446,24 +793,12 @@ export default function GameDetail() {
 
       {/* Tab content */}
       {tab === 'overview' && <OverviewTab game={game} gameSlug={gameSlug} />}
-      {tab === 'plan' && (
-        <PlaceholderTab title="Plan" file={`games/${gameSlug}/plan.md`} />
-      )}
-      {tab === 'sprint' && (
-        <PlaceholderTab title="Sprint log" file={`games/${gameSlug}/sprint-log.md`} />
-      )}
-      {tab === 'progress' && (
-        <PlaceholderTab title="Progress" file={`games/${gameSlug}/progress.md`} tail />
-      )}
-      {tab === 'prs' && (
-        <PlaceholderTab title="Pull requests" file="gh pr list" />
-      )}
-      {tab === 'reports' && (
-        <PlaceholderTab title="Reports" file="reports/morning/*.md" />
-      )}
-      {tab === 'overrides' && (
-        <PlaceholderTab title="Overrides" file={`games/${gameSlug}/memory/human-overrides.md`} />
-      )}
+      {tab === 'plan' && <PlanTab gameSlug={gameSlug} />}
+      {tab === 'sprint' && <SprintTab gameSlug={gameSlug} />}
+      {tab === 'progress' && <ProgressTab gameSlug={gameSlug} />}
+      {tab === 'prs' && <PRsTab game={game} />}
+      {tab === 'reports' && <ReportsTab />}
+      {tab === 'overrides' && <OverridesTab gameSlug={gameSlug} />}
     </div>
   )
 }

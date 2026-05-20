@@ -243,6 +243,48 @@ export default function Schedule() {
   const [cronParts, setCronParts] = useState(['0', '23', '*', '*', '*'])
   const [newTz, setNewTz] = useState('America/New_York')
 
+  const [editJob, setEditJob] = useState<ScheduledJob | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [editGame, setEditGame] = useState('')
+  const [editScript, setEditScript] = useState('night-cycle')
+  const [editCronParts, setEditCronParts] = useState(['0', '23', '*', '*', '*'])
+  const [editTz, setEditTz] = useState('America/New_York')
+
+  const updateJobMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: object }) =>
+      fetchJson<void>(`${API}/schedule/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['schedule'] })
+      setEditJob(null)
+    },
+  })
+
+  function openEdit(job: ScheduledJob) {
+    setEditJob(job)
+    setEditLabel(job.label ?? '')
+    setEditGame(job.game ?? '')
+    setEditScript(job.script ?? 'night-cycle')
+    setEditCronParts(job.cron_expr ? job.cron_expr.trim().split(/\s+/) : ['0', '23', '*', '*', '*'])
+    setEditTz(job.timezone ?? 'America/New_York')
+  }
+
+  function handleEditCronPart(i: number, val: string) {
+    setEditCronParts(prev => { const next = [...prev]; next[i] = val; return next })
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editJob) return
+    await updateJobMutation.mutateAsync({
+      id: editJob.id,
+      body: { label: editLabel, game: editGame, script: editScript, cron_expr: editCronParts.join(' '), timezone: editTz },
+    })
+  }
+
   const jobs = jobsQuery.data ?? []
   const upcoming = upcomingQuery.data ?? []
   const runs = runsQuery.data ?? []
@@ -361,7 +403,7 @@ export default function Schedule() {
               <JobRow
                 key={job.id}
                 job={job}
-                onEdit={() => {}}
+                onEdit={() => openEdit(job)}
                 onPause={() => pauseMutation.mutate(job.id)}
                 onResume={() => resumeMutation.mutate(job.id)}
                 onRunNow={() => runNowMutation.mutate({ script: job.script, game: job.game })}
@@ -491,6 +533,74 @@ export default function Schedule() {
           </tbody>
         </table>
       </section>
+
+      {editJob && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            display: 'grid', placeItems: 'center', zIndex: 1000,
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setEditJob(null) }}
+        >
+          <div className="card" style={{ width: 440, padding: 0 }}>
+            <div className="row" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: 14 }}>Edit job</h3>
+              <div className="spacer" />
+              <button className="btn btn-sm btn-ghost" onClick={() => setEditJob(null)}>✕</button>
+            </div>
+            <form className="col gap-12" style={{ padding: '16px 20px' }} onSubmit={e => void handleSaveEdit(e)}>
+              <div>
+                <label className="label-cap">Label</label>
+                <input className="field" value={editLabel} onChange={e => setEditLabel(e.target.value)} required />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label className="label-cap">Game</label>
+                  <select className="field" value={editGame} onChange={e => setEditGame(e.target.value)}>
+                    <option value="">— all games —</option>
+                    {games.map((g: Game) => <option key={g.slug} value={g.slug}>{g.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-cap">Script</label>
+                  <select className="field" value={editScript} onChange={e => setEditScript(e.target.value)}>
+                    {SCRIPT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="label-cap">Cron</label>
+                <div className="row gap-6">
+                  {editCronParts.map((v, i) => (
+                    <input key={i} className="field field-mono" value={v} onChange={e => handleEditCronPart(i, e.target.value)} style={{ width: 56, textAlign: 'center' }} />
+                  ))}
+                </div>
+                <div className="row gap-6" style={{ marginTop: 6 }}>
+                  {CRON_LABELS.map(l => (
+                    <span key={l} className="t-mono t-xs t-muted" style={{ width: 56, textAlign: 'center' }}>{l}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ padding: 10, background: 'var(--bg)', border: '1px dashed var(--border-2)', borderRadius: 6 }}>
+                <div className="t-mono t-xs t-muted">Translated</div>
+                <div className="t-sm t-accent" style={{ marginTop: 2 }}>"{parseCron(editCronParts.join(' '))}"</div>
+              </div>
+              <div>
+                <label className="label-cap">Timezone</label>
+                <select className="field" value={editTz} onChange={e => setEditTz(e.target.value)}>
+                  {TIMEZONE_OPTIONS.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                </select>
+              </div>
+              <div className="row gap-8" style={{ marginTop: 4 }}>
+                <button type="button" className="btn btn-ghost flex-1" style={{ justifyContent: 'center' }} onClick={() => setEditJob(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary flex-1" style={{ justifyContent: 'center' }} disabled={updateJobMutation.isPending}>
+                  {updateJobMutation.isPending ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -92,6 +92,17 @@ async def worker_heartbeat(worker_id: str, body: dict):
     return {"recorded": True, "timestamp": now}
 
 
+@router.delete("/{worker_id}")
+async def unregister_worker(worker_id: str):
+    """Remove a worker from the registry."""
+    with get_db() as conn:
+        row = _find_worker(conn, worker_id)
+        if not row:
+            raise HTTPException(404, "Worker not found")
+        conn.execute("DELETE FROM workers WHERE id=?", (row["id"],))
+    return {"removed": True}
+
+
 @router.get("/{worker_id}/heartbeats")
 async def get_heartbeats(worker_id: str, limit: int = 20):
     """Get recent heartbeats for a worker."""

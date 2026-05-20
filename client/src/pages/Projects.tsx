@@ -221,7 +221,7 @@ function ScheduleSection() {
             <span className="t-mono t-sm t-muted" style={{ width: 96 }}>{s.time}</span>
             <span className="t-sm t-dim">{s.label}</span>
             <div className="spacer" />
-            <button className="btn btn-sm btn-ghost">Edit</button>
+            <button className="btn btn-sm btn-ghost" onClick={() => navigate('/schedule')}>Edit</button>
           </div>
         ))}
       </div>

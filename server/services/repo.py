@@ -102,7 +102,7 @@ class RepoService:
                 {
                     "name": child.name,
                     "path": rel,
-                    "is_dir": child.is_dir(),
+                    "kind": "dir" if child.is_dir() else "file",
                     "size": stat.st_size if child.is_file() else 0,
                     "modified": datetime.datetime.fromtimestamp(
                         stat.st_mtime, tz=datetime.timezone.utc
