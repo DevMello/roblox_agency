@@ -155,11 +155,9 @@ export default function LiveEdit() {
   const previewText = text || DRAFT
 
   const contextRows: [string, string][] = [
-    ['Status', gameData ? `sprint ${gameData.current_sprint}` : 'idle · next cycle 23:00'],
-    ['Sprint', gameData ? `${gameData.current_sprint} · ${gameData.milestones_done}/${gameData.milestone_count} milestones` : '—'],
-    ['Open PRs', gameData ? String(gameData.open_pr_count) : '—'],
+    ['Status', gameData ? gameData.status : 'idle · next cycle 23:00'],
+    ['Sprint', gameData ? `${gameData.nights_elapsed} · ${gameData.milestones_done}/${gameData.milestone_count} milestones` : '—'],
     ['Blockers', gameData ? String(gameData.blocker_count) : '—'],
-    ['Last build', gameData?.last_run_at ? new Date(gameData.last_run_at).toLocaleString() : '—'],
     ['Workers', '—'],
   ]
 

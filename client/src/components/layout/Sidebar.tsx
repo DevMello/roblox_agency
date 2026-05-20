@@ -62,13 +62,13 @@ export function Sidebar() {
             <span
               className={clsx(
                 'dot',
-                game.registry_status === 'active' ? 'dot-live' : 'dot-muted',
+                game.status === 'active' ? 'dot-live' : 'dot-muted',
               )}
               style={{ marginLeft: 2, marginRight: 2 }}
             />
             <span className="t-mono t-sm">{game.slug}</span>
             <span className="count" style={{ background: 'transparent' }}>
-              s{game.current_sprint}
+              s{game.nights_elapsed}
             </span>
           </NavLink>
         ))}
