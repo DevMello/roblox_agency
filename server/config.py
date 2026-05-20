@@ -33,13 +33,13 @@ def init(repo_override: str | None = None) -> None:
     if env_file.exists():
         load_dotenv(env_file)
 
-    DB_PATH = root / "webui" / "server" / "db" / "agency.db"
+    DB_PATH = root / "server" / "db" / "agency.db"
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 # Populated by init()
 REPO_ROOT: Path = Path.cwd()
-DB_PATH: Path = Path("webui/server/db/agency.db")
+DB_PATH: Path = Path("server/db/agency.db")
 
 # ---------------------------------------------------------------------------
 # Server settings (overridden by CLI flags)

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,11 +9,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from webui.server import config
-from webui.server.db.init_db import init_db
-from webui.server.routes import games, specs, runs, edits, files, git, schedule, cfg, ws, workers
-from webui.server.services.scheduler import scheduler_service
-from webui.server.services.process import process_manager
+from server import config
+from server.db.init_db import init_db
+from server.routes import games, specs, runs, edits, files, git, schedule, cfg, ws
+from server.services.scheduler import scheduler_service
+from server.services.process import process_manager
 
 # Initialize config with repo root detection
 config.init()
@@ -34,8 +33,8 @@ async def lifespan(app: FastAPI):
 
 async def _start_file_watcher() -> None:
     """Launch watchdog observer in a thread."""
-    from webui.server.services.file_watcher import repo_watcher
-    loop = asyncio.get_event_loop()
+    from server.services.file_watcher import repo_watcher
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, repo_watcher.start)
 
 
@@ -65,7 +64,6 @@ def create_app() -> FastAPI:
     app.include_router(git.router, prefix=f"{prefix}/git", tags=["git"])
     app.include_router(schedule.router, prefix=f"{prefix}/schedule", tags=["schedule"])
     app.include_router(cfg.router, prefix=f"{prefix}/config", tags=["config"])
-    app.include_router(workers.router, prefix=f"{prefix}/workers", tags=["workers"])
     app.include_router(ws.router, tags=["ws"])
 
     # Serve built React app — must be last
