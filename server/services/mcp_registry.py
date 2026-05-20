@@ -13,7 +13,7 @@ class MCPRegistry:
     # ------------------------------------------------------------------
 
     def _mcp_path(self) -> Path:
-        from webui.server import config as cfg
+        from server import config as cfg
 
         return cfg.REPO_ROOT / ".mcp.json"
 

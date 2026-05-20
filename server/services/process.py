@@ -47,7 +47,7 @@ class ProcessManager:
 
                 # Lazy import to avoid circular reference; ignore if ws not ready.
                 try:
-                    from webui.server.routes.ws import ws_hub  # type: ignore[attr-defined]
+                    from server.routes.ws import ws_hub  # type: ignore[attr-defined]
 
                     ws_hub.broadcast_sync(
                         {"type": "run.log", "run_id": mp.run_id, "line": buffered}

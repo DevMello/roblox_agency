@@ -9,16 +9,16 @@ class RepoWatcher:
         try:
             from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
-            from webui.server import config as cfg
+            from server import config as cfg
 
             class Handler(FileSystemEventHandler):
                 def on_modified(self, event):
                     if event.is_directory: return
                     try:
-                        from webui.server.routes.ws import ws_hub
+                        from server.routes.ws import ws_hub
                         rel = Path(event.src_path).relative_to(cfg.REPO_ROOT).as_posix()
-                        # Ignore .git and webui/server/db changes
-                        if '.git' in rel or rel.startswith('webui/server/db'):
+                        # Ignore .git and server/db changes
+                        if '.git' in rel or rel.startswith('server/db'):
                             return
                         ws_hub.broadcast_sync({"type": "file.changed", "path": rel})
                     except Exception:

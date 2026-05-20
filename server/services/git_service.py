@@ -15,7 +15,7 @@ class GitService:
     # ------------------------------------------------------------------
 
     def _repo(self) -> git.Repo:
-        from webui.server import config as cfg
+        from server import config as cfg
 
         return git.Repo(cfg.REPO_ROOT)
 
