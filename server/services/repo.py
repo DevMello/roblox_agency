@@ -50,12 +50,15 @@ class RepoService:
     # ------------------------------------------------------------------
 
     def read_file(self, path: str) -> str:
-        """Read file at repo-relative path. Raises HTTPException 404/403."""
+        """Read file at repo-relative path.
+
+        Raises:
+            FileNotFoundError: if the path does not exist or is not a file.
+            HTTPException(403): if the path escapes the repo root.
+        """
         abs_path = self._resolve(path)
-        if not abs_path.exists():
-            raise HTTPException(status_code=404, detail=f"File not found: {path!r}")
-        if not abs_path.is_file():
-            raise HTTPException(status_code=404, detail=f"Not a file: {path!r}")
+        if not abs_path.exists() or not abs_path.is_file():
+            raise FileNotFoundError(path)
         return abs_path.read_text(encoding="utf-8")
 
     def write_file(self, path: str, content: str) -> None:
