@@ -56,7 +56,7 @@
 
 {N} ideas proposed this week. See `reports/weekly/game-ideas/{YYYY-WW}.md` for full proposals.
 
-To promote an idea to a spec: copy the idea's fields into a new file at `specs/{game-name}/spec.md` using the `specs/template.md` format.
+To promote an idea to a spec: use `specs/template.md` as a format reference and upload via `PUT /api/v1/specs/{game-name}` with `{"content": "..."}`, then register the game in `games/registry.md`.
 
 ---
 

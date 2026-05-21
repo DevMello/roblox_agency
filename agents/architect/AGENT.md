@@ -12,7 +12,7 @@ The Architect translates a human-written game spec into a structured milestone p
 
 The Architect runs when:
 1. A new game slug exists in the DB (`GET http://localhost:7432/api/v1/games/{game}`) with no milestones (`GET http://localhost:7432/api/v1/games/{game}/plan` returns 404).
-2. `games/{game-name}/spec.md` is modified and the diff contains changes to the feature list, core loop, or technical constraints sections (not just typo fixes).
+2. The spec in the DB (`GET http://localhost:7432/api/v1/specs/{game}`) has been updated and the change touches the feature list, core loop, or technical constraints sections (not just typo fixes).
 3. Planner explicitly requests a replanning — visible as a decision entry returned by `GET http://localhost:7432/api/v1/games/{game}/decisions` with `decision` containing `REPLAN_REQUESTED`.
 
 The Architect does NOT run nightly. It is not part of the standard night cycle.
@@ -23,7 +23,7 @@ The Architect does NOT run nightly. It is not part of the standard night cycle.
 
 | Input | How to access |
 |-------|--------------|
-| Game spec | Read file: `games/{game-name}/spec.md` |
+| Game spec | `GET http://localhost:7432/api/v1/specs/{game}` — returns `{"content": "..."}` |
 | Spec format reference | Read file: `specs/template.md` |
 | Agency-level decisions | `GET http://localhost:7432/api/v1/games/{game}/decisions` — filter `scope == "agency"` |
 | Researcher results | Returned inline by Researcher when called |
@@ -46,7 +46,7 @@ The Architect does NOT run nightly. It is not part of the standard night cycle.
 
 - **Researcher (call-out):** Architect may call Researcher for API lookups or pattern research when planning requires knowing a specific Roblox API or standard implementation approach.
 - **No Builder tools.** Architect cannot call Roblox Studio MCP, Blender MCP, or the `gh` CLI.
-- **Read-only file access:** Reads `spec.md` and `specs/template.md`. All other data comes from and goes to the HTTP API.
+- **Read-only file access:** Reads `specs/template.md` for format reference. Spec content comes from the API (`GET /api/v1/specs/{game}`). All other data comes from and goes to the HTTP API.
 
 ---
 
@@ -90,7 +90,7 @@ Use `scope: "game"` for decisions specific to this game. Use `scope: "agency"` f
 Architect re-runs on an existing game only when:
 - The spec file changes in a way that invalidates existing milestone structure.
 - Planner has logged a replanning request (visible in decisions API).
-- A human explicitly requests a replan by adding `REPLAN_REQUESTED` to the top of `games/{game-name}/spec.md`.
+- A human explicitly requests a replan by adding a `REPLAN_REQUESTED` decision via `POST /api/v1/games/{game}/decisions`.
 
 On re-run, Architect:
 1. Reads the current plan from `GET http://localhost:7432/api/v1/games/{game}/plan` to identify what is already done or in-progress.

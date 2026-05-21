@@ -92,7 +92,6 @@ config/
 games/
   registry.md            Committed list of active games and their repo URLs
   {game-name}/           (gitignored — external repo cloned here)
-    spec.md              Human-written game spec (Architect reads this)
     plan.md              Living milestone plan (Architect creates, Planner updates)
     progress.md          Append-only build log (Builder writes after each task)
     sprint-log.md        Per-night structured sprint record (Planner writes, Builder/QA update)
@@ -120,7 +119,7 @@ scripts/
   launch-worker.sh       Worker mode — execute tasks assigned to this machine
   register-worker.sh     One-time machine registration for multi-worker mode
 specs/
-  template.md            Canonical spec format (template only — active specs live in games/{game}/spec.md)
+  template.md            Canonical spec format reference (active specs are in the DB — `GET /api/v1/specs/{game}`)
 workflows/
   day-cycle.md           Human reviewer guide
   live-edit-protocol.md  Live edit step-by-step protocol
@@ -156,8 +155,7 @@ All structured agent data is written through the HTTP API. The table below shows
 **Files that agents still read from disk (not in DB):**
 | File | Who reads |
 |------|----------|
-| `games/{game}/spec.md` | Architect, Planner, Builder (context), QA |
-| `specs/template.md` | Architect |
+| `specs/template.md` | Architect (format reference only) |
 | `agents/researcher/sources.md` | Researcher |
 | `agents/market-researcher/sources.md` | Market Researcher |
 | `agents/reporter/templates/morning-report.md` | Reporter |
@@ -168,8 +166,9 @@ All structured agent data is written through the HTTP API. The table below shows
 **Files humans still write to disk:**
 | File | Notes |
 |------|-------|
-| `games/{game}/spec.md` | Primary game definition — never modified by agents |
 | `agents/`, `config/`, `workflows/`, `specs/` | Agency config — human only |
+
+**Spec is DB-only:** Game specs are stored in the `specs` table and accessed via `GET /api/v1/specs/{game}`. To create or update a spec, use `PUT /api/v1/specs/{game}` with `{"content": "..."}` or use the UI.
 
 ---
 
@@ -361,10 +360,10 @@ See `agents/qa/checklists/luau-lint.md` for the full 26-rule checklist QA applie
 ## How to Start a New Game (Human Reference)
 
 1. Run `./scripts/new-game.sh {game-name}` — creates an external git repo cloned into `games/{game-name}/` and registers it in `games/registry.md`.
-2. Fill in all sections of `games/{game-name}/spec.md` (use `specs/template.md` as a reference).
+2. Write the spec content using `specs/template.md` as a reference, then upload it: `PUT /api/v1/specs/{game-name}` with `{"content": "..."}`. Or use the UI spec editor.
 3. Run `./scripts/launch-night-cycle.sh`
 
-The system detects the new spec automatically and runs Architect on the first night.
+The system detects the new spec (via the DB) automatically and runs Architect on the first night.
 
 ---
 

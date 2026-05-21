@@ -17,7 +17,7 @@ Every PR description must include these sections in this order:
 - Game: `{game-name}`
 - Task ID: `{task-id}`
 - Milestone: `{milestone-name}`
-- Spec section: `{which section of games/{game-name}/spec.md this relates to}`
+- Spec section: `{which section of the spec this relates to — fetch from GET /api/v1/specs/{game-name}}`
 
 ### How to test
 A numbered list of steps a human (or QA agent) can follow to verify the feature works correctly. Be specific.

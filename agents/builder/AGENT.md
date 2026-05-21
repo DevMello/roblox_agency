@@ -171,6 +171,6 @@ Builder must never modify these files, even if a task description implies it sho
 - `agents/*/schemas/*.json`
 - `config/*.md`
 - `workflows/*.md`
-- `games/{game-name}/spec.md`
+
 
 If a task seems to require editing these files, Builder flags the task as blocked and updates the sprint task status via the API.

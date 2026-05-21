@@ -28,7 +28,7 @@ Find the task by `task_id` in the `tasks` array. Extract:
 - The task `type`.
 - Any `qa_notes` Builder added.
 
-Also read `games/{game-name}/spec.md` to understand the full intended behaviour.
+Also fetch the spec via `curl -s "http://localhost:7432/api/v1/specs/{game-name}"` to understand the full intended behaviour.
 
 ---
 

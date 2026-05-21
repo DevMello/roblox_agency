@@ -37,7 +37,7 @@ Fetch the list of active games:
 curl -s "http://localhost:7432/api/v1/games/"
 ```
 
-For each game listed, read `games/{game-name}/spec.md` to understand what is already being built by this agency.
+For each game listed, fetch its spec via `curl -s "http://localhost:7432/api/v1/specs/{game-name}"` to understand what is already being built by this agency.
 
 For each gap identified, check: does any game currently in development already address this gap? If yes, remove the gap from the shortlist — do not propose a game that duplicates active work.
 

@@ -44,7 +44,7 @@ Runs every 30 minutes during the night cycle. Does not interrupt Builder.
 |-------|----------|
 | Active games list | `GET /api/v1/games/` |
 | Game plan (milestones + tasks) | `GET /api/v1/games/{game}/plan` |
-| Game spec (context) | Read file: `games/{game-name}/spec.md` |
+| Game spec (context) | `GET http://localhost:7432/api/v1/specs/{game}` |
 | Overrides (game + agency combined) | `GET /api/v1/games/{game}/overrides` |
 | Blockers (game + agency combined) | `GET /api/v1/games/{game}/blockers` |
 | Game state | `GET /api/v1/games/{game}/state` |

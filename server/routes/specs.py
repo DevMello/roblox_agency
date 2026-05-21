@@ -10,7 +10,6 @@ from fastapi.responses import StreamingResponse
 
 from server import config as cfg
 from server.db import get_db
-from server.services.repo import repo_service  # type: ignore[attr-defined]
 from server.utils import now as _now
 
 router = APIRouter(tags=["specs"])
@@ -19,58 +18,35 @@ router = APIRouter(tags=["specs"])
 @router.get("/")
 async def list_specs():
     try:
-        names = repo_service.game_names()
-        result = []
-        for name in names:
-            path = f"games/{name}/spec.md"
-            try:
-                repo_service.read_file(path)
-                result.append({"game": name, "path": path, "exists": True})
-            except Exception:
-                result.append({"game": name, "path": path, "exists": False})
-        return result
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT game_slug, updated_at FROM specs ORDER BY updated_at DESC"
+            ).fetchall()
+        return [{"game": r["game_slug"], "updated_at": r["updated_at"]} for r in rows]
     except Exception:
         return []
 
 
 @router.get("/{game}")
 async def get_spec(game: str):
-    # --- DB-first ---
-    try:
-        with get_db() as conn:
-            row = conn.execute(
-                "SELECT content FROM specs WHERE game_slug = ?", (game,)
-            ).fetchone()
-        if row and row["content"]:
-            return {"content": row["content"]}
-    except Exception:
-        pass
-
-    # --- Markdown fallback ---
-    try:
-        return {"content": repo_service.read_file(f"games/{game}/spec.md")}
-    except FileNotFoundError:
-        raise HTTPException(404)
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT content FROM specs WHERE game_slug = ?", (game,)
+        ).fetchone()
+    if row and row["content"]:
+        return {"content": row["content"]}
+    raise HTTPException(404)
 
 
 @router.put("/{game}")
 async def update_spec(game: str, body: dict):
     content = body.get("content", "")
-
-    # Write to markdown file (existing behaviour)
-    repo_service.write_spec(game, content)
-
-    # Upsert into DB
-    try:
-        with get_db() as conn:
-            conn.execute(
-                """INSERT OR REPLACE INTO specs (game_slug, content, updated_at)
-                   VALUES (?, ?, ?)""",
-                (game, content, _now()),
-            )
-    except Exception:
-        pass
-
+    with get_db() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO specs (game_slug, content, updated_at)
+               VALUES (?, ?, ?)""",
+            (game, content, _now()),
+        )
     return {"saved": True}
 
 

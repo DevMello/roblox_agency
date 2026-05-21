@@ -39,7 +39,7 @@ To look up the original task definition, QA reads from the API:
 curl -s http://localhost:7432/api/v1/games/{game}/sprint-log
 ```
 
-Extract the task by `task_id` from the sprint's `tasks` array. Also read `games/{game-name}/spec.md` for the full intended behaviour.
+Extract the task by `task_id` from the sprint's `tasks` array. Also fetch the spec via `curl -s "http://localhost:7432/api/v1/specs/{game}"` for the full intended behaviour.
 
 ---
 
