@@ -2,7 +2,7 @@
 Agency UI — CLI entry point.
 
 startup sequence:
-  1. Verify repo root (architecture.md + agents/ fingerprint)
+  1. Verify repo root (architecture.md + system/agents/ fingerprint)
   2. Build React client if dist/ is stale
   3. Initialise SQLite DB
   4. Start APScheduler

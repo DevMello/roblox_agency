@@ -19,14 +19,14 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 
 | Directory | Purpose |
 |-----------|---------|
-| `agents/` | One subdirectory per agent role — AGENT.md, prompts, schemas, reference docs |
-| `config/` | Operational constraints: MCP server registry, schedule windows, cost caps, token limits |
+| `system/agents/` | One subdirectory per agent role — AGENT.md, prompts, schemas, reference docs |
+| `system/config/` | Operational constraints: MCP server registry, schedule windows, cost caps, token limits |
 | `games/registry.md` | Committed file listing all registered external game repos |
 | `games/{game-name}/` | Gitignored — external game repo cloned here. Contains `spec.md` at repo root and `memory/` subdirectory |
 | `memory/` | Persistent cross-session agency state: human overrides, decisions, blockers, worker heartbeats |
 | `reports/` | Generated output: daily morning digests, weekly market analysis, game idea proposals |
 | `scripts/` | Shell entry points: night cycle launcher, worker launcher, live-edit trigger, registration, `clone-game.sh`, `new-game.sh` |
-| `workflows/` | Authoritative runbooks for night cycle, day cycle, live edits, PR review |
+| `system/workflows/` | Authoritative runbooks for night cycle, day cycle, live edits, PR review |
 | `.github/workflows/` | GitHub Actions: schedule night cycle, morning report, weekly research |
 | `logs/` | Runtime logs from night cycle and worker sessions |
 
@@ -35,45 +35,45 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 ## Key Modules
 
 ### Architect
-- **Files**: `agents/architect/AGENT.md`, `agents/architect/prompts/`, `agents/architect/schemas/`
+- **Files**: `system/agents/architect/AGENT.md`, `system/agents/architect/prompts/`, `system/agents/architect/schemas/`
 - **Purpose**: Reads a game spec and decomposes it into a validated task tree grouped into milestones. Runs once per new spec, not nightly.
 - **Key artifacts**: `task-tree.schema.json`, `milestone.schema.json`
 - **Dependencies**: `games/{game}/spec.md` → writes `games/{game}/plan.md`, `memory/decisions.md`
 
 ### Planner
-- **Files**: `agents/planner/AGENT.md`, `agents/planner/prompts/`, `agents/planner/schemas/`
+- **Files**: `system/agents/planner/AGENT.md`, `system/agents/planner/prompts/`, `system/agents/planner/schemas/`
 - **Purpose**: Generates nightly sprints from `plan.md`, assigns tasks to workers, monitors progress every 30 min, replans on failure.
 - **Key artifacts**: `sprint.schema.json`, `task.schema.json`
 - **Key prompts**: `nightly-sprint.md`, `override-check.md`, `replan-on-failure.md`, `worker-assignment.md`
 - **Dependencies**: `games/{game}/plan.md`, `memory/human-overrides.md`, `memory/blockers.md` → writes `games/{game}/sprint-log.md`
 
 ### Builder
-- **Files**: `agents/builder/AGENT.md`, `agents/builder/prompts/`, `agents/builder/mcp-usage/`
+- **Files**: `system/agents/builder/AGENT.md`, `system/agents/builder/prompts/`, `system/agents/builder/mcp-usage/`
 - **Purpose**: The only agent that writes game source code. Implements tasks via Roblox Studio MCP, commits to feature branches, opens PRs.
 - **Key prompts**: `feature-impl.md`, `bug-fix.md`, `asset-integration.md`, `pr-creation.md`, `live-edit.md`
-- **Dependencies**: `games/{game}/sprint-log.md`, Roblox Studio MCP, Blender MCP, Chrome MCP, `config/worker-id` → writes game source files, `games/{game}/progress.md`, `memory/workers/{id}.md`
+- **Dependencies**: `games/{game}/sprint-log.md`, Roblox Studio MCP, Blender MCP, Chrome MCP, `system/config/worker-id` → writes game source files, `games/{game}/progress.md`, `memory/workers/{id}.md`
 
 ### QA
-- **Files**: `agents/qa/AGENT.md`, `agents/qa/prompts/`, `agents/qa/checklists/`
+- **Files**: `system/agents/qa/AGENT.md`, `system/agents/qa/prompts/`, `system/agents/qa/checklists/`
 - **Purpose**: Validates every PR against spec and a 26-rule Luau lint checklist. Issues `qa-approved` or `qa-failed` GitHub labels. Runs in parallel with Builder.
 - **Key artifacts**: `luau-lint.md` (26 rules), `roblox-publish.md`
 - **Key prompts**: `feature-test.md`, `regression-check.md`, `playtest-eval.md`
 - **Dependencies**: Open PR, Roblox Studio MCP → writes verdict to `games/{game}/sprint-log.md`
 
 ### Reporter
-- **Files**: `agents/reporter/AGENT.md`, `agents/reporter/prompts/`, `agents/reporter/templates/`
+- **Files**: `system/agents/reporter/AGENT.md`, `system/agents/reporter/prompts/`, `system/agents/reporter/templates/`
 - **Purpose**: Generates human-readable morning digest and weekly summary. Read-only — never modifies game files.
 - **Key prompts**: `morning-digest.md`, `tonights-plan.md`, `weekly-summary.md`
 - **Dependencies**: `games/*/sprint-log.md`, `games/*/progress.md`, `memory/blockers.md` → writes `reports/morning/{date}.md`
 
 ### Market Researcher
-- **Files**: `agents/market-researcher/AGENT.md`, `agents/market-researcher/prompts/`, `agents/market-researcher/sources.md`
+- **Files**: `system/agents/market-researcher/AGENT.md`, `system/agents/market-researcher/prompts/`, `system/agents/market-researcher/sources.md`
 - **Purpose**: Runs Sunday 2 am, scrapes top Roblox games, analyses monetisation, identifies gaps, proposes new game ideas.
 - **Key prompts**: `trending-scan.md`, `revenue-analysis.md`, `gap-analysis.md`, `idea-generation.md`
 - **Dependencies**: Chrome MCP, permitted external sites → writes `reports/weekly/`
 
 ### Researcher
-- **Files**: `agents/researcher/AGENT.md`, `agents/researcher/prompts/`, `agents/researcher/sources.md`
+- **Files**: `system/agents/researcher/AGENT.md`, `system/agents/researcher/prompts/`, `system/agents/researcher/sources.md`
 - **Purpose**: On-demand lookup agent called by Architect and Builder. Confirms Roblox API signatures, finds assets, analyses competitor mechanics. Never writes game code.
 - **Key prompts**: `api-research.md`, `pattern-research.md`, `asset-research.md`, `competitor-analysis.md`
 - **Dependencies**: Chrome MCP, Creator Docs, DevForum → caches results in `games/{game}/progress.md`
@@ -84,7 +84,7 @@ An autonomous multi-agent system that builds Roblox games from human-written spe
 - **Key invariants**: `human-overrides.md` is never deleted by agents; only humans (or Builder on human's behalf) may write to it.
 
 ### Night Cycle Orchestration
-- **Files**: `scripts/launch-night-cycle.sh`, `scripts/launch-worker.sh`, `workflows/night-cycle.md`, `.github/workflows/night-cycle.yml`
+- **Files**: `scripts/launch-night-cycle.sh`, `scripts/launch-worker.sh`, `system/workflows/night-cycle.md`, `.github/workflows/night-cycle.yml`
 - **Purpose**: Entry point that sequences all agents 11 pm–5 am. Coordinator mode runs full cycle; worker mode polls sprint log and executes assigned tasks only.
 - **Dependencies**: GitHub CLI (`gh`), all three MCP servers, GitHub Actions scheduler
 
@@ -183,7 +183,7 @@ The agency is a product; each game is an independent external git repository.
 | `scripts/launch-morning-report.sh` | GitHub Actions (`morning-report.yml`) at 5 am ET | Reporter only |
 | `scripts/launch-weekly-research.sh` | GitHub Actions (`weekly-research.yml`) Sunday 2 am ET | Market Researcher |
 | `scripts/apply-live-edit.sh` | Human invocation during day cycle | Records override → Builder live-edit branch |
-| `scripts/register-worker.sh` | One-time per machine | Creates `config/worker-id`, appends to `memory/workers.md` |
+| `scripts/register-worker.sh` | One-time per machine | Creates `system/config/worker-id`, appends to `memory/workers.md` |
 
 ---
 
@@ -207,9 +207,9 @@ The agency is a product; each game is an independent external git repository.
 - **Architect activation trigger**: CLAUDE.md says "once per new spec," but the night-cycle workflow's exact detection mechanism (how it knows a spec is new) is not explicit in scripts.
 - **QA playtest access**: `playtest-eval.md` implies QA runs Roblox Studio playtests — unclear if QA shares the same Studio MCP session as Builder or uses a separate one.
 - **Multi-machine coordinator**: `launch-night-cycle.sh` acts as coordinator, but the handoff protocol (how workers know when the sprint log is ready to poll) is in the runbook, not enforced by a locking mechanism in code.
-- **`config/worker-id` absence**: In single-machine mode the file may not exist; agents are expected to run all tasks, but the exact fallback behaviour is documented in AGENT.md per agent rather than centrally.
-- **Chrome MCP permitted sites**: `agents/researcher/sources.md` and `agents/market-researcher/sources.md` list authorised sources, but there is no enforcement layer — compliance is convention only.
-- **PR auto-merge rules**: `workflows/pr-review-protocol.md` defines auto-merge conditions, but it is unclear which GitHub Actions workflow or CI step actually triggers the merge after `qa-approved` is applied.
+- **`system/config/worker-id` absence**: In single-machine mode the file may not exist; agents are expected to run all tasks, but the exact fallback behaviour is documented in AGENT.md per agent rather than centrally.
+- **Chrome MCP permitted sites**: `system/agents/researcher/sources.md` and `system/agents/market-researcher/sources.md` list authorised sources, but there is no enforcement layer — compliance is convention only.
+- **PR auto-merge rules**: `system/workflows/pr-review-protocol.md` defines auto-merge conditions, but it is unclear which GitHub Actions workflow or CI step actually triggers the merge after `qa-approved` is applied.
 
 ---
 

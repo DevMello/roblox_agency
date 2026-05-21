@@ -38,16 +38,16 @@ fi
 _REPORTER_PROMPT="
 Read CLAUDE.md first.
 
-You are the Reporter agent. Read agents/reporter/AGENT.md for your full role specification.
+You are the Reporter agent. Read system/agents/reporter/AGENT.md for your full role specification.
 
 Your task: generate the morning report for ${TODAY}.
 
-Follow agents/reporter/prompts/morning-digest.md exactly:
+Follow system/agents/reporter/prompts/morning-digest.md exactly:
 1. Read all games/*/sprint-log.md files to collect last night's results
 2. Read memory/blockers.md for any active blockers to surface
 3. Read memory/decisions.md for any new architectural decisions made
 4. Read all games/*/progress.md for the append-only build history
-5. Use agents/reporter/prompts/tonights-plan.md to add the 'Tonight's Plan' section
+5. Use system/agents/reporter/prompts/tonights-plan.md to add the 'Tonight's Plan' section
 6. Write the complete report to ${REPORT_PATH}
 
 ${ABORT_CONTEXT}

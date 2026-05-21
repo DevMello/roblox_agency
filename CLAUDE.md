@@ -31,13 +31,13 @@ Identify which agent role you are filling before doing anything:
 
 | Role | AGENT.md location | Primary output |
 |------|------------------|---------------|
-| Architect | `agents/architect/AGENT.md` | Plan milestones + tasks via API |
-| Researcher | `agents/researcher/AGENT.md` | Inline research note + API cache |
-| Planner | `agents/planner/AGENT.md` | Sprint log via API |
-| Builder | `agents/builder/AGENT.md` | Game source files, PRs |
-| QA | `agents/qa/AGENT.md` | PR verdicts (`qa-approved` / `qa-failed`) |
-| Reporter | `agents/reporter/AGENT.md` | Morning report via API |
-| Market Researcher | `agents/market-researcher/AGENT.md` | Weekly reports via API |
+| Architect | `system/agents/architect/AGENT.md` | Plan milestones + tasks via API |
+| Researcher | `system/agents/researcher/AGENT.md` | Inline research note + API cache |
+| Planner | `system/agents/planner/AGENT.md` | Sprint log via API |
+| Builder | `system/agents/builder/AGENT.md` | Game source files, PRs |
+| QA | `system/agents/qa/AGENT.md` | PR verdicts (`qa-approved` / `qa-failed`) |
+| Reporter | `system/agents/reporter/AGENT.md` | Morning report via API |
+| Market Researcher | `system/agents/market-researcher/AGENT.md` | Weekly reports via API |
 
 If you are not sure which role to fill, ask the human before proceeding.
 
@@ -52,7 +52,7 @@ If you are not sure which role to fill, ask the human before proceeding.
 - **Never call `POST /api/v1/games/{game}/overrides`** except as Builder acting on an explicit human live-edit request.
 - **Never call plan, decisions, or blockers write endpoints** if you are Builder or QA (Builder uses blockers POST only for escalations; QA never writes to these).
 - **Never skip QA.** A PR must have `qa-approved` before it can be merged (except manual human merges of `live-edit` PRs).
-- **Never modify files in `agents/`, `config/`, `workflows/`, or `specs/`** unless you are explicitly asked to update the agency configuration itself (not a game task).
+- **Never modify files in `system/agents/`, `system/config/`, `system/workflows/`, or `system/specs/`** unless you are explicitly asked to update the agency configuration itself (not a game task).
 - **Never commit game files (anything under `games/*/`) to the agency repo** — game repos are external and gitignored.
 - **Never guess at a fundamental design question in a spec.** Flag ambiguity and stop — do not implement a guess.
 - **Never use `wait()`, `spawn()`, or `delay()` in Luau** — use `task.wait()`, `task.spawn()`, `task.delay()`.
@@ -67,9 +67,9 @@ If you are not sure which role to fill, ask the human before proceeding.
 - **Always check `memory/human-overrides.md` before generating a sprint** as Planner.
 - **Always `git pull --rebase origin main` before starting each task** as Builder — another worker may have completed a dependency.
 - **Always push sprint log updates immediately after each task** as Builder — `git push origin main`. If rejected, `git pull --rebase && git push`. Never batch sprint log updates.
-- **Always check `config/worker-id` at session start** as Builder — only execute tasks assigned to your worker ID (or all tasks if `worker_id` is null everywhere).
+- **Always check `system/config/worker-id` at session start** as Builder — only execute tasks assigned to your worker ID (or all tasks if `worker_id` is null everywhere).
 - **Never execute tasks assigned to a different worker** — task reassignment is Planner's job, not Builder's.
-- **Always write a heartbeat to `memory/workers/{worker-id}.md`** after each task if `config/worker-id` exists.
+- **Always write a heartbeat to `memory/workers/{worker-id}.md`** after each task if `system/config/worker-id` exists.
 
 ---
 
@@ -77,7 +77,7 @@ If you are not sure which role to fill, ask the human before proceeding.
 
 ```
 .github/workflows/       GitHub Actions (night cycle, morning report, weekly research)
-agents/
+system/agents/
   architect/             Spec → plan decomposition agent
   builder/               Code implementation agent (the only one that writes game files)
   market-researcher/     Weekly Roblox market analysis agent
@@ -85,7 +85,7 @@ agents/
   qa/                    PR validation agent
   reporter/              Morning digest and weekly summary agent
   researcher/            API/pattern/asset lookup agent (called by others)
-config/
+system/config/
   agent-limits.md        Token budgets, retry counts, cost guardrails
   mcp-servers.md         MCP server registry (URLs, auth, fallback policy)
   schedule.md            All time windows and agent activation order
@@ -118,9 +118,9 @@ scripts/
   launch-weekly-research.sh  Start the weekly research run
   launch-worker.sh       Worker mode — execute tasks assigned to this machine
   register-worker.sh     One-time machine registration for multi-worker mode
-specs/
+system/specs/
   template.md            Canonical spec format reference (active specs are in the DB — `GET /api/v1/specs/{game}`)
-workflows/
+system/workflows/
   day-cycle.md           Human reviewer guide
   live-edit-protocol.md  Live edit step-by-step protocol
   night-cycle.md         Night cycle authoritative runbook
@@ -155,18 +155,18 @@ All structured agent data is written through the HTTP API. The table below shows
 **Files that agents still read from disk (not in DB):**
 | File | Who reads |
 |------|----------|
-| `specs/template.md` | Architect (format reference only) |
-| `agents/researcher/sources.md` | Researcher |
-| `agents/market-researcher/sources.md` | Market Researcher |
-| `agents/reporter/templates/morning-report.md` | Reporter |
-| `config/worker-id` | Builder (worker identity) |
-| `agents/*/prompts/*.md` | All agents |
-| `agents/*/schemas/*.json` | All agents |
+| `system/specs/template.md` | Architect (format reference only) |
+| `system/agents/researcher/sources.md` | Researcher |
+| `system/agents/market-researcher/sources.md` | Market Researcher |
+| `system/agents/reporter/templates/morning-report.md` | Reporter |
+| `system/config/worker-id` | Builder (worker identity) |
+| `system/agents/*/prompts/*.md` | All agents |
+| `system/agents/*/schemas/*.json` | All agents |
 
 **Files humans still write to disk:**
 | File | Notes |
 |------|-------|
-| `agents/`, `config/`, `workflows/`, `specs/` | Agency config — human only |
+| `system/agents/`, `system/config/`, `system/workflows/`, `system/specs/` | Agency config — human only |
 
 **Spec is DB-only:** Game specs are stored in the `specs` table and accessed via `GET /api/v1/specs/{game}`. To create or update a spec, use `PUT /api/v1/specs/{game}` with `{"content": "..."}` or use the UI.
 
@@ -191,7 +191,7 @@ Example: `[sword-game] feat: add dash mechanic with server validation`
 
 ## MCP Servers
 
-All MCP operations go through these servers. See `config/mcp-servers.md` for full details.
+All MCP operations go through these servers. See `system/config/mcp-servers.md` for full details.
 
 | Server | Connection | Used by |
 |--------|-----------|---------|
@@ -274,44 +274,44 @@ curl -s -X POST http://localhost:7432/api/v1/games/industrial-tycoon/sprint-log 
 
 ## Prompts Are Instructions
 
-Files in `agents/*/prompts/` are step-by-step instructions for specific operations. When performing one of these operations, read the corresponding prompt file and follow it exactly. Do not improvise a process that already has a prompt.
+Files in `system/agents/*/prompts/` are step-by-step instructions for specific operations. When performing one of these operations, read the corresponding prompt file and follow it exactly. Do not improvise a process that already has a prompt.
 
 | Operation | Prompt file |
 |-----------|------------|
-| Parse a spec into a task tree | `agents/architect/prompts/parse-spec.md` |
-| Group tasks into milestones | `agents/architect/prompts/milestone-planner.md` |
-| Map task dependencies | `agents/architect/prompts/dependency-mapper.md` |
-| Generate nightly sprint | `agents/planner/prompts/nightly-sprint.md` |
-| Replan after a failure | `agents/planner/prompts/replan-on-failure.md` |
-| Triage a TBD PR | `agents/planner/prompts/pr-triage.md` |
-| Check human overrides before sprint | `agents/planner/prompts/override-check.md` |
-| Implement a feature task | `agents/builder/prompts/feature-impl.md` |
-| Fix a bug | `agents/builder/prompts/bug-fix.md` |
-| Integrate an asset | `agents/builder/prompts/asset-integration.md` |
-| Open a PR | `agents/builder/prompts/pr-creation.md` |
-| Apply a live edit | `agents/builder/prompts/live-edit.md` |
-| Validate a feature PR | `agents/qa/prompts/feature-test.md` |
-| Check for regressions | `agents/qa/prompts/regression-check.md` |
-| Run a playtest | `agents/qa/prompts/playtest-eval.md` |
-| Generate morning digest | `agents/reporter/prompts/morning-digest.md` |
-| Generate tonight's plan section | `agents/reporter/prompts/tonights-plan.md` |
-| Research an API | `agents/researcher/prompts/api-research.md` |
-| Research a Luau pattern | `agents/researcher/prompts/pattern-research.md` |
-| Find a marketplace asset | `agents/researcher/prompts/asset-research.md` |
-| Analyse a competitor mechanic | `agents/researcher/prompts/competitor-analysis.md` |
+| Parse a spec into a task tree | `system/agents/architect/prompts/parse-spec.md` |
+| Group tasks into milestones | `system/agents/architect/prompts/milestone-planner.md` |
+| Map task dependencies | `system/agents/architect/prompts/dependency-mapper.md` |
+| Generate nightly sprint | `system/agents/planner/prompts/nightly-sprint.md` |
+| Replan after a failure | `system/agents/planner/prompts/replan-on-failure.md` |
+| Triage a TBD PR | `system/agents/planner/prompts/pr-triage.md` |
+| Check human overrides before sprint | `system/agents/planner/prompts/override-check.md` |
+| Implement a feature task | `system/agents/builder/prompts/feature-impl.md` |
+| Fix a bug | `system/agents/builder/prompts/bug-fix.md` |
+| Integrate an asset | `system/agents/builder/prompts/asset-integration.md` |
+| Open a PR | `system/agents/builder/prompts/pr-creation.md` |
+| Apply a live edit | `system/agents/builder/prompts/live-edit.md` |
+| Validate a feature PR | `system/agents/qa/prompts/feature-test.md` |
+| Check for regressions | `system/agents/qa/prompts/regression-check.md` |
+| Run a playtest | `system/agents/qa/prompts/playtest-eval.md` |
+| Generate morning digest | `system/agents/reporter/prompts/morning-digest.md` |
+| Generate tonight's plan section | `system/agents/reporter/prompts/tonights-plan.md` |
+| Research an API | `system/agents/researcher/prompts/api-research.md` |
+| Research a Luau pattern | `system/agents/researcher/prompts/pattern-research.md` |
+| Find a marketplace asset | `system/agents/researcher/prompts/asset-research.md` |
+| Analyse a competitor mechanic | `system/agents/researcher/prompts/competitor-analysis.md` |
 
 ---
 
 ## Schemas Are Contracts
 
-Files in `agents/*/schemas/` define the exact shape of structured data. Any JSON output you produce for tasks, sprints, or milestones must be validated against the relevant schema before being written to disk.
+Files in `system/agents/*/schemas/` define the exact shape of structured data. Any JSON output you produce for tasks, sprints, or milestones must be validated against the relevant schema before being written to disk.
 
 | Schema | What it validates |
 |--------|------------------|
-| `agents/architect/schemas/task-tree.schema.json` | Task tree from Architect |
-| `agents/architect/schemas/milestone.schema.json` | Milestone objects in plan.md |
-| `agents/planner/schemas/sprint.schema.json` | Nightly sprint in sprint-log.md |
-| `agents/planner/schemas/task.schema.json` | Individual task in a sprint |
+| `system/agents/architect/schemas/task-tree.schema.json` | Task tree from Architect |
+| `system/agents/architect/schemas/milestone.schema.json` | Milestone objects in plan.md |
+| `system/agents/planner/schemas/sprint.schema.json` | Nightly sprint in sprint-log.md |
+| `system/agents/planner/schemas/task.schema.json` | Individual task in a sprint |
 
 ---
 
@@ -325,7 +325,7 @@ If you are Builder and hit a failure:
 
 The maximum attempt count for any task is 3. After 3 failed attempts, the task is permanently marked failed and goes to `memory/blockers.md`.
 
-If you are Planner and detect a failure, apply `agents/planner/prompts/replan-on-failure.md`.
+If you are Planner and detect a failure, apply `system/agents/planner/prompts/replan-on-failure.md`.
 
 ---
 
@@ -353,14 +353,14 @@ Every Luau script Builder writes must:
 - Have no magic numbers (use a constants module)
 - Validate all RemoteEvent server handlers against client arguments
 
-See `agents/qa/checklists/luau-lint.md` for the full 26-rule checklist QA applies.
+See `system/agents/qa/checklists/luau-lint.md` for the full 26-rule checklist QA applies.
 
 ---
 
 ## How to Start a New Game (Human Reference)
 
 1. Run `./scripts/new-game.sh {game-name}` — creates an external git repo cloned into `games/{game-name}/` and registers it in `games/registry.md`.
-2. Write the spec content using `specs/template.md` as a reference, then upload it: `PUT /api/v1/specs/{game-name}` with `{"content": "..."}`. Or use the UI spec editor.
+2. Write the spec content using `system/specs/template.md` as a reference, then upload it: `PUT /api/v1/specs/{game-name}` with `{"content": "..."}`. Or use the UI spec editor.
 3. Run `./scripts/launch-night-cycle.sh`
 
 The system detects the new spec (via the DB) automatically and runs Architect on the first night.

@@ -115,7 +115,7 @@ git commit -m "init: agency setup"
 bash scripts/new-game.sh your-game-name
 ```
 
-Use lowercase letters and hyphens only (e.g. `sword-game`, `tower-defense`). This creates `specs/your-game-name/spec.md` from the template and opens it in VS Code. Fill in every section — the Architect reads all of them. Save and close when done.
+Use lowercase letters and hyphens only (e.g. `sword-game`, `tower-defense`). This creates `system/specs/your-game-name/spec.md` from the template and opens it in VS Code. Fill in every section — the Architect reads all of them. Save and close when done.
 
 ### Step 3 — Run the Architect
 
@@ -152,7 +152,7 @@ Without the Studio MCP available (i.e. the batch file is missing or Studio is no
 
 ## How to Start a New Game
 
-1. Copy `specs/template.md` to `specs/{your-game-name}/spec.md`.
+1. Copy `system/specs/template.md` to `system/specs/{your-game-name}/spec.md`.
 2. Fill in all sections of the spec.
 3. Run:
    ```bash
@@ -201,7 +201,7 @@ The change is permanently recorded in `games/{game-name}/overrides.md` so Planne
 
 ## MCP Server Requirements
 
-Three MCP servers are required. See `config/mcp-servers.md` for full details.
+Three MCP servers are required. See `system/config/mcp-servers.md` for full details.
 
 | Server | Purpose |
 |--------|---------|
@@ -230,7 +230,7 @@ The **coordinator** runs the Planner, which reads the worker registry and pre-as
 bash scripts/register-worker.sh my-machine-name
 ```
 
-This creates a local `config/worker-id` file (gitignored) and adds the machine to `memory/workers.md` in the repo.
+This creates a local `system/config/worker-id` file (gitignored) and adds the machine to `memory/workers.md` in the repo.
 
 ### Running a multi-machine night cycle
 

@@ -120,15 +120,15 @@ for GAME in "${GAMES[@]}"; do
   _PLANNER_PROMPT="
 Read CLAUDE.md first.
 
-You are the Planner agent. Read agents/planner/AGENT.md for your full role specification.
+You are the Planner agent. Read system/agents/planner/AGENT.md for your full role specification.
 
 Your task: generate tonight's sprint for the game '${GAME}'.
 
-Follow agents/planner/prompts/nightly-sprint.md exactly:
-1. Run the override check using agents/planner/prompts/override-check.md
+Follow system/agents/planner/prompts/nightly-sprint.md exactly:
+1. Run the override check using system/agents/planner/prompts/override-check.md
 2. Read memory/blockers.md and exclude blocked tasks
 3. Read games/${GAME}/plan.md and select tonight's tasks (fit within 288 estimated minutes)
-4. Run Step 5.5 — worker assignment using agents/planner/prompts/worker-assignment.md
+4. Run Step 5.5 — worker assignment using system/agents/planner/prompts/worker-assignment.md
    Read memory/workers.md to find available workers (last_seen within 2 hours, status active).
    Assign worker_id to each task and set active_workers on the sprint.
    If no active workers found, set worker_id: null on all tasks (single-machine mode).
@@ -164,7 +164,7 @@ for GAME in "${GAMES[@]}"; do
   _BUILDER_PROMPT="
 Read CLAUDE.md first — follow all rules there absolutely.
 
-You are the Builder agent running as worker '${WORKER_ID}'. Read agents/builder/AGENT.md for your full role specification.
+You are the Builder agent running as worker '${WORKER_ID}'. Read system/agents/builder/AGENT.md for your full role specification.
 
 Your task: execute tasks assigned to worker '${WORKER_ID}' in tonight's sprint for game '${GAME}'.
 
@@ -179,9 +179,9 @@ For each task assigned to you (in order):
 3. Check that hard dependencies are satisfied (deps may be done by other workers — check their status)
    - If a hard dependency is not yet done and is on another worker: wait up to 30 min (pull every 2 min)
 4. Use the appropriate prompt:
-   - Feature tasks: agents/builder/prompts/feature-impl.md
-   - Bug fixes:     agents/builder/prompts/bug-fix.md
-   - Asset tasks:   agents/builder/prompts/asset-integration.md
+   - Feature tasks: system/agents/builder/prompts/feature-impl.md
+   - Bug fixes:     system/agents/builder/prompts/bug-fix.md
+   - Asset tasks:   system/agents/builder/prompts/asset-integration.md
 5. Create a git branch, implement the task, commit, open a PR via gh CLI (or commit locally only if gh is not authenticated)
 6. Update the task status in games/${GAME}/sprint-log.md to 'done'
 7. Push sprint log update immediately: commit and git push origin main (pull --rebase if rejected)
@@ -210,7 +210,7 @@ for GAME in "${GAMES[@]}"; do
   _QA_PROMPT="
 Read CLAUDE.md first and follow every absolute rule in it without exception.
 
-You are the QA agent. Read agents/qa/AGENT.md for your full role specification.
+You are the QA agent. Read system/agents/qa/AGENT.md for your full role specification.
 
 Your task: run QA on every open PR opened by Builder during tonight's sprint for game '${GAME}'.
 
@@ -219,10 +219,10 @@ Your task: run QA on every open PR opened by Builder during tonight's sprint for
    a. Check labels: gh pr view {pr_number} --json labels -q '.labels[].name'
       Skip any PR already labelled 'qa-approved' or 'qa-failed'.
    b. Run all checks in sequence (stop at Check 1 if it has a blocking failure, but note the skip):
-      - Luau lint:        agents/qa/checklists/luau-lint.md
-      - Feature test:     agents/qa/prompts/feature-test.md
-      - Regression check: agents/qa/prompts/regression-check.md
-      - Playtest eval:    agents/qa/prompts/playtest-eval.md
+      - Luau lint:        system/agents/qa/checklists/luau-lint.md
+      - Feature test:     system/agents/qa/prompts/feature-test.md
+      - Regression check: system/agents/qa/prompts/regression-check.md
+      - Playtest eval:    system/agents/qa/prompts/playtest-eval.md
         Roblox Studio MCP available: ${STUDIO_OK}
         If STUDIO_OK is 'no', skip playtest-eval and note it in the verdict.
    c. Apply the verdict:

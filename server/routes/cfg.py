@@ -109,7 +109,7 @@ async def get_workers():
 @router.get("/limits")
 async def get_limits():
     try:
-        return {"content": _repo().read_file("config/agent-limits.md")}
+        return {"content": _repo().read_file("system/config/agent-limits.md")}
     except Exception: return {"content": ""}
 
 @router.get("/ws/status")

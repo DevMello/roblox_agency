@@ -85,7 +85,7 @@ log "Invoking Builder for live edit..."
 log "Builder will:"
 log "  1. Log the request to memory/human-overrides.md FIRST"
 log "  2. Create a live/${GAME}/... branch"
-log "  3. Implement the change (following agents/builder/prompts/live-edit.md)"
+log "  3. Implement the change (following system/agents/builder/prompts/live-edit.md)"
 log "  4. Commit and open a PR via gh CLI (or leave a local branch if gh is not authenticated)"
 log ""
 
@@ -93,8 +93,8 @@ _BRANCH_SLUG=$(echo "${CHANGE_REQUEST}" | tr '[:upper:] ' '[:lower:]-' | tr -cd 
 _LIVE_PROMPT="
 Read CLAUDE.md first — follow all rules absolutely.
 
-You are the Builder agent. Read agents/builder/AGENT.md for your full role specification.
-Then read agents/builder/prompts/live-edit.md and follow it exactly.
+You are the Builder agent. Read system/agents/builder/AGENT.md for your full role specification.
+Then read system/agents/builder/prompts/live-edit.md and follow it exactly.
 
 LIVE EDIT REQUEST
 Game:      ${GAME}
@@ -106,7 +106,7 @@ Steps:
 2. Append this live edit request to memory/human-overrides.md with status 'active'
 3. Read games/${GAME}/plan.md and games/${GAME}/sprint-log.md for context
 4. Create branch: live/${GAME}/${_BRANCH_SLUG}
-5. Implement the change following agents/builder/prompts/live-edit.md
+5. Implement the change following system/agents/builder/prompts/live-edit.md
 6. Commit with message: [${GAME}] live: ${CHANGE_REQUEST}
 7. Open a PR labelled 'live-edit' via gh CLI (if gh is authenticated) or log the local branch name
 

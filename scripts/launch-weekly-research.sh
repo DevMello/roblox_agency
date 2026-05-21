@@ -56,28 +56,28 @@ log ""
 _RESEARCHER_PROMPT="
 Read CLAUDE.md first.
 
-You are the Market Researcher agent. Read agents/market-researcher/AGENT.md for your full role specification.
+You are the Market Researcher agent. Read system/agents/market-researcher/AGENT.md for your full role specification.
 
 Your task: run the full weekly research cycle for week ${YEAR_WEEK}.
 
 Follow these steps in order. Use the prompt files listed for each step.
 
-Step 1 — Trending scan (agents/market-researcher/prompts/trending-scan.md):
+Step 1 — Trending scan (system/agents/market-researcher/prompts/trending-scan.md):
   Browse Roblox charts and identify the top trending games this week.
   Note genres, player counts, update frequency, and monetisation signals.
   Chrome MCP availability: ${CHROME_OK}
   If Chrome MCP is unavailable, use the WebSearch tool instead.
 
-Step 2 — Revenue analysis (agents/market-researcher/prompts/revenue-analysis.md):
+Step 2 — Revenue analysis (system/agents/market-researcher/prompts/revenue-analysis.md):
   For the top 10 trending games, estimate revenue signals:
   pass prices, gamepass names, developer product patterns, and UGC items.
 
-Step 3 — Gap analysis (agents/market-researcher/prompts/gap-analysis.md):
+Step 3 — Gap analysis (system/agents/market-researcher/prompts/gap-analysis.md):
   Read games/*/plan.md to understand what we are already building.
   Identify underserved niches: genres with demand but few quality options.
   Flag conflicts: do not recommend ideas that duplicate active games.
 
-Step 4 — Idea generation (agents/market-researcher/prompts/idea-generation.md):
+Step 4 — Idea generation (system/agents/market-researcher/prompts/idea-generation.md):
   Generate 3-5 concrete game ideas with full spec-ready fields:
     - Concept name and one-line pitch
     - Core game loop (30s / 5min / session)

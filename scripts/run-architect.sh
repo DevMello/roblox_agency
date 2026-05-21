@@ -58,7 +58,7 @@ _ARCH_LOG="${LOG_DIR}/architect-${GAME}-$(date +%Y-%m-%d).log"
 _ARCH_PROMPT="
 Read CLAUDE.md first — it contains rules that apply to all agents.
 
-You are the Architect agent. Read agents/architect/AGENT.md for your full role specification.
+You are the Architect agent. Read system/agents/architect/AGENT.md for your full role specification.
 
 Your task:
 - Game name: ${GAME}
@@ -67,10 +67,10 @@ Your task:
 
 Execute the Architect role exactly as described in your AGENT.md:
 1. Read the spec at ${SPEC_FILE}
-2. Use agents/architect/prompts/parse-spec.md to build the task tree
-3. Use agents/architect/prompts/dependency-mapper.md to map dependencies
-4. Use agents/architect/prompts/milestone-planner.md to group into milestones
-5. Validate your output against agents/architect/schemas/task-tree.schema.json and agents/architect/schemas/milestone.schema.json
+2. Use system/agents/architect/prompts/parse-spec.md to build the task tree
+3. Use system/agents/architect/prompts/dependency-mapper.md to map dependencies
+4. Use system/agents/architect/prompts/milestone-planner.md to group into milestones
+5. Validate your output against system/agents/architect/schemas/task-tree.schema.json and system/agents/architect/schemas/milestone.schema.json
 6. Write the complete plan to ${PLAN_FILE}
 7. Append any significant architectural decisions to memory/decisions.md
 

@@ -12,7 +12,7 @@
 #   - claude CLI on PATH
 #   - git on PATH, configured to access the shared remote
 #   - Python 3 on PATH (command may be 'python3' or 'python' — detected automatically)
-#   - register-worker.sh must have been run at least once (creates config/worker-id)
+#   - register-worker.sh must have been run at least once (creates system/config/worker-id)
 #   - Same git remote as the coordinator machine
 
 set -euo pipefail
@@ -193,7 +193,7 @@ EOF
   _WORKER_PROMPT="
 Read CLAUDE.md first — follow all rules there absolutely.
 
-You are the Builder agent running as worker '${WORKER_ID}'. Read agents/builder/AGENT.md for your full role specification.
+You are the Builder agent running as worker '${WORKER_ID}'. Read system/agents/builder/AGENT.md for your full role specification.
 
 Your task: execute tasks assigned to worker '${WORKER_ID}' in tonight's sprint for game '${GAME}'.
 
@@ -208,9 +208,9 @@ For each task assigned to you (in order):
 3. Check that hard dependencies are satisfied (deps may be done by other workers — check their status in the sprint log after pulling)
    - If a hard dependency is not yet done: wait up to 30 minutes (pull every 2 min). If still not done after 30 min, mark this task blocked with reason 'cross-worker dependency stalled'
 4. Use the appropriate prompt:
-   - Feature tasks: agents/builder/prompts/feature-impl.md
-   - Bug fixes:     agents/builder/prompts/bug-fix.md
-   - Asset tasks:   agents/builder/prompts/asset-integration.md
+   - Feature tasks: system/agents/builder/prompts/feature-impl.md
+   - Bug fixes:     system/agents/builder/prompts/bug-fix.md
+   - Asset tasks:   system/agents/builder/prompts/asset-integration.md
 5. Create a git branch, implement the task, commit, open a PR via gh CLI (or commit locally only if gh is not authenticated)
 6. Update the task status in ${SPRINT_LOG} to 'done'
 7. Commit the sprint log update and push immediately: git push origin main (retry once if rejected with: git pull --rebase && git push)

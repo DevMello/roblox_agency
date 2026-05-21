@@ -255,7 +255,7 @@ export default function Prompt() {
           style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
         >
           <div className="row" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-            <div className="t-mono t-xs t-muted">specs/{slug}/spec.md</div>
+            <div className="t-mono t-xs t-muted">system/specs/{slug}/spec.md</div>
             <div className="spacer" />
             {generating ? (
               <div className="row gap-6">
