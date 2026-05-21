@@ -1,8 +1,8 @@
 // Page 8 · /config — Health dashboard (MCP cards, skills, workers, usage)
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchJson, API } from '../utils/api'
-import type { Run } from '../types'
+import { useRunList } from '../hooks/useRun'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,11 +329,7 @@ export default function Config() {
     staleTime: 5 * 60_000,
   })
 
-  const runsQuery = useQuery<Run[]>({
-    queryKey: ['runs', 'recent'],
-    queryFn: () => fetchJson<Run[]>(`${API}/runs/`),
-    staleTime: 60_000,
-  })
+  const runsQuery = useRunList()
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -411,10 +407,13 @@ export default function Config() {
   const spendVal = calcUsage ? fmtCost(usage?.spend_7d) : '—'
   const tokensVal = calcUsage ? fmtTokens(usage?.tokens_24h) : '—'
 
-  const sevenDaysAgo = Date.now() - 7 * 86_400_000
-  const buildsVal = runsQuery.data
-    ? String(runsQuery.data.filter(r => r.status === 'completed' && r.ended_at && new Date(r.ended_at).getTime() > sevenDaysAgo).length)
-    : '—'
+  const buildsVal = useMemo(() => {
+    if (!runsQuery.data) return '—'
+    const cutoff = Date.now() - 7 * 86_400_000
+    return String(runsQuery.data.filter(r =>
+      r.status === 'completed' && r.ended_at && new Date(r.ended_at).getTime() > cutoff
+    ).length)
+  }, [runsQuery.data])
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
