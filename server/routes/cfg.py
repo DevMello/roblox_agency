@@ -3,12 +3,15 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import logging
 import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 from server.db import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["config"])
 
@@ -72,18 +75,40 @@ async def get_env():
     env_example = cfg.REPO_ROOT / ".env.example"
     if not env_example.exists():
         return []
+    try:
+        text = env_example.read_text(encoding="utf-8")
+    except OSError:
+        logger.exception("Failed to read .env.example")
+        return []
     result = []
-    for line in env_example.read_text().splitlines():
+    for line in text.splitlines():
         line = line.strip()
-        if not line or line.startswith("#"): continue
+        if not line or line.startswith("#"):
+            continue
         if "=" in line:
-            key = line.split("=")[0].strip()
-            result.append({"key": key, "has_value": bool(os.environ.get(key))})
+            key = line.split("=", 1)[0].strip()
+            if key:
+                result.append({"key": key, "has_value": bool(os.environ.get(key))})
     return result
 
 def _repo():
     from server.services.repo import repo_service
     return repo_service
+
+
+def _parse_workers_md(text: str) -> list[dict]:
+    """Parse a markdown table of workers into a list of dicts."""
+    workers: list[dict] = []
+    lines = [s for l in text.splitlines() if (s := l.strip()).startswith("|")]
+    if len(lines) < 2:
+        return workers
+    headers = [h.strip() for h in lines[0].strip("|").split("|")]
+    for row in lines[2:]:  # skip header and separator
+        cells = [c.strip() for c in row.strip("|").split("|")]
+        if len(cells) == len(headers):
+            workers.append(dict(zip(headers, cells)))
+    return workers
+
 
 @router.get("/workers")
 async def get_workers():
@@ -97,12 +122,14 @@ async def get_workers():
                 workers = [dict(r) for r in rows]
                 return {"workers": workers, "source": "db"}
     except Exception:
-        pass
+        logger.exception("workers DB query failed")
     # Fallback: read memory/workers.md
     from server import config as cfg
     md_path = cfg.REPO_ROOT / "memory" / "workers.md"
     try:
-        return {"workers": [], "raw": md_path.read_text(encoding="utf-8"), "source": "markdown"}
+        raw = md_path.read_text(encoding="utf-8")
+        parsed = _parse_workers_md(raw)
+        return {"workers": parsed, "source": "markdown"}
     except OSError:
         return {"workers": [], "source": "empty"}
 
@@ -210,35 +237,40 @@ async def patch_settings(body: dict):
 # ── Usage (ccusage) ────────────────────────────────────────────────────────────
 
 async def _run_ccusage(*args: str) -> dict:
-    """Run ccusage subcommand with --json, return parsed dict or error dict."""
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "npx", "ccusage@latest", *args, "--json",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=90)
-        raw_out = stdout.decode("utf-8", errors="replace").strip()
-        raw_err = stderr.decode("utf-8", errors="replace").strip()
-        if proc.returncode != 0:
-            return {"error": "ccusage failed", "detail": raw_err}
+    """Run ccusage subcommand with --json. Tries global binary first, then npx."""
+    for cmd in (["ccusage", *args, "--json"], ["npx", "ccusage@latest", *args, "--json"]):
         try:
-            return json.loads(raw_out)
-        except json.JSONDecodeError:
-            return {"error": "ccusage output not valid JSON", "raw": raw_out[:2000]}
-    except asyncio.TimeoutError:
-        return {"error": "ccusage timed out after 90 s"}
-    except FileNotFoundError:
-        return {"error": "npx not found — make sure Node.js is installed"}
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=90)
+            raw_out = stdout.decode("utf-8", errors="replace").strip()
+            raw_err = stderr.decode("utf-8", errors="replace").strip()
+            if proc.returncode != 0:
+                return {"error": "ccusage failed", "detail": raw_err or raw_out}
+            try:
+                return json.loads(raw_out)
+            except json.JSONDecodeError:
+                return {"error": "ccusage output not valid JSON", "raw": raw_out[:2000]}
+        except asyncio.TimeoutError:
+            return {"error": "ccusage timed out after 90 s"}
+        except FileNotFoundError:
+            continue  # try next command
+    return {"error": "ccusage not found — install with: npm install -g ccusage"}
 
 
 @router.get("/usage")
 async def get_usage():
     data = await _run_ccusage("daily")
-    if "error" in data:
-        return data
-
-    daily: list[dict] = data.get("daily", [])
+    # ccusage may return a list directly or {"daily": [...]}
+    if isinstance(data, list):
+        daily: list[dict] = data
+    else:
+        if "error" in data:
+            return data
+        daily = data.get("daily", data.get("data", []))
     today = datetime.date.today()
     week_ago = today - datetime.timedelta(days=7)
 
@@ -267,8 +299,7 @@ async def get_usage():
     # include last 7 days for sparkline
     recent = [
         e for e in daily
-        if _try_date(e.get("period", "")) is not None
-        and _try_date(e.get("period", "")) >= week_ago  # type: ignore[operator]
+        if (d := _try_date(e.get("period", ""))) is not None and d >= week_ago
     ]
 
     return {
@@ -280,6 +311,30 @@ async def get_usage():
         "cache_read_24h": cache_read_24h,
         "daily": recent,
     }
+
+
+@router.get("/usage/debug")
+async def get_usage_debug():
+    """Return raw ccusage output for troubleshooting."""
+    for cmd in (["ccusage", "daily", "--json"], ["npx", "ccusage@latest", "daily", "--json"]):
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=90)
+            return {
+                "cmd": cmd,
+                "returncode": proc.returncode,
+                "stdout": stdout.decode("utf-8", errors="replace")[:5000],
+                "stderr": stderr.decode("utf-8", errors="replace")[:2000],
+            }
+        except FileNotFoundError:
+            continue
+        except asyncio.TimeoutError:
+            return {"cmd": cmd, "error": "timeout"}
+    return {"error": "ccusage not found"}
 
 
 def _try_date(s: str):

@@ -1,16 +1,20 @@
-from fastapi import APIRouter, HTTPException
-from server import config as cfg
-from server.services.process import process_manager
-import sqlite3, uuid, sys
+from __future__ import annotations
 
+import logging
+import sys
+import uuid
+
+from fastapi import APIRouter, HTTPException
+
+from server import config as cfg
+from server.db import get_db
+from server.services.process import process_manager
 from server.utils import now as _now_str
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["runs"])
 
-def _db():
-    conn = sqlite3.connect(str(cfg.DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
 
 def _script_cmd(name: str) -> list[str]:
     script = str(cfg.REPO_ROOT / "scripts" / name)
@@ -19,7 +23,7 @@ def _script_cmd(name: str) -> list[str]:
     return [script]
 
 def _save_run(run_id, game, script, pid):
-    with _db() as conn:
+    with get_db() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO runs (id, game, script, status, started_at, pid) VALUES (?,?,?,?,?,?)",
             (run_id, game, script, "running", _now_str(), pid)
@@ -36,10 +40,12 @@ def _launch(script: str, game: str, extra_args: list | None = None) -> str:
 @router.get("/")
 async def list_runs():
     try:
-        with _db() as conn:
+        with get_db() as conn:
             rows = conn.execute("SELECT * FROM runs ORDER BY started_at DESC LIMIT 50").fetchall()
             return [dict(r) for r in rows]
-    except Exception: return []
+    except Exception:
+        logger.exception("Failed to list runs")
+        return []
 
 @router.get("/{run_id}")
 async def get_run(run_id: str):
@@ -47,8 +53,9 @@ async def get_run(run_id: str):
         logs = process_manager.tail(run_id, 200)
         alive = process_manager.is_running(run_id)
     except Exception:
+        logger.exception("Failed to fetch logs/status for run %s", run_id)
         logs, alive = [], False
-    with _db() as conn:
+    with get_db() as conn:
         row = conn.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
     if not row:
         raise HTTPException(404)
@@ -59,6 +66,7 @@ async def get_logs(run_id: str, n: int = 200):
     try:
         return {"logs": process_manager.tail(run_id, n)}
     except Exception:
+        logger.exception("Failed to tail logs for run %s", run_id)
         return {"logs": []}
 
 @router.post("/night-cycle/{game}")
@@ -97,7 +105,7 @@ async def kill_run(run_id: str):
     try:
         killed = process_manager.kill(run_id)
         if killed:
-            with _db() as conn:
+            with get_db() as conn:
                 conn.execute("UPDATE runs SET status='killed' WHERE id=?", (run_id,))
         return {"killed": killed}
     except Exception as e:

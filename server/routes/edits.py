@@ -1,21 +1,30 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException
-import datetime, re, sqlite3, uuid
+import re, uuid
+
+from server.db import get_db
 
 router = APIRouter(tags=["edits"])
+
 
 def _repo():
     from server.services.repo import repo_service
     return repo_service
 
+
 @router.get("/")
 async def list_edits():
     try:
-        from server import config as cfg
-        with sqlite3.connect(str(cfg.DB_PATH)) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT * FROM ui_comments ORDER BY created_at DESC LIMIT 50").fetchall()
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT id, scope, game_slug, type, requested_by, request,"
+                " affected_files, status, created_at"
+                " FROM human_overrides ORDER BY created_at DESC LIMIT 50"
+            ).fetchall()
             return [dict(r) for r in rows]
-    except Exception: return []
+    except Exception:
+        return []
 
 @router.post("/{game}")
 async def submit_edit(game: str, body: dict):
