@@ -25,6 +25,10 @@
 #   CODEX_MODEL                  --model flag for codex
 #   GEMINI_MODEL                 --model flag for gemini
 #   OPENCODE_MODEL               --model flag for opencode
+#   CLAUDE_FLAGS                 extra flags for claude (space-separated; default: --dangerously-skip-permissions)
+#   CODEX_FLAGS                  extra flags for codex
+#   GEMINI_FLAGS                 extra flags for gemini
+#   OPENCODE_FLAGS               extra flags for opencode
 #   AGENT_TOOL_ARCHITECT         per-role override
 #   AGENT_TOOL_PLANNER
 #   AGENT_TOOL_BUILDER
@@ -108,25 +112,35 @@ _invoke_tool() {
   local cmd=()
   case "$tool" in
     claude)
-      cmd=(claude --dangerously-skip-permissions)
+      cmd=(claude)
+      # Extra flags from .env (default: --dangerously-skip-permissions if unset)
+      local claude_flags="${CLAUDE_FLAGS:---dangerously-skip-permissions}"
+      # shellcheck disable=SC2206
+      [[ -n "$claude_flags" ]] && cmd+=($claude_flags)
       [[ -n "${CLAUDE_MODEL:-}" ]] && cmd+=(--model "$CLAUDE_MODEL")
       cmd+=(-p "$prompt")
       ;;
     codex)
-      # OpenAI Codex CLI — -a never suppresses interactive approval prompts
-      cmd=(codex -a never exec)
+      cmd=(codex)
+      local codex_flags="${CODEX_FLAGS:--a never exec}"
+      # shellcheck disable=SC2206
+      [[ -n "$codex_flags" ]] && cmd+=($codex_flags)
       [[ -n "${CODEX_MODEL:-}" ]] && cmd+=(--model "$CODEX_MODEL")
       cmd+=("$prompt")
       ;;
     gemini)
-      # Google Gemini CLI
       cmd=(gemini)
+      local gemini_flags="${GEMINI_FLAGS:-}"
+      # shellcheck disable=SC2206
+      [[ -n "$gemini_flags" ]] && cmd+=($gemini_flags)
       [[ -n "${GEMINI_MODEL:-}" ]] && cmd+=(--model "$GEMINI_MODEL")
       cmd+=(-p "$prompt")
       ;;
     opencode)
-      # OpenCode — open-source multi-backend CLI
       cmd=(opencode)
+      local opencode_flags="${OPENCODE_FLAGS:-}"
+      # shellcheck disable=SC2206
+      [[ -n "$opencode_flags" ]] && cmd+=($opencode_flags)
       [[ -n "${OPENCODE_MODEL:-}" ]] && cmd+=(--model "$OPENCODE_MODEL")
       cmd+=(-p "$prompt")
       ;;
