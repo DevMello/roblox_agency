@@ -9,9 +9,9 @@ You are the Architect agent. Your job in this step is to take a completed task t
 Group tasks by **feature area first, then dependency order**:
 
 1. Identify which tasks belong to the same player-facing feature. Tasks that serve the same feature should be in the same milestone unless a dependency forces one to precede the other.
-2. Order milestones by dependency: if Milestone B requires any task from Milestone A to be done first, Milestone A must come earlier.
-3. Infrastructure and config tasks (DataStore schema, RemoteEvent declarations, constants modules) go in the earliest milestone they are needed, because everything downstream depends on them.
-4. Asset tasks may be deferred one milestone later than their dependent scripting task if the scripting task can work with a placeholder asset. Document this when it happens.
+2. Order milestones by dependency: if Milestone B requires any task from Milestone A, Milestone A comes first.
+3. Infrastructure and config tasks go in the earliest milestone they are needed.
+4. Asset tasks may be deferred one milestone later than their dependent scripting task if the scripting task can work with a placeholder. Document this when it happens.
 
 ---
 
@@ -19,63 +19,54 @@ Group tasks by **feature area first, then dependency order**:
 
 For each milestone:
 1. Sum the `estimated_minutes` of all tasks in the milestone.
-2. Add a 25% buffer for overhead (commit, PR, QA review round-trips).
-3. Divide by 240 (the usable Builder minutes in a 4-hour effective build window).
-4. Round up to the nearest whole number. That is the estimated night count.
+2. Add a 25% buffer for overhead.
+3. Divide by 240 (usable Builder minutes in a 4-hour effective build window).
+4. Round up to the nearest whole number.
 
 **Milestone sizing rules:**
-- Minimum: 1 night. If a milestone is smaller, merge it with an adjacent milestone.
-- Maximum: 5 nights. If a milestone exceeds 5 nights, split it into two milestones at a logical feature boundary.
-- No milestone should contain fewer than 2 tasks or more than 15 tasks.
+- Minimum: 1 night. If smaller, merge with an adjacent milestone.
+- Maximum: 5 nights. If larger, split at a logical feature boundary.
+- No milestone should have fewer than 2 tasks or more than 15 tasks.
 
 ---
 
 ## Critical Path
 
-Identify the critical path:
-- The critical path is the sequence of milestones where each one blocks the next.
-- Mark critical-path milestones with `"critical_path": true` in the milestone schema.
-- At least one milestone must be on the critical path (usually the first one, which sets up core infrastructure).
-- Milestones not on the critical path are "parallel" milestones that could theoretically run concurrently — note this even though the current system runs them sequentially.
-
----
-
-## Milestone Definition
-
-Each milestone must include:
-- `milestone_id` — format: `{game-slug}-m{number}` (e.g. `sword-game-m1`).
-- `name` — short, human-readable name (e.g. "Core Movement and Dash", "Leaderboard and DataStore").
-- `goal` — one sentence: what can a player do when this milestone is complete that they could not do before?
-- `task_ids` — ordered list of task IDs in the recommended execution sequence.
-- `estimated_nights` — integer, 1–5.
-- `success_criteria` — a list of 2–5 testable statements that define when this milestone is done (e.g. "Player can dash in all four directions without clipping through walls").
-- `status` — set to `pending` for all new milestones.
-- `critical_path` — boolean.
+Identify the critical path — the sequence of milestones where each blocks the next. Mark critical-path milestones with `"critical_path": true`. At least one milestone must be on the critical path.
 
 ---
 
 ## Writing the Plan
 
-Write the complete milestone list to `games/{game-name}/plan.md` in this structure:
+For each milestone, call:
 
+```bash
+curl -s -X POST "http://localhost:7432/api/v1/games/{game}/plan/milestones" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "{game-slug}-m{number}",
+    "title": "{short name}",
+    "goal": "{one sentence — what can a player do when this milestone is complete?}",
+    "estimated_nights": N,
+    "status": "pending",
+    "critical_path": true|false
+  }'
 ```
-# {Game Name} — Plan
 
-## Status
-Active milestone: {milestone name}
-Last updated: {date}
+Then update game state to reflect the plan:
 
-## Milestones
-[ordered list of milestone summaries]
-
-## Task Index
-[full task list with status, cross-referenced to milestones]
-
-## Dependency Summary
-[paste the output of the dependency-mapper step]
-
-## Changelog
-[one entry per plan creation or update, with date and reason]
+```bash
+curl -s -X PUT "http://localhost:7432/api/v1/games/{game}/state" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phase": "planning",
+    "active_milestone": "{game-slug}-m1",
+    "tasks_total": N,
+    "tasks_pending": N,
+    "tasks_done": 0,
+    "tasks_failed": 0,
+    "tasks_blocked": 0
+  }'
 ```
 
 ---

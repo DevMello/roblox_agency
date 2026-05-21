@@ -32,7 +32,12 @@ A mechanic gap exists when:
 
 ## Step 3: Cross-Reference Against Active Games
 
-Read `games/registry.md` to get the list of active game names. For each game listed, read `games/{game-name}/spec.md` to understand what is already being built by this agency.
+Fetch the list of active games:
+```bash
+curl -s "http://localhost:7432/api/v1/games/"
+```
+
+For each game listed, read `games/{game-name}/spec.md` to understand what is already being built by this agency.
 
 For each gap identified, check: does any game currently in development already address this gap? If yes, remove the gap from the shortlist — do not propose a game that duplicates active work.
 

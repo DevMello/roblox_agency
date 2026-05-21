@@ -19,9 +19,17 @@ Categorise each touched file:
 
 For each modified or deleted file:
 
-1. Read `games/{game-name}/progress.md`. Search the log for any entry that mentions the touched file by name. These represent previously completed tasks that used this file.
-2. Read `games/{game-name}/sprint-log.md` from past nights (if available) for the same.
-3. Use the task dependency map in `games/{game-name}/plan.md` to identify tasks that list the affected task as a dependency.
+1. Fetch the progress log:
+   ```bash
+   curl -s "http://localhost:7432/api/v1/games/{game}/progress"
+   ```
+   Search the `entries` array for any `message` that mentions the touched file by name. These represent previously completed tasks that used this file.
+
+2. Fetch the plan task dependencies:
+   ```bash
+   curl -s "http://localhost:7432/api/v1/games/{game}/plan"
+   ```
+   Identify tasks that list the affected task ID in their `depends_on` array (stored in `task_dependencies` via the plan response).
 
 Build a list: **{file} → {feature tasks that may be affected}**
 
@@ -81,9 +89,9 @@ BLOCK — a confirmed regression: {specific file and function that is now broken
 
 ## Block Criteria
 
-Block (do not approve) only if a **confirmed regression** is identified — meaning:
-- A function that other merged scripts call has been removed or its signature changed in a way that will cause a runtime error.
+Block only if a **confirmed regression** is identified:
+- A function that other merged scripts call has been removed or its signature changed.
 - A RemoteEvent name that other merged scripts reference has been changed.
-- A DataStore key that player data is stored under has been changed (data loss risk — escalate to human).
+- A DataStore key that player data is stored under has been changed (escalate to human).
 
-A risk of regression (medium risk) does not block the PR. It is reported so the playtest eval can verify it.
+A risk of regression (medium risk) does not block the PR — it is reported for the playtest eval.

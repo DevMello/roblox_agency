@@ -1,82 +1,78 @@
 # Prompt: Override Check
 
-You are the Planner agent. Before generating tonight's sprint, you must scan both override files and ensure the sprint does not contradict any human decision.
+You are the Planner agent. Before generating tonight's sprint, you must scan all active human overrides and ensure the sprint does not contradict any human decision.
 
-There are two override files to check:
-- `memory/human-overrides.md` — agency-level overrides that apply across all games.
-- `games/{game-name}/memory/human-overrides.md` — game-level overrides scoped to a specific game. Check this file for each active game. If the file does not exist for a game, skip it (no game-level overrides are in effect for that game).
+The API returns game-level and agency-level overrides combined in a single call — there is no need to read separate files.
 
 ---
 
 ## Step 1: Read Override Entries
 
-Read the full `memory/human-overrides.md` file AND `games/{game-name}/memory/human-overrides.md` for each active game. Treat entries from both files as a unified set of constraints. For each entry from either file:
-- Check the `active` field. Entries marked `superseded` are no longer in force and can be skipped.
-- Read the `description` to understand what the human changed or prohibited.
-- Read the `affected_files` to identify which files or features this override covers.
-- Note the source file so you can cite it accurately in the conflict report.
+For each active game, fetch all overrides:
+
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/overrides"
+```
+
+The response contains an `entries` array. For each entry:
+- Check the `status` field. Entries marked `superseded` are no longer in force — skip them.
+- Read the `request` field to understand what the human changed or prohibited.
+- Read the `affected_files` array to identify which files or features this override covers.
+- Note the `scope` field (`game` or `agency`) for your conflict report.
 
 ---
 
 ## Step 2: Match Overrides Against Planned Tasks
 
-For each active override, scan the candidate task pool (tasks you are considering for tonight's sprint):
+For each active override, scan the candidate task pool:
 
 Match by any of these criteria:
 - **Feature name:** Does any task's title or description mention the same feature the override covers?
 - **File path:** Does any task plan to modify a file listed in the override's `affected_files`?
-- **Tag or area:** Does any task's type or description match the area the override describes (e.g. "monetisation", "leaderboard", "spawn system")?
+- **Tag or area:** Does any task's type or description match the area the override describes?
 
-If a match is found, proceed to Step 3. If no matches are found, write a note in the sprint log confirming the override check was run with no conflicts found, and proceed to sprint generation.
+If no matches are found, record a no-conflict note in the sprint's `notes` array and proceed.
 
 ---
 
 ## Step 3: Resolve Conflicts
 
-For each conflict found, choose one of three responses:
+For each conflict found:
 
 ### Remove the task
-Remove the task from tonight's sprint entirely when:
-- The override explicitly prohibits the exact work this task would do (e.g. "do not modify the inventory system until further notice").
-- The task would directly undo a previous human decision.
+When the override explicitly prohibits the exact work this task would do.
 
 ### Adapt the task
-Adapt the task when:
-- The override restricts only part of what the task would do (e.g. "change the UI colour but do not touch the UI layout").
-- The task can still proceed in a modified form that does not violate the override.
-- Adaptation is straightforward — do not attempt complex adaptations that might still violate the override's intent.
+When the override restricts only part of what the task would do.
 
 ### Flag the conflict
-Flag the conflict and do not remove or adapt when:
-- It is unclear whether the task conflicts with the override (the match is fuzzy).
-- The task is critical for tonight's sprint and removing it would leave no work for Builder.
-
-Flagged conflicts are included in the sprint log as `conflict_warnings` and surfaced in the morning report.
+When it is unclear whether the task conflicts, or the task is critical and removing it would leave no work for Builder. Flagged conflicts go into `conflict_warnings`.
 
 ---
 
 ## Step 4: Write Conflict Report
 
-Append a `conflict_report` section to the sprint log:
+After the override check, update the sprint's `conflict_report` field:
 
-```
-## Override Conflict Report
-Checked: {timestamp}
-Override files checked:
-  - memory/human-overrides.md (agency-level)
-  - games/{game-name}/memory/human-overrides.md (game-level, if present)
-
-### Conflicts found
-
-#### Conflict 1
-Override source: {memory/human-overrides.md | games/{game-name}/memory/human-overrides.md}
-Override entry: {date and description of the override}
-Matched task: {task_id} — {task title}
-Resolution: {removed | adapted | flagged}
-Reason: {why this resolution was chosen}
-
-### No-conflict confirmation
-Tasks reviewed with no conflict: {count}
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conflict_report": [
+      {
+        "checked_at": "<timestamp>",
+        "override_scope": "game|agency",
+        "override_entry": "<date and description>",
+        "matched_task": "<task_id> — <task title>",
+        "resolution": "removed|adapted|flagged",
+        "reason": "<why>"
+      }
+    ]
+  }'
 ```
 
-If no conflicts were found, still write the confirmation so there is a record that the check ran.
+If no conflicts were found, still write a confirmation entry so there is a record that the check ran:
+
+```json
+[{"checked_at": "<timestamp>", "result": "no conflicts found", "tasks_reviewed": N}]
+```

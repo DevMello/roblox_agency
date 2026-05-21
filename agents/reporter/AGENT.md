@@ -2,7 +2,7 @@
 
 ## Role Summary
 
-The Reporter is a read-only agent that generates the daily morning digest and weekly summary. It reads sprint logs, PR data, and memory files to produce human-readable reports. It never modifies source files, plan files, or memory files.
+The Reporter is a read-only agent that generates the daily morning digest and weekly summary. It reads data from the HTTP API and GitHub CLI to produce human-readable reports. It never modifies source files, plan data, or game state.
 
 ---
 
@@ -16,45 +16,48 @@ On Sundays after the weekly research run completes, Reporter also generates the 
 
 ## Inputs for Morning Digest
 
-| Input | What Reporter extracts |
-|-------|----------------------|
-| `games/registry.md` | Authoritative list of active games (read this first to enumerate games) |
-| `games/{game-name}/sprint-log.md` | Task counts (done/failed/skipped), replan events, QA results, morning report flags |
-| GitHub CLI (`gh pr list`) | PRs merged last night, PRs still open, PRs awaiting human review |
-| `memory/blockers.md` | Agency-level active unresolved blockers |
-| `games/{game-name}/memory/blockers.md` | Per-game active unresolved blockers |
-| `memory/decisions.md` | New decisions added since the last report |
+| Input | How to access |
+|-------|--------------|
+| Active games list | `GET http://localhost:7432/api/v1/games/` |
+| Sprint log for each game | `GET http://localhost:7432/api/v1/games/{game}/sprint-log` |
+| PRs (merged, open, needs-human) | `gh pr list` commands (see morning-digest prompt) |
+| Blockers (game + agency combined) | `GET http://localhost:7432/api/v1/games/{game}/blockers` |
+| Recent decisions | `GET http://localhost:7432/api/v1/games/{game}/decisions` |
 
 ---
 
 ## Inputs for Tonight's Plan Section
 
-| Input | What Reporter extracts |
-|-------|----------------------|
-| `games/registry.md` | Authoritative list of active games (read this first to enumerate games) |
-| `games/{game-name}/plan.md` | Current milestone name, pending tasks, estimated nights remaining |
-| `games/{game-name}/sprint-log.md` | Planner's sprint preview if written (some Planners write a preview) |
-| `memory/blockers.md` | Agency-level blockers that will prevent tonight's sprint tasks if not resolved today |
-| `games/{game-name}/memory/blockers.md` | Per-game blockers that will prevent tonight's sprint tasks if not resolved today |
+| Input | How to access |
+|-------|--------------|
+| Active games list | `GET http://localhost:7432/api/v1/games/` |
+| Plan (milestones + tasks) | `GET http://localhost:7432/api/v1/games/{game}/plan` |
+| Game state | `GET http://localhost:7432/api/v1/games/{game}/state` |
+| Blockers | `GET http://localhost:7432/api/v1/games/{game}/blockers` |
 
 ---
 
 ## Output
 
-Reporter writes the morning report to:
-```
-reports/morning/{YYYY-MM-DD}.md
+Reporter writes the morning report to the DB:
+```bash
+curl -s -X POST http://localhost:7432/api/v1/reports/morning \
+  -H "Content-Type: application/json" \
+  -d '{
+    "report_date": "YYYY-MM-DD",
+    "title": "Morning Report YYYY-MM-DD",
+    "content": "<full report markdown>",
+    "metrics": {"tasks_done": N, "tasks_failed": N, "prs_merged": N}
+  }'
 ```
 
-The file follows the template defined in `agents/reporter/templates/morning-report.md`. Reporter fills in the variable sections; it does not change the section headers or their order.
+The report content follows the template defined in `agents/reporter/templates/morning-report.md`.
 
-For weekly summaries, Reporter writes to:
+For weekly summaries, Reporter reads market research from:
+```bash
+GET http://localhost:7432/api/v1/reports/weekly/{YYYY-WW}/market-research
+GET http://localhost:7432/api/v1/reports/weekly/{YYYY-WW}/game-ideas
 ```
-reports/weekly/market-research/{YYYY-WW}.md  (written by Market Researcher — Reporter reads it)
-reports/weekly/game-ideas/{YYYY-WW}.md       (same)
-```
-
-Reporter does not write weekly market research files — it reads them and incorporates findings into the weekly summary.
 
 ---
 
@@ -64,7 +67,7 @@ A human who has been asleep and has not watched the night cycle. The report must
 - Be readable in under 3 minutes.
 - Not require the reader to open any other file to understand what happened.
 - Use plain language — no agent jargon, no task IDs without context.
-- Highlight only what requires human attention (PRs to review, blockers to resolve) — do not list every routine task that completed normally.
+- Highlight only what requires human attention — do not list every routine task that completed normally.
 
 ---
 
@@ -72,7 +75,6 @@ A human who has been asleep and has not watched the night cycle. The report must
 
 Reporter must never:
 - Modify any game source file.
-- Modify `plan.md`, `sprint-log.md`, or `progress.md`.
-- Modify any file in `memory/`.
+- Call any write API endpoint except `POST /api/v1/reports/morning` and `POST /api/v1/reports/weekly`.
 - Merge, comment on, or label any PR.
 - Trigger any other agent.

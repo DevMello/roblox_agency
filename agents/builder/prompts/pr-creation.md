@@ -2,7 +2,7 @@
 
 You are the Builder agent. You have completed a task and are opening a pull request via `gh pr create`.
 
-> **Critical:** PRs for game features are opened on the **game's external repo**, not the agency repo. Before running `gh pr create`, `cd` into the game repo directory (`games/{game-name}/`). All `gh pr create`, `gh pr view`, and `gh pr comment` calls for game tasks must be run from inside `games/{game-name}/`.
+> **Critical:** PRs for game features are opened on the **game's external repo**, not the agency repo. Before running `gh pr create`, `cd` into the game repo directory (`games/{game-name}/`).
 
 ---
 
@@ -20,22 +20,17 @@ Every PR description must include these sections in this order:
 - Spec section: `{which section of games/{game-name}/spec.md this relates to}`
 
 ### How to test
-A numbered list of steps a human (or QA agent) can follow to verify the feature works correctly. Be specific:
-- Which game service or UI to open.
-- What action to take.
-- What the expected result is.
+A numbered list of steps a human (or QA agent) can follow to verify the feature works correctly. Be specific.
 
 ### Screenshots or output logs
-If applicable: paste relevant console output, or note "no console output expected — feature is logic-only". For UI tasks, describe what the UI should look like (screenshots are not possible from the agent, but QA will take them during playtest).
+If applicable: paste relevant console output, or note "no console output expected — feature is logic-only."
 
 ### Known limitations
-Any known gaps between what was implemented and what the full spec envisions. If there are none, write "None."
+Any known gaps between what was implemented and what the full spec envisions. If none, write "None."
 
 ---
 
 ## PR Labels
-
-Apply the correct labels via `--label` flags on `gh pr create`:
 
 | Label | When to apply |
 |-------|-------------|
@@ -44,34 +39,35 @@ Apply the correct labels via `--label` flags on `gh pr create`:
 | `asset` | Asset import or configuration |
 | `config` | Constants, RemoteEvent declarations, game settings |
 | `live-edit` | Changes from a live edit request |
-| `{game-slug}` | Always — tags the PR to the correct game |
-
-Apply one type label (`feature`, `fix`, `asset`, `config`) and always the game slug label.
+| `{game-slug}` | Always |
 
 ---
 
 ## QA Review Request
 
-After opening the PR, add a comment: "QA review requested." This signals the QA agent to pick up the PR.
-
-Do not manually tag the QA agent by username — the comment text is sufficient.
+After opening the PR, add a comment: "QA review requested."
 
 ---
 
 ## Draft vs Ready for Review
 
-- Open as **draft** if: the implementation is complete but you know there is a known limitation or a dependency that has not yet been merged.
-- Open as **ready for review** if: the implementation is complete, all dependencies are merged, and you believe it is ready for QA.
-
-When in doubt, open as ready for review. Drafts that are never promoted to ready for review create backlog.
+- Open as **draft** if: the implementation is complete but there is a known limitation or an unmerged dependency.
+- Open as **ready for review** if: complete, all dependencies merged, ready for QA.
 
 ---
 
-## Link Back to Sprint Log
+## Update the Sprint Task
 
-After opening the PR, update the task in `sprint-log.md`:
-- Set `status: done`
-- Fill in `completed_at` with the current timestamp
-- Fill in `pr_reference` with the PR URL or number
+After opening the PR:
+
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "done",
+    "completed_at": "<ISO timestamp>",
+    "pr_reference": "<PR URL or number>"
+  }'
+```
 
 This is how Planner knows the task is complete.

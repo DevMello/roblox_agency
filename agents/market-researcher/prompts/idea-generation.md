@@ -68,14 +68,14 @@ The top-ranked idea should be the one that has the best combination of:
 
 ## Step 5: Output
 
-Write the full output to `reports/weekly/game-ideas/{YYYY-WW}.md`. The file starts with:
+Write the full output to the DB:
 
-```
-# Game Ideas — Week {WW}, {YYYY}
-> Based on market research from {YYYY-MM-DD}
-
-{idea 1}
-{idea 2}
-...
-{recommendation ranking}
+```bash
+curl -s -X POST "http://localhost:7432/api/v1/reports/weekly" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "week": "YYYY-WW",
+    "type": "game-ideas",
+    "content": "# Game Ideas — Week {WW}, {YYYY}\n> Based on market research from {YYYY-MM-DD}\n\n{idea 1}\n{idea 2}\n...\n{recommendation ranking}"
+  }'
 ```

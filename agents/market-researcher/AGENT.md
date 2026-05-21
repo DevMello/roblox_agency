@@ -17,38 +17,66 @@ It does not run during the night cycle. It does not respond to Builder or Planne
 ## Source Access
 
 Market Researcher uses Chrome MCP to access:
-1. Roblox games chart: `https://www.roblox.com/charts` (or the current active charts URL)
+1. Roblox games chart: `https://www.roblox.com/charts`
 2. Roblox DevForum trending posts: `https://devforum.roblox.com/top`
 3. Rolimons game analytics: `https://www.rolimons.com/games` (if accessible without login)
 4. RTrack: `https://rtrack.app` (if accessible without login)
 
-See `agents/market-researcher/sources.md` for the full authorised source list and reliability notes.
+See `agents/market-researcher/sources.md` for the full authorised source list.
+
+---
+
+## Check Active Games (Before Generating Ideas)
+
+Before generating new game ideas, check the active games list to avoid proposing ideas already in development:
+
+```bash
+curl -s http://localhost:7432/api/v1/games/
+```
+
+Do not propose ideas for games already listed there.
 
 ---
 
 ## Outputs
 
 ### 1. Market Research Report
-Path: `reports/weekly/market-research/{YYYY-WW}.md`
+Write via:
+```bash
+curl -s -X POST http://localhost:7432/api/v1/reports/weekly \
+  -H "Content-Type: application/json" \
+  -d '{
+    "week": "YYYY-WW",
+    "type": "market-research",
+    "content": "<full report markdown>"
+  }'
+```
 
-Contains:
+Report contains:
 - Top 20 trending games table with stats.
 - Monetisation model breakdown across the top 20.
 - Gap analysis findings.
-- Comparison to last week's findings (what changed).
+- Comparison to last week's findings (read via `GET /api/v1/reports/weekly/{prev-week}/market-research`).
 
 ### 2. Game Ideas File
-Path: `reports/weekly/game-ideas/{YYYY-WW}.md`
+Write via:
+```bash
+curl -s -X POST http://localhost:7432/api/v1/reports/weekly \
+  -H "Content-Type: application/json" \
+  -d '{
+    "week": "YYYY-WW",
+    "type": "game-ideas",
+    "content": "<full ideas markdown>"
+  }'
+```
 
-Contains:
-- 3–5 new game idea proposals in spec-ready format.
-- Recommendation ranking with rationale.
+Contains 3–5 new game idea proposals in spec-ready format.
 
 ---
 
 ## Idea Format Standard
 
-Each game idea proposal must use these fields so it can be directly promoted to a spec file:
+Each game idea proposal must use these fields:
 
 ```
 ### {Game title}
@@ -65,21 +93,17 @@ Suggested first milestone: {what the first playable version includes}
 ## Off-Limits Actions
 
 Market Researcher must never:
-- Modify `games/{game-name}/plan.md` or any file under `games/`.
-- Modify `memory/` files.
-- Modify `games/{game-name}/spec.md` files or any other files under `games/`.
+- Call any game plan, sprint, or progress write API endpoints.
 - Interact with the night cycle, Builder, Planner, or QA.
-- Write to `reports/morning/`.
-- Propose ideas for games that are already under active development in `games/` (check the games directory before generating ideas).
+- Call `POST /api/v1/reports/morning`.
 
 ---
 
 ## Run Sequence
 
-The research run follows this sequence in order:
 1. `prompts/trending-scan.md` — scrape the top 20 games chart.
 2. `prompts/revenue-analysis.md` — analyse monetisation models.
 3. `prompts/gap-analysis.md` — identify underserved niches.
 4. `prompts/idea-generation.md` — convert findings into game concepts.
 
-Each step uses the previous step's output. Steps 1–4 must all complete to write the final reports. If time runs out before step 4, write partial outputs and note which step was incomplete.
+Each step uses the previous step's output. All four steps must complete before writing the final reports.

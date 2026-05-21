@@ -42,7 +42,7 @@ After mapping all dependencies, check for cycles:
 3. If a cycle is found:
    - Identify which dependency in the cycle is the weakest (most likely a soft dependency that was incorrectly classified as hard).
    - Downgrade it to a soft dependency and document the reasoning.
-   - If no dependency can be downgraded, flag the cycle in `memory/blockers.md` with type `spec ambiguity` and stop — do not generate a broken plan.
+   - If no dependency can be downgraded, log a blocker via `POST /api/v1/games/{game}/blockers` with `type: "spec-ambiguity"` and stop — do not generate a broken plan.
 
 ---
 
@@ -72,7 +72,7 @@ Tasks that cannot start until a blocker is resolved:
 - {task-id}: {title} — blocked by: {reason}
 ```
 
-Write this summary as the `Dependency Summary` section in `games/{game-name}/plan.md` and also return it as output so the milestone-planner prompt can use it when ordering milestones.
+Return this summary as output so the milestone-planner prompt can use it when ordering milestones. The dependency data is encoded in each task's `depends_on` field written to `POST /api/v1/games/{game}/plan/tasks` — no separate plan.md section is needed.
 
 ---
 

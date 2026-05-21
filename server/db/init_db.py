@@ -117,7 +117,8 @@ CREATE TABLE IF NOT EXISTS sprints (
     active_workers           TEXT,
     skipped_due_to_blocker   TEXT,
     skipped_due_to_override  TEXT,
-    conflict_report          TEXT
+    conflict_report          TEXT,
+    notes                    TEXT
 );
 
 -- Sprint task snapshots (execution copies of tasks)
@@ -285,3 +286,11 @@ def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        # Idempotent migrations for columns added after initial release
+        for migration in (
+            "ALTER TABLE sprints ADD COLUMN notes TEXT",
+        ):
+            try:
+                conn.execute(migration)
+            except sqlite3.OperationalError:
+                pass

@@ -60,7 +60,16 @@ You are the Builder agent. You are integrating a 3D asset (created by Blender MC
 If the import fails after one retry:
 1. If the asset is from Blender: reduce mesh complexity by 25% and retry once. If it still fails, flag for human.
 2. If the asset is from the marketplace: try an alternative asset from the Researcher shortlist. If no alternative exists, flag for human.
-3. To flag: mark the task `failed` in the sprint log with `failure_reason: "asset import failed after retry"`. Add to `games/{game-name}/memory/blockers.md`.
+3. To flag: mark the task `failed` via the API:
+   ```bash
+   curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}" \
+     -H "Content-Type: application/json" \
+     -d '{"status":"failed","failure_reason":"asset import failed after retry"}'
+
+   curl -s -X POST "http://localhost:7432/api/v1/games/{game}/blockers" \
+     -H "Content-Type: application/json" \
+     -d '{"scope":"game","task_blocked":"{task_id}","description":"Asset import failed after retry","type":"implementation-failure","added_by":"builder"}'
+   ```
 
 ---
 
@@ -68,4 +77,13 @@ If the import fails after one retry:
 
 1. Save the scene via Roblox Studio MCP, then commit with `git` and message: `[{game-slug}] asset: {asset name} imported and positioned`
 2. Run the `pr-creation` prompt.
-3. Update the sprint log and `progress.md`.
+3. Update the sprint task and log progress:
+   ```bash
+   curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}" \
+     -H "Content-Type: application/json" \
+     -d '{"status":"done","completed_at":"<now>","pr_reference":"<PR URL>"}'
+
+   curl -s -X POST "http://localhost:7432/api/v1/games/{game}/progress" \
+     -H "Content-Type: application/json" \
+     -d '{"agent":"builder","task_id":"{task_id}","message":"Asset {asset name} imported and positioned. PR: #<number>"}'
+   ```

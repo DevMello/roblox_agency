@@ -47,8 +47,18 @@ If the root cause of the bug reveals a deeper architectural problem — for exam
 Instead:
 1. Fix only the immediate symptom if it is a blocker (e.g. crash or data loss).
 2. Flag the architectural problem in the PR description under "Architectural concern".
-3. Add a note to `games/{game-name}/memory/blockers.md` with type `spec-ambiguity` (or `implementation-failure` if it was a design mistake) so Architect can address it.
-4. Update the sprint log with a `morning_report_flag` of type `human-input-required` if the architectural problem requires a design decision.
+3. Log the blocker via API:
+   ```bash
+   curl -s -X POST "http://localhost:7432/api/v1/games/{game}/blockers" \
+     -H "Content-Type: application/json" \
+     -d '{"scope":"game","task_blocked":"{task_id}","description":"<architectural problem>","type":"spec-ambiguity","added_by":"builder"}'
+   ```
+4. Update the sprint task with a morning report flag:
+   ```bash
+   curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}" \
+     -H "Content-Type: application/json" \
+     -d '{"notes":[{"timestamp":"<now>","type":"morning_report_flag","message":"Architectural concern in {task_id}: <description>. Human input required."}]}'
+   ```
 
 ---
 
@@ -57,4 +67,13 @@ Instead:
 1. Commit with message: `[{game-slug}] fix: {short description of what was fixed}`
 2. In the commit body, reference the original bug: `Fixes: PR #{number}` or `Fixes: {description of the bug}`
 3. Run the `pr-creation` prompt to open the PR.
-4. Update the sprint log and `progress.md`.
+4. Update the sprint task and log progress:
+   ```bash
+   curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}" \
+     -H "Content-Type: application/json" \
+     -d '{"status":"done","completed_at":"<now>","pr_reference":"<PR URL>"}'
+
+   curl -s -X POST "http://localhost:7432/api/v1/games/{game}/progress" \
+     -H "Content-Type: application/json" \
+     -d '{"agent":"builder","task_id":"{task_id}","message":"Fixed: <description>. PR: #<number>"}'
+   ```

@@ -12,16 +12,16 @@ An autonomous multi-agent system that builds Roblox games. Agents run nightly, b
 
 ## Session Start Protocol
 
-At the start of every session, read these files in order:
+At the start of every session:
 
-1. `memory/README.md` — understand the memory system and write permissions.
-2. `memory/human-overrides.md` — know what humans have decided. Never contradict active entries.
-3. `memory/blockers.md` — know what is currently blocked before planning any work.
-4. `memory/decisions.md` — know what architectural decisions have already been made.
-5. `architecture.md` - read the architecture of the codebase.
-6. `games/registry.md` — know which games are active and where their repos are cloned.
+1. Read `architecture.md` — understand the system architecture.
+2. Fetch active games: `curl -s http://localhost:7432/api/v1/games/`
+3. Fetch agency-level overrides for any active game (they are returned combined): `curl -s http://localhost:7432/api/v1/games/{game}/overrides`
+4. Fetch agency-level blockers: `curl -s http://localhost:7432/api/v1/games/{game}/blockers`
 
-If you are operating as a specific agent (Builder, Planner, QA, etc.), also read your agent's `AGENT.md` before taking any action.
+Data that used to live in `memory/human-overrides.md`, `memory/blockers.md`, `memory/decisions.md`, and `games/registry.md` now lives in the database. Use the API endpoints above instead of reading those files.
+
+If you are operating as a specific agent (Builder, Planner, QA, etc.), read your agent's `AGENT.md` before taking any action.
 
 ---
 
@@ -31,13 +31,13 @@ Identify which agent role you are filling before doing anything:
 
 | Role | AGENT.md location | Primary output |
 |------|------------------|---------------|
-| Architect | `agents/architect/AGENT.md` | `games/{game}/plan.md` | `architecture.md` |
-| Researcher | `agents/researcher/AGENT.md` | Inline notes + `progress.md` research log |
-| Planner | `agents/planner/AGENT.md` | `games/{game}/sprint-log.md` |
+| Architect | `agents/architect/AGENT.md` | Plan milestones + tasks via API |
+| Researcher | `agents/researcher/AGENT.md` | Inline research note + API cache |
+| Planner | `agents/planner/AGENT.md` | Sprint log via API |
 | Builder | `agents/builder/AGENT.md` | Game source files, PRs |
 | QA | `agents/qa/AGENT.md` | PR verdicts (`qa-approved` / `qa-failed`) |
-| Reporter | `agents/reporter/AGENT.md` | `reports/morning/{date}.md` |
-| Market Researcher | `agents/market-researcher/AGENT.md` | `reports/weekly/` |
+| Reporter | `agents/reporter/AGENT.md` | Morning report via API |
+| Market Researcher | `agents/market-researcher/AGENT.md` | Weekly reports via API |
 
 If you are not sure which role to fill, ask the human before proceeding.
 
@@ -49,8 +49,8 @@ If you are not sure which role to fill, ask the human before proceeding.
 - **Never commit directly to `main`.** All changes go to branches. All branches go through PRs.
 - **Never force-push** to any branch.
 - **Never merge your own PRs.** PRs are merged by CI (after QA approval) or by a human.
-- **Never modify `memory/human-overrides.md`** except as Builder acting on an explicit human live-edit request.
-- **Never modify `plan.md`, `memory/decisions.md`, or `memory/blockers.md`** if you are Builder or QA.
+- **Never call `POST /api/v1/games/{game}/overrides`** except as Builder acting on an explicit human live-edit request.
+- **Never call plan, decisions, or blockers write endpoints** if you are Builder or QA (Builder uses blockers POST only for escalations; QA never writes to these).
 - **Never skip QA.** A PR must have `qa-approved` before it can be merged (except manual human merges of `live-edit` PRs).
 - **Never modify files in `agents/`, `config/`, `workflows/`, or `specs/`** unless you are explicitly asked to update the agency configuration itself (not a game task).
 - **Never commit game files (anything under `games/*/`) to the agency repo** — game repos are external and gitignored.
@@ -131,28 +131,45 @@ workflows/
 
 ---
 
-## File Write Permissions
+## API Write Permissions
 
-| File | Who may write |
-|------|--------------|
-| `games/registry.md` | Human, `new-game.sh`, `clone-game.sh` |
-| `games/{game}/spec.md` | Human (create/edit) |
-| `games/{game}/plan.md` | Architect (create), Planner (update) |
-| `games/{game}/sprint-log.md` | Planner (write), Builder (update task status), QA (update qa_verdict) |
-| `games/{game}/progress.md` | Builder (append only) |
-| `games/{game}/memory/state.md` | Architect, Planner |
-| `games/{game}/memory/blockers.md` | Planner, Builder, QA (escalations), Human |
-| `games/{game}/memory/decisions.md` | Architect, Planner, Human |
-| `games/{game}/memory/human-overrides.md` | Human (primary), Builder (live edits) |
-| `memory/human-overrides.md` | Human (primary), Builder (on behalf of human during live edits) |
-| `memory/decisions.md` | Architect, Planner, Human |
-| `memory/blockers.md` | Planner, Builder, QA (escalations), Human |
-| `memory/workers.md` | `register-worker.sh` (append), Builder (update `Last seen:` after each task) |
-| `memory/workers/{worker-id}.md` | Builder (heartbeat after each task), `launch-worker.sh` |
-| `reports/morning/*.md` | Reporter |
-| `reports/weekly/*.md` | Market Researcher |
-| Game source files (in Roblox Studio) | Builder only |
-| `agents/`, `config/`, `workflows/`, `specs/` | Human only (or with explicit human instruction) |
+All structured agent data is written through the HTTP API. The table below shows which agent may call which write endpoint.
+
+| API endpoint | Who may call |
+|-------------|-------------|
+| `POST /api/v1/games/{game}/sprint-log` | Planner |
+| `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}` | Planner |
+| `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}` | Builder (status, timestamps, pr_reference), QA (qa_verdict, qa_notes) |
+| `POST /api/v1/games/{game}/plan/milestones` | Architect |
+| `PUT /api/v1/games/{game}/plan/milestones/{id}` | Architect, Planner |
+| `POST /api/v1/games/{game}/plan/tasks` | Architect |
+| `POST /api/v1/games/{game}/progress` | Builder, Researcher |
+| `POST /api/v1/games/{game}/blockers` | Planner, Builder (escalations only), Human |
+| `POST /api/v1/games/{game}/overrides` | Human (primary), Builder (live edits only) |
+| `POST /api/v1/games/{game}/decisions` | Architect, Planner, Human |
+| `POST /api/v1/games/{game}/research` | Researcher |
+| `PUT /api/v1/games/{game}/state` | Architect, Planner |
+| `POST /api/v1/workers/{worker_id}/heartbeat` | Builder |
+| `POST /api/v1/reports/morning` | Reporter |
+| `POST /api/v1/reports/weekly` | Market Researcher |
+
+**Files that agents still read from disk (not in DB):**
+| File | Who reads |
+|------|----------|
+| `games/{game}/spec.md` | Architect, Planner, Builder (context), QA |
+| `specs/template.md` | Architect |
+| `agents/researcher/sources.md` | Researcher |
+| `agents/market-researcher/sources.md` | Market Researcher |
+| `agents/reporter/templates/morning-report.md` | Reporter |
+| `config/worker-id` | Builder (worker identity) |
+| `agents/*/prompts/*.md` | All agents |
+| `agents/*/schemas/*.json` | All agents |
+
+**Files humans still write to disk:**
+| File | Notes |
+|------|-------|
+| `games/{game}/spec.md` | Primary game definition — never modified by agents |
+| `agents/`, `config/`, `workflows/`, `specs/` | Agency config — human only |
 
 ---
 
@@ -189,22 +206,56 @@ Before using the Roblox Studio MCP, verify that Roblox Studio is open and the ba
 
 ---
 
-## Agent HTTP Write API
+## Agent HTTP API
 
-Agents write structured data to the agency database via HTTP instead of writing markdown files. The server runs at `http://localhost:7432` during night cycles (or any time the server is running).
+All agent reads and writes go through the HTTP API at `http://localhost:7432/api/v1/`. The server must be running. There is no markdown fallback — agents do not write data to markdown files.
 
-| Instead of writing to... | Use this HTTP endpoint |
-|---|---|
-| `games/{game}/sprint-log.md` | `POST /api/v1/games/{game}/sprint-log` |
-| `games/{game}/sprint-log.md` (task update) | `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}` |
-| `games/{game}/plan.md` (milestone) | `POST /api/v1/games/{game}/plan/milestones` |
-| `games/{game}/plan.md` (task tree) | `POST /api/v1/games/{game}/plan/tasks` |
-| `games/{game}/progress.md` | `POST /api/v1/games/{game}/progress` |
-| `games/{game}/memory/blockers.md` | `POST /api/v1/games/{game}/blockers` |
-| `games/{game}/memory/human-overrides.md` | `POST /api/v1/games/{game}/overrides` |
-| `memory/workers/{id}.md` (heartbeat) | `POST /api/v1/workers/{worker_id}/heartbeat` |
+### Read endpoints (GET)
+
+| Data | Endpoint |
+|------|----------|
+| Active games list | `GET /api/v1/games/` |
+| Game detail + state | `GET /api/v1/games/{game}` |
+| Game state | `GET /api/v1/games/{game}/state` |
+| Current sprint log | `GET /api/v1/games/{game}/sprint-log` |
+| Plan (milestones + tasks) | `GET /api/v1/games/{game}/plan` |
+| Progress log | `GET /api/v1/games/{game}/progress` |
+| Blockers (game + agency) | `GET /api/v1/games/{game}/blockers` |
+| Overrides (game + agency) | `GET /api/v1/games/{game}/overrides` |
+| Decisions (game + agency) | `GET /api/v1/games/{game}/decisions` |
+| Research cache | `GET /api/v1/games/{game}/research?topic={topic}` |
+| Workers | `GET /api/v1/workers` |
+| Worker heartbeats | `GET /api/v1/workers/{worker_id}/heartbeats?limit=N` |
+| Morning reports list | `GET /api/v1/reports/morning/` |
+| Morning report by date | `GET /api/v1/reports/morning/{YYYY-MM-DD}` |
+| Weekly report | `GET /api/v1/reports/weekly/{YYYY-WW}/{type}` |
+
+### Write endpoints (POST / PATCH / PUT)
+
+| Data | Endpoint |
+|------|----------|
+| Create sprint | `POST /api/v1/games/{game}/sprint-log` |
+| Update sprint fields | `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}` |
+| Update sprint task | `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}` |
+| Create milestone | `POST /api/v1/games/{game}/plan/milestones` |
+| Update milestone | `PUT /api/v1/games/{game}/plan/milestones/{milestone_id}` |
+| Create plan task | `POST /api/v1/games/{game}/plan/tasks` |
+| Append progress entry | `POST /api/v1/games/{game}/progress` |
+| Add blocker | `POST /api/v1/games/{game}/blockers` |
+| Resolve blockers | `POST /api/v1/games/{game}/blockers/resolve` |
+| Add override | `POST /api/v1/games/{game}/overrides` |
+| Add decision | `POST /api/v1/games/{game}/decisions` |
+| Write research cache | `POST /api/v1/games/{game}/research` |
+| Update game state | `PUT /api/v1/games/{game}/state` |
+| Worker heartbeat | `POST /api/v1/workers/{worker_id}/heartbeat` |
+| Write morning report | `POST /api/v1/reports/morning` |
+| Write weekly report | `POST /api/v1/reports/weekly` |
 
 All endpoints accept and return JSON. No authentication required (localhost only).
+
+**Scope field for blockers, overrides, and decisions:**
+- `scope: "game"` — affects only this game.
+- `scope: "agency"` — cross-game or infrastructure-level. The GET endpoints for a given game always return both game-scoped and agency-scoped entries combined.
 
 **Example — Builder appending a progress entry:**
 ```bash
@@ -213,14 +264,12 @@ curl -s -X POST http://localhost:7432/api/v1/games/industrial-tycoon/progress \
   -d '{"agent":"builder","task_id":"it-019","message":"Implemented currency system. PR #50 merged."}'
 ```
 
-**Example — Builder updating a sprint task status:**
+**Example — Planner writing a sprint:**
 ```bash
-curl -s -X PATCH http://localhost:7432/api/v1/games/industrial-tycoon/sprint-log/industrial-tycoon-2026-05-19/tasks/it-019 \
+curl -s -X POST http://localhost:7432/api/v1/games/industrial-tycoon/sprint-log \
   -H "Content-Type: application/json" \
-  -d '{"status":"done","completed_at":"2026-05-19T03:42:00Z","pr_reference":"https://github.com/org/repo/pull/50"}'
+  -d '{"sprint_id":"industrial-tycoon-2026-05-19","date":"2026-05-19","milestone_ref":"industrial-tycoon-m2","status":"planned","total_estimated_minutes":240,"tasks":[...]}'
 ```
-
-The server must be running for agents to use this API. If the server is not running, agents fall back to writing markdown files as before (the DB endpoints are optional during the transition period).
 
 ---
 

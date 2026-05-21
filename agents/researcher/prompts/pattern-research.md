@@ -38,6 +38,19 @@ If you find two or more valid patterns for the same problem:
 
 ---
 
+## Step 0: Check Cache First
+
+Before making any web request:
+
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/research?topic={url-encoded-topic}"
+```
+
+- **HTTP 200:** Return the cached `message` directly with `[Cached — {created_at}]` prepended.
+- **HTTP 404:** Proceed with fresh research.
+
+---
+
 ## Step 4: Produce Output
 
 Return a structured research note:
@@ -73,4 +86,12 @@ If no pattern was found, return:
 ## Research: {topic} — Pattern not found
 Sources checked: {list}
 Recommendation: implement from first principles using {relevant APIs}
+```
+
+After completing fresh research, write to the cache:
+
+```bash
+curl -s -X POST "http://localhost:7432/api/v1/games/{game}/research" \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "{topic}", "content": "{full research note text}"}'
 ```

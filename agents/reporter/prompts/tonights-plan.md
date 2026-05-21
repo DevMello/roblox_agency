@@ -2,16 +2,28 @@
 
 You are the Reporter agent. Generate the "coming night" section of the morning report.
 
+All data is read from `http://localhost:7432/api/v1/`. No markdown files.
+
 ---
 
-## Step 1: Enumerate Active Games, Then Read Milestones
+## Step 1: Enumerate Active Games, Then Read Plans
 
-Read `games/registry.md` to get the authoritative list of active games. For each active game listed there, read `games/{game-name}/plan.md`. Extract:
-- The current active milestone name and ID.
-- The list of tasks in that milestone with status `pending` or `paused`.
-- The total estimated nights for the milestone.
-- How many nights have already been spent on this milestone.
-- Estimated percentage complete: `(done tasks / total tasks in milestone) × 100`.
+Fetch the active games list:
+```bash
+curl -s "http://localhost:7432/api/v1/games/"
+```
+
+For each active game, fetch the plan and game state:
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/plan"
+curl -s "http://localhost:7432/api/v1/games/{game}/state"
+```
+
+From the plan, extract:
+- The current active milestone name and ID (from `state.active_milestone`).
+- Tasks in that milestone with `status == "pending"` or `status == "paused"`.
+- The milestone's `estimated_nights` and `actual_nights` (from the milestones array).
+- Estimated completion: `(done tasks / total tasks in milestone) × 100`.
 
 ---
 
@@ -19,25 +31,30 @@ Read `games/registry.md` to get the authoritative list of active games. For each
 
 From the pending/paused task list, identify which tasks are most likely to appear in tonight's sprint:
 - Tasks with no blockers and no unresolved dependencies come first.
-- Tasks that were `paused` last night (Builder ran out of time) come before new tasks.
+- Tasks that were `paused` last night come before new tasks.
 - Do not generate the actual sprint (that is Planner's job tonight) — provide a human-readable preview.
 
 ---
 
 ## Step 3: Flag Pre-Sprint Blockers
 
-From `memory/blockers.md` (agency-level) and `games/{game-name}/memory/blockers.md` (per-game), identify any active blockers that will prevent tonight's likely tasks from running unless a human resolves them today.
+Fetch blockers for each game (returns game + agency combined):
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/blockers"
+```
+
+Identify any open blockers that will prevent tonight's likely tasks from running unless a human resolves them today.
 
 For each such blocker, write:
 - Which task is blocked.
-- What is needed to unblock it (human action, new information, external dependency).
-- The deadline: if the human does not resolve it before 11 pm tonight, the task will be skipped again.
+- What is needed to unblock it.
+- The deadline: if not resolved before 11 pm tonight, the task will be skipped.
 
 ---
 
 ## Step 4: Present the Plan
 
-Write the tonight's plan section in this format for each active game:
+For each active game:
 
 ```
 ### {Game Name}
@@ -61,4 +78,4 @@ At the end of the tonight's plan section, include a one-line forecast for each g
 - "On track to complete {milestone name} in approximately {N} more nights."
 - Or: "Behind estimate — {milestone name} has taken {actual_nights} nights vs {estimated_nights} estimated. Reassessment needed."
 
-Base the "behind estimate" flag on: actual_nights > estimated_nights + 1.
+Base the "behind estimate" flag on: `actual_nights > estimated_nights + 1`.

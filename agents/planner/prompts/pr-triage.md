@@ -20,7 +20,7 @@ Determine what the PR is trying to accomplish:
 
 - Is it a feature addition? A bug fix? A configuration change? An asset swap?
 - Is the PR's code already written (Builder needs to review, fix, and merge) or is it a description of work that still needs to be written?
-- Does the PR reference a task in `sprint-log.md` or a feature in `games/{game-name}/spec.md`?
+- Does the PR reference a task in the sprint (fetch with `curl -s http://localhost:7432/api/v1/games/{game}/sprint-log`) or a feature in `games/{game-name}/spec.md`?
 
 If the PR is too ambiguous to understand — the description is unclear, the diff does not match the description, or the human's comments contradict each other — do not guess. Go to Step 5 (flag for morning report).
 

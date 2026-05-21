@@ -6,61 +6,82 @@ You are the Reporter agent. Generate this week's cross-game rollup covering the 
 
 ## Step 1: Read All Morning Reports from the Past Seven Days
 
-Read `reports/morning/` for each of the last 7 days. From each report, extract:
-- Tasks completed (total count).
-- Tasks failed (total count).
-- Tasks skipped (total count).
-- PRs merged.
-- New blockers added.
-- Blockers resolved.
+Fetch reports for each of the last 7 days:
+```bash
+curl -s "http://localhost:7432/api/v1/reports/morning/{YYYY-MM-DD}"
+```
 
-Aggregate these into weekly totals.
+From each report's `metrics` field, extract:
+- Tasks completed, failed, skipped.
+- PRs merged.
+- New blockers added / resolved.
+
+Aggregate into weekly totals.
 
 ---
 
 ## Step 2: Per-Game Progress Summary
 
-Read `games/registry.md` to get the authoritative list of active games. For each active game listed there, read `games/{game-name}/plan.md`. Extract:
+Fetch the active games list:
+```bash
+curl -s "http://localhost:7432/api/v1/games/"
+```
+
+For each active game, fetch plan and state:
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/plan"
+curl -s "http://localhost:7432/api/v1/games/{game}/state"
+```
+
+Extract:
 - Current milestone name.
-- Milestone completion percentage at the start vs end of this week.
+- Milestone completion percentage at start vs end of this week.
 - Any milestone completed this week.
-- Estimated nights remaining to complete the current milestone.
-- Any tasks that have been persistently failing or blocked for more than 3 nights.
+- Estimated nights remaining.
+- Any tasks persistently failing or blocked for more than 3 nights (from `GET /api/v1/games/{game}/blockers`).
 
 ---
 
 ## Step 3: Incorporate Weekly Market Research
 
-Read `reports/weekly/market-research/{current YYYY-WW}.md` and `reports/weekly/game-ideas/{current YYYY-WW}.md`.
+```bash
+curl -s "http://localhost:7432/api/v1/reports/weekly/{YYYY-WW}/market-research"
+curl -s "http://localhost:7432/api/v1/reports/weekly/{YYYY-WW}/game-ideas"
+```
 
 Extract:
 - Top 3 trending mechanics or genres from the market research.
-- Top-ranked new game idea from this week's ideas file.
-- Any market shift that affects games currently in development (e.g. the genre of a game you're building is declining).
+- Top-ranked new game idea.
+- Any market shift that affects games currently in development.
 
 ---
 
 ## Step 4: Identify Systemic Issues
 
 Look across all morning reports from the week. Flag patterns that recurred:
-- **Same agent failing repeatedly:** e.g. QA blocking PRs for the same reason 3+ nights in a row.
-- **Same task type always overrunning:** e.g. asset tasks consistently taking 2× estimate.
-- **Same blocker unresolved across multiple nights:** flag this explicitly as needing human escalation.
-- **Sprint consistently completing only 60% or less of planned work:** flag for Planner to adjust estimates.
+- Same agent failing repeatedly.
+- Same task type consistently overrunning.
+- Same blocker unresolved across multiple nights.
+- Sprint consistently completing 60% or less of planned work.
 
 ---
 
-## Step 5: Produce the Weekly Summary
+## Step 5: Write the Weekly Summary
 
-Follow the template in `agents/reporter/templates/weekly-summary.md`. Fill in all variable sections.
+Follow the template in `agents/reporter/templates/weekly-summary.md`. Write the report to DB:
 
-The recommended focus for next week should:
-- Identify the one game that will benefit most from concentrated effort.
-- Identify the one systemic issue most worth addressing.
-- Be one paragraph, not a list.
+```bash
+curl -s -X POST "http://localhost:7432/api/v1/reports/weekly" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "week": "YYYY-WW",
+    "type": "weekly-summary",
+    "content": "<full weekly summary markdown>"
+  }'
+```
 
 ---
 
 ## Tone Rules
 
-Same as the morning digest: factual, concise, no filler. A human should read the full weekly summary in under 5 minutes.
+Factual, concise, no filler. Readable in under 5 minutes.

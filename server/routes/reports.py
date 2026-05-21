@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+import uuid
 
 from fastapi import APIRouter, HTTPException
 
 from server.db import get_db
 from server import config as cfg
+from server.utils import now as _now
 
 router = APIRouter(tags=["reports"])
 
@@ -87,3 +89,53 @@ async def get_weekly_report(week: str, report_type: str):
         if report_type == "game-ideas" and ("idea" in fname or "game-idea" in fname):
             return {"week": week, "type": report_type, "content": md_file.read_text(encoding="utf-8"), "source": "filesystem"}
     raise HTTPException(status_code=404, detail=f"Weekly report {week}/{report_type} not found")
+
+
+@router.post("/morning")
+async def write_morning_report(body: dict):
+    """Reporter writes the morning digest to DB."""
+    date = body.get("report_date")
+    if not date:
+        raise HTTPException(400, "report_date is required")
+
+    with get_db() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO reports
+               (id, type, report_date, game_slug, title, content, metrics, created_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (
+                str(uuid.uuid4()),
+                "morning",
+                date,
+                None,
+                body.get("title", f"Morning Report {date}"),
+                body.get("content", ""),
+                json.dumps(body.get("metrics") or {}),
+                _now(),
+            ),
+        )
+    return {"saved": True, "report_date": date}
+
+
+@router.post("/weekly")
+async def write_weekly_report(body: dict):
+    """Market Researcher writes a weekly report to DB."""
+    week = body.get("week")
+    report_type = body.get("type")
+    if not week or not report_type:
+        raise HTTPException(400, "week and type are required")
+
+    with get_db() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO weekly_reports
+               (id, week, type, content, created_at)
+               VALUES (?,?,?,?,?)""",
+            (
+                str(uuid.uuid4()),
+                week,
+                report_type,
+                body.get("content", ""),
+                _now(),
+            ),
+        )
+    return {"saved": True, "week": week, "type": report_type}

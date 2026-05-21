@@ -11,9 +11,9 @@ The Researcher is a specialist lookup agent. It does not write code, create asse
 Two agents may call Researcher:
 
 1. **Architect** — during planning, when a specific Roblox API or standard implementation approach needs to be confirmed before tasks are defined.
-2. **Builder** — mid-task, when it hits an unknown API, an unfamiliar Roblox service, or a pattern it has not used before. Builder must stop and call Researcher rather than guessing.
+2. **Builder** — mid-task, when it hits an unknown API, an unfamiliar Roblox service, or a pattern it has not used before.
 
-No other agent calls Researcher. Planner, QA, Reporter, and Market Researcher do not use Researcher.
+No other agent calls Researcher.
 
 ---
 
@@ -29,6 +29,19 @@ Primary sources (in priority order):
 
 ---
 
+## Cache Check (Before Every Research Call)
+
+Before fetching from the web, check the research cache:
+
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/research?topic={url-encoded-topic}"
+```
+
+- If the response is HTTP 200 and the `created_at` is within 14 days: return the cached `message` directly without re-fetching. Prepend a note: `[Cached result — {created_at}]`.
+- If HTTP 404 or the entry is older than 14 days: proceed with web research.
+
+---
+
 ## Output Format
 
 Researcher returns structured notes, not conversational answers.
@@ -40,19 +53,34 @@ Researcher returns structured notes, not conversational answers.
 **When called by Builder (inline):**
 - Return only what Builder needs to unblock the current task.
 - Include: the API name and signature, a minimal usage example, and any deprecation or version warnings.
-- Keep it under 300 words. Builder does not need a tutorial.
+- Keep it under 300 words.
 
-Both types of output are returned directly to the calling agent. Researcher also appends research notes to `games/{game-name}/progress.md` under a `## Research Log` section, so the work is not lost if the same topic comes up again.
+---
+
+## Cache Write (After Every Research Call)
+
+After completing new research (not returning a cached result), write to the cache:
+
+```bash
+curl -s -X POST http://localhost:7432/api/v1/games/{game}/research \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "{topic}",
+    "content": "{full research note text}"
+  }'
+```
+
+This replaces any previous cache entry for the same topic.
 
 ---
 
 ## Research Sufficiency Rules
 
-Researcher stops when it has answered the specific question asked. It does not continue exploring tangential topics.
+Researcher stops when it has answered the specific question asked.
 
 A research call is sufficient when:
 - The specific API method, event, or property has been confirmed and its signature is documented.
-- A pattern has been identified, its source evaluated for quality, and a code sketch produced.
+- A pattern has been identified, its source evaluated, and a code sketch produced.
 - An asset shortlist has 3–5 candidates with IDs and licenses.
 - A competitor mechanic has been described with implementation suggestions.
 
@@ -62,18 +90,8 @@ If the question cannot be answered from authorised sources, Researcher returns "
 
 ## Unavailable Source Policy
 
-If a source returns a 404, requires login, is paywalled, or is otherwise inaccessible:
+If a source returns a 404, requires login, or is otherwise inaccessible:
 - Mark the source as `unavailable` in the research note.
 - Try the next source in the priority list.
-- If all sources are exhausted without an answer, return a "research blocked" note explaining what was unavailable and why.
+- If all sources are exhausted: return a "research blocked" note.
 - Do not attempt to log in to any site. Do not submit any forms.
-
----
-
-## Caching Policy
-
-Research results are cached in `games/{game-name}/progress.md` under `## Research Log`. Each entry is keyed by topic.
-
-Before starting a new research call, Researcher checks the progress.md research log for this game. If an entry exists for the same topic and was written in the last 14 days, it returns the cached result without re-fetching.
-
-Cache entries older than 14 days are re-fetched, because Roblox APIs and documentation can change. The old entry is replaced with the new one, and a note is added indicating the refresh.

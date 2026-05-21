@@ -31,7 +31,7 @@ For each of the top 20 games, extract:
 | Active players | "Playing" count visible on the card |
 | Monthly visits | Visit count from the game detail page (navigate to each game's page) |
 | Approximate age | Publication date or "created" date from the game detail page |
-| Trend direction | Compare to last week's data if available in `reports/weekly/market-research/` — up/flat/down |
+| Trend direction | Compare to last week's data from the API — up/flat/down |
 
 For games where navigating to the detail page is too slow (over 15 seconds), record what is visible on the card and mark monthly visits and age as "not retrieved".
 
@@ -42,7 +42,7 @@ For games where navigating to the detail page is too slow (over 15 seconds), rec
 After collecting all 20 games:
 
 **Newly trending vs incumbents:**
-- A game is newly trending if it appears in this week's top 20 but was not in last week's top 20, OR if its active player count has grown more than 20% from last week.
+- A game is newly trending if it appears in this week's top 20 but was not in last week's top 20, OR if its active player count has grown more than 20% from last week. Fetch last week's data: `curl -s "http://localhost:7432/api/v1/reports/weekly/{prev-YYYY-WW}/market-research"`
 - A game is an incumbent if it has been in the top 20 for more than 4 consecutive weeks.
 
 **Trending up vs peaked:**

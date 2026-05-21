@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import json
+import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from server.db import get_db
 from server.utils import now as _now
@@ -536,3 +537,172 @@ async def get_game_state(game: str):
     data = dict(row)
     data["open_questions"] = _loads(data.get("open_questions"), [])
     return data
+
+
+# ---------------------------------------------------------------------------
+# PUT /{game}/state
+# ---------------------------------------------------------------------------
+
+@router.put("/{game}/state")
+async def update_game_state(game: str, body: dict):
+    """Upsert game state. Called by Planner and Architect."""
+    with get_db() as conn:
+        current_row = conn.execute(
+            "SELECT * FROM game_state WHERE game_slug = ?", (game,)
+        ).fetchone()
+        cur = dict(current_row) if current_row else {"game_slug": game}
+
+        allowed = {
+            "phase", "active_milestone", "nights_elapsed", "estimated_nights_to_mvp",
+            "tasks_total", "tasks_done", "tasks_pending", "tasks_failed",
+            "tasks_blocked", "open_questions",
+        }
+        for k, v in body.items():
+            if k in allowed:
+                cur[k] = json.dumps(v) if k == "open_questions" and isinstance(v, list) else v
+
+        cur["updated_at"] = _now()
+
+        conn.execute(
+            """INSERT OR REPLACE INTO game_state
+               (game_slug, phase, active_milestone, nights_elapsed, estimated_nights_to_mvp,
+                tasks_total, tasks_done, tasks_pending, tasks_failed, tasks_blocked,
+                open_questions, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                game,
+                cur.get("phase"),
+                cur.get("active_milestone"),
+                cur.get("nights_elapsed"),
+                cur.get("estimated_nights_to_mvp"),
+                cur.get("tasks_total"),
+                cur.get("tasks_done"),
+                cur.get("tasks_pending"),
+                cur.get("tasks_failed"),
+                cur.get("tasks_blocked"),
+                cur.get("open_questions"),
+                cur.get("updated_at"),
+            ),
+        )
+    return {"updated": True}
+
+
+# ---------------------------------------------------------------------------
+# GET /{game}/decisions
+# ---------------------------------------------------------------------------
+
+@router.get("/{game}/decisions")
+async def get_decisions(game: str):
+    """Return game-scoped + agency-level decisions."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT * FROM decisions
+               WHERE (game_slug = ? OR scope = 'agency')
+               ORDER BY created_at DESC""",
+            (game,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# POST /{game}/decisions
+# ---------------------------------------------------------------------------
+
+@router.post("/{game}/decisions")
+async def add_decision(game: str, body: dict):
+    scope = body.get("scope", "game")
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO decisions
+               (id, scope, game_slug, agent, decision, rationale, alternatives, status, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (
+                str(uuid.uuid4()),
+                scope,
+                None if scope == "agency" else game,
+                body.get("agent"),
+                body.get("decision", ""),
+                body.get("rationale"),
+                body.get("alternatives"),
+                body.get("status", "active"),
+                _now(),
+            ),
+        )
+    return {"saved": True}
+
+
+# ---------------------------------------------------------------------------
+# PATCH /{game}/sprint-log/{sprint_id}  (sprint-level update)
+# ---------------------------------------------------------------------------
+
+@router.patch("/{game}/sprint-log/{sprint_id}")
+async def update_sprint(game: str, sprint_id: str, body: dict):
+    """Update sprint-level fields — status, notes, times."""
+    allowed_plain = {"status", "actual_start_time", "actual_end_time"}
+    allowed_json = {
+        "active_workers", "skipped_due_to_blocker", "skipped_due_to_override",
+        "conflict_report", "notes",
+    }
+    updates: dict = {}
+    for k, v in body.items():
+        if v is None:
+            continue
+        if k in allowed_plain:
+            updates[k] = v
+        elif k in allowed_json:
+            updates[k] = json.dumps(v) if isinstance(v, (list, dict)) else v
+
+    if not updates:
+        raise HTTPException(400, "No updatable fields provided")
+
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    with get_db() as conn:
+        conn.execute(
+            f"UPDATE sprints SET {set_clause} WHERE sprint_id = ? AND game_slug = ?",
+            list(updates.values()) + [sprint_id, game],
+        )
+    return {"updated": True}
+
+
+# ---------------------------------------------------------------------------
+# GET /{game}/research?topic=
+# ---------------------------------------------------------------------------
+
+@router.get("/{game}/research")
+async def get_research_cache(game: str, topic: str = Query("")):
+    """Check research cache. Returns latest entry within 14 days for the topic."""
+    with get_db() as conn:
+        row = conn.execute(
+            """SELECT * FROM progress_log
+               WHERE game_slug = ? AND agent = 'researcher' AND task_id = ?
+               AND created_at > datetime('now', '-14 days')
+               ORDER BY created_at DESC LIMIT 1""",
+            (game, topic),
+        ).fetchone()
+    if not row:
+        raise HTTPException(404, "No cached research for this topic")
+    return dict(row)
+
+
+# ---------------------------------------------------------------------------
+# POST /{game}/research
+# ---------------------------------------------------------------------------
+
+@router.post("/{game}/research")
+async def add_research_cache(game: str, body: dict):
+    """Cache a research result (Researcher agent only)."""
+    topic = body.get("topic", "").strip()
+    if not topic:
+        raise HTTPException(400, "topic is required")
+
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM progress_log WHERE game_slug = ? AND agent = 'researcher' AND task_id = ?",
+            (game, topic),
+        )
+        conn.execute(
+            """INSERT INTO progress_log (game_slug, agent, task_id, message, created_at)
+               VALUES (?,?,?,?,?)""",
+            (game, "researcher", topic, body.get("content", ""), _now()),
+        )
+    return {"saved": True}

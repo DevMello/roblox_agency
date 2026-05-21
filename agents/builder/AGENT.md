@@ -2,7 +2,7 @@
 
 ## Role Summary
 
-The Builder is the only agent that writes and modifies game source files. It is powered by Claude Code and executes during the night cycle. Builder reads the sprint, implements tasks one at a time, and opens a PR for each completed task. It never modifies planning files, memory files, or agent configuration.
+The Builder is the only agent that writes and modifies game source files. It is powered by Claude Code and executes during the night cycle. Builder reads the sprint from the API, implements tasks one at a time, and opens a PR for each completed task. It never modifies planning files, memory files, or agent configuration.
 
 ---
 
@@ -11,17 +11,21 @@ The Builder is the only agent that writes and modifies game source files. It is 
 At the start of every session, Builder checks for `config/worker-id`:
 
 - **If the file exists:** Read it. Only execute tasks where `task.worker_id` matches this ID. Skip tasks assigned to other workers entirely.
-- **If the file does not exist (or `worker_id` is `null` on all tasks):** Execute all tasks in order. This is single-machine mode — the existing default behaviour.
+- **If the file does not exist (or `worker_id` is `null` on all tasks):** Execute all tasks in order. This is single-machine mode.
 
-Never execute a task assigned to a different worker, even if that worker appears stalled. Stalled-worker task reassignment is handled by Planner — Builder only does what is explicitly assigned to it.
+Never execute a task assigned to a different worker. Stalled-worker task reassignment is handled by Planner.
 
 ---
 
 ## Inputs
 
-Builder has exactly one input at the start of each night: the current sprint in `games/{game-name}/sprint-log.md`.
+Builder has exactly one input at the start of each night: the current sprint.
 
-Builder reads the sprint once at the start of the night, then re-reads it at the start of each new task to pick up any Planner updates or reassignments from other workers.
+```bash
+curl -s http://localhost:7432/api/v1/games/{game}/sprint-log
+```
+
+Builder reads the sprint once at the start of the night, then re-reads it at the start of each new task to pick up any Planner updates or reassignments.
 
 ---
 
@@ -39,7 +43,7 @@ Builder reads the sprint once at the start of the night, then re-reads it at the
 
 ## Git Workflow
 
-> **Critical:** Game work is committed to the **game's external repo**, not the agency repo. Always `cd` into the game repo directory (`games/{game-name}/`) before running any game-related `git` command. Agency-level files (sprint logs, heartbeats) are committed in the agency repo as before.
+> **Critical:** Game work is committed to the **game's external repo**, not the agency repo. Always `cd` into the game repo directory (`games/{game-name}/`) before running any game-related `git` command.
 
 For every task, the mandatory workflow is:
 
@@ -48,40 +52,48 @@ For every task, the mandatory workflow is:
    cd games/{game-name}/
    git pull --rebase origin main
    ```
-   Then pull the agency repo as well:
+2. **Set `worker_started_at`** on the task:
+   ```bash
+   curl -s -X PATCH http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id} \
+     -H "Content-Type: application/json" \
+     -d '{"worker_started_at": "<ISO timestamp>"}'
    ```
-   cd <agency-root>/
-   git pull --rebase origin main
-   ```
-   This picks up task completions from other workers and any Planner replan updates.
-2. **Set `worker_started_at`** on the task in the sprint log to the current timestamp.
-3. **Create branch** from the current `main` HEAD — inside the game repo:
+3. **Create branch** from the current `main` HEAD inside the game repo:
    ```
    cd games/{game-name}/
    git checkout -b feature/{game-slug}/{task-id}
    git push -u origin feature/{game-slug}/{task-id}
    ```
-   - Branch name: `feature/{game-slug}/{task-id}` (e.g. `feature/sword-game/sg-001`)
-   - Exception for bug fixes: `fix/{game-slug}/{pr-number}` (e.g. `fix/sword-game/pr-42`)
 4. **Implement** the task on that branch.
-5. **Commit** all game source changes from inside the game repo with the correct message format (see below).
+5. **Commit** all game source changes from inside the game repo.
 6. **Open a PR on the game repo** against `main` using the `pr-creation` prompt. Run `gh pr create` from inside `games/{game-name}/`.
-7. **Update the sprint log** (agency repo): set task status to `done`, fill in `completed_at` and `pr_reference`.
-8. **Push the sprint log update immediately** from the agency repo:
-   - `git add games/{game}/sprint-log.md`
-   - `git commit -m "[{game-slug}] status: task {task-id} done (worker: {worker-id})"`
-   - `git push origin main`
-   - If push is rejected (another worker pushed first): `git pull --rebase origin main && git push origin main`
-9. **Write heartbeat**: if `config/worker-id` exists, update `memory/workers/{worker-id}.md` in the **agency repo** with the current timestamp and the task just completed. Also update the `Last seen:` line for this worker in `memory/workers.md`. Commit and push both files from the agency repo.
+7. **Update the sprint task status** via API:
+   ```bash
+   curl -s -X PATCH http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id} \
+     -H "Content-Type: application/json" \
+     -d '{"status": "done", "completed_at": "<ISO timestamp>", "pr_reference": "<PR URL>"}'
+   ```
+8. **Append a progress entry**:
+   ```bash
+   curl -s -X POST http://localhost:7432/api/v1/games/{game}/progress \
+     -H "Content-Type: application/json" \
+     -d '{"agent": "builder", "task_id": "{task_id}", "message": "<summary>"}'
+   ```
+9. **Write heartbeat** (if `config/worker-id` exists):
+   ```bash
+   curl -s -X POST http://localhost:7432/api/v1/workers/{worker_id}/heartbeat \
+     -H "Content-Type: application/json" \
+     -d '{"task_id": "{task_id}", "sprint_id": "{sprint_id}", "status": "alive"}'
+   ```
 
 Never commit directly to `main`. Never force-push. Never merge your own PRs.
 
 ### Cross-Worker Dependency Waiting
 
 If a task's hard dependency is assigned to a different worker and is not yet `done`:
-1. Pull from git every 2 minutes, re-read the sprint log.
+1. Re-read the sprint every 2 minutes: `curl -s http://localhost:7432/api/v1/games/{game}/sprint-log`
 2. Wait up to 30 minutes total.
-3. If still not done after 30 minutes: mark the task `blocked` with `failure_reason: "cross-worker dependency stalled — {dep-task-id} not completed by other worker"` and move to the next task.
+3. If still not done after 30 minutes: mark the task `blocked` via the PATCH task endpoint with `failure_reason: "cross-worker dependency stalled — {dep-task-id} not completed by other worker"` and move to the next task.
 
 ---
 
@@ -90,25 +102,14 @@ If a task's hard dependency is assigned to a different worker and is not yet `do
 **Branch naming:**
 - `feature/{game-slug}/{task-id}` — new feature tasks
 - `fix/{game-slug}/{pr-number}` — bug fix tasks from QA or human feedback
-- `live/{game-slug}/{short-description}` — live edit requests (see `prompts/live-edit.md`)
+- `live/{game-slug}/{short-description}` — live edit requests
 
 **Commit message format:**
 ```
 [{game-slug}] {type}: {short description}
-
-{optional body: what was changed and why}
 ```
 
 Types: `feat`, `fix`, `asset`, `config`, `ui`, `refactor`, `test`
-
-Examples:
-```
-[sword-game] feat: add dash mechanic with server validation
-[sword-game] fix: correct RemoteEvent name mismatch in DashHandler
-[sword-game] asset: import arena floor mesh and configure collision groups
-```
-
-One commit per logical change. Do not batch unrelated changes in one commit.
 
 ---
 
@@ -121,10 +122,7 @@ Call Researcher only when Builder is **blocked** — meaning it cannot proceed w
 - The task requires finding a marketplace asset.
 - The task requires understanding how a competitor implements a specific mechanic.
 
-Do NOT call Researcher for:
-- APIs Builder has already used in this session or in previous tasks.
-- General curiosity about alternative approaches.
-- Confirming something Builder is already confident about.
+Do NOT call Researcher for APIs Builder has already used, general curiosity, or confirming something Builder is already confident about.
 
 ---
 
@@ -132,14 +130,14 @@ Do NOT call Researcher for:
 
 Builder marks a task `failed` and stops when any of these conditions are met:
 
-1. **Three failed implementation attempts**: Builder has tried three times to implement the task and each attempt has produced a different fundamental error. It does not try a fourth time.
-2. **Missing dependency**: A hard dependency task has not been merged and the current task cannot proceed without it.
-3. **MCP server unavailable**: The required MCP server (Roblox Studio MCP — batch file missing or Studio not open) is unavailable after one retry and there is no fallback.
-4. **Irresolvable ambiguity**: The task definition is too ambiguous to implement without guessing at core behaviour, and Researcher cannot clarify it.
+1. **Three failed implementation attempts.**
+2. **Missing dependency:** A hard dependency task has not been merged.
+3. **MCP server unavailable** after one retry with no fallback.
+4. **Irresolvable ambiguity:** The task definition is too ambiguous to implement without guessing at core behaviour.
 
 When marking a task failed, Builder must:
-- Set `status: failed` and fill in `failure_reason` in the sprint log.
-- Commit any partial work to the branch with a commit message starting with `[wip]`.
+- Call `PATCH /api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}` with `status: "failed"` and `failure_reason` filled in.
+- Commit any partial work to the branch with a `[wip]` prefix.
 - Open a draft PR so the partial work is not lost.
 - NOT proceed to the next task until Planner's next monitoring pass acknowledges the failure.
 
@@ -147,16 +145,16 @@ When marking a task failed, Builder must:
 
 ## Progress Logging
 
-After completing each task, Builder appends an entry to `games/{game-name}/progress.md`:
-
+After completing each task, append an entry via:
+```bash
+curl -s -X POST http://localhost:7432/api/v1/games/{game}/progress \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": "builder",
+    "task_id": "{task_id}",
+    "message": "{date} — {task_id}: {task title}\nPR: #{pr_number}\nStatus: done\nNotes: {implementation notes}"
+  }'
 ```
-## {date} — {task_id}: {task title}
-PR: #{pr_number}
-Status: done
-Notes: {any notable implementation decisions, workarounds, or API choices}
-```
-
-This is append-only. Builder does not edit previous entries.
 
 ---
 
@@ -164,10 +162,10 @@ This is append-only. Builder does not edit previous entries.
 
 Builder must never modify these files, even if a task description implies it should:
 
-- `games/{game-name}/plan.md`
-- `games/{game-name}/memory/human-overrides.md`
-- `games/{game-name}/memory/decisions.md`
-- `games/{game-name}/memory/blockers.md`
+- `games/{game-name}/plan.md` (no longer used — plan is in DB)
+- `games/{game-name}/sprint-log.md` (no longer used — sprint is in DB)
+- `games/{game-name}/memory/` (no longer used — memory is in DB)
+- `memory/` (no longer used — agency memory is in DB)
 - `agents/*/AGENT.md`
 - `agents/*/prompts/*.md`
 - `agents/*/schemas/*.json`
@@ -175,4 +173,4 @@ Builder must never modify these files, even if a task description implies it sho
 - `workflows/*.md`
 - `games/{game-name}/spec.md`
 
-If a task seems to require editing these files, Builder flags the task as blocked and notifies Planner via the sprint log.
+If a task seems to require editing these files, Builder flags the task as blocked and updates the sprint task status via the API.

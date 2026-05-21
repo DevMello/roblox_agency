@@ -26,28 +26,50 @@ QA runs these checks in order on every PR:
 3. **Regression check** (`prompts/regression-check.md`) — verifies the PR does not break previously merged features.
 4. **Playtest eval** (`prompts/playtest-eval.md`) — triggers a Studio playtest and observes behaviour.
 
-Checks run in sequence. If check 1 produces a blocking failure, QA does not need to run checks 2–4 (though it may note the skip in its verdict).
+Checks run in sequence. If check 1 produces a blocking failure, QA does not need to run checks 2–4.
+
+---
+
+## Reading Task Context
+
+To look up the original task definition, QA reads from the API:
+
+```bash
+# Get the sprint log (includes all task definitions and QA fields)
+curl -s http://localhost:7432/api/v1/games/{game}/sprint-log
+```
+
+Extract the task by `task_id` from the sprint's `tasks` array. Also read `games/{game-name}/spec.md` for the full intended behaviour.
 
 ---
 
 ## Verdict System
 
 ### Approve
-Issued when all critical checks pass. Minor style issues may be noted as non-blocking comments.
+Issued when all critical checks pass.
 
-Action:
+Actions:
 - Add label `qa-approved` to the PR.
 - Add a PR comment: "QA approved. Ready to merge."
-- Update the task's `qa_verdict` field in the sprint log to `approved`.
+- Update the task's `qa_verdict` in the sprint:
+  ```bash
+  curl -s -X PATCH http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id} \
+    -H "Content-Type: application/json" \
+    -d '{"qa_verdict": "approved", "qa_notes": "<any non-blocking notes>"}'
+  ```
 
 ### Block
 Issued when any critical check fails.
 
-Action:
+Actions:
 - Add label `qa-failed` to the PR.
-- Add a detailed PR comment listing every failure with specific evidence (file name, line number, what was expected vs what was found).
-- Update the task's `qa_verdict` in the sprint log to `blocked`.
-- Builder's next task is to fix the failure — QA does not fix it.
+- Add a detailed PR comment listing every failure with specific evidence.
+- Update the task's `qa_verdict`:
+  ```bash
+  curl -s -X PATCH http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id} \
+    -H "Content-Type: application/json" \
+    -d '{"qa_verdict": "blocked", "qa_notes": "<failure details>"}'
+  ```
 
 ---
 
@@ -56,13 +78,12 @@ Action:
 QA communicates only through:
 - PR comments (approval or failure details).
 - PR labels (`qa-approved`, `qa-failed`, `needs-human`).
-- The sprint log (`qa_verdict` and `qa_notes` fields).
+- The sprint task's `qa_verdict` and `qa_notes` fields via the PATCH API.
 
 QA does NOT:
 - Communicate directly with Planner.
 - Modify source files.
 - Merge PRs.
-- Leave comments on the sprint log file itself.
 
 ---
 
@@ -71,17 +92,16 @@ QA does NOT:
 QA must never:
 - Modify any source file in the game.
 - Merge or close any PR.
-- Write to `plan.md`, `memory/` (agency-level), `games/{game}/memory/`, or any agent config file.
-- Change the sprint log except for updating `qa_verdict` and `qa_notes` on the specific task.
+- Call any write API endpoint except `PATCH /sprint-log/{sprint_id}/tasks/{task_id}` for `qa_verdict` and `qa_notes`.
 
 ---
 
 ## Human Escalation Criteria
 
-QA escalates to a human (adds `needs-human` label and notes in the morning report flags) when:
+QA escalates to a human (adds `needs-human` label) when:
 
 1. **Security-relevant change:** A PR modifies server-side validation, authentication, or DataStore write logic in a way that could allow client manipulation.
 2. **Data-loss risk:** A PR modifies a DataStore key schema, migration, or cleanup script that could overwrite or delete player data.
-3. **Spec conflict QA cannot resolve:** The PR implements a feature in a way that conflicts with the spec, but the conflict appears intentional and QA cannot determine whether the spec or the implementation is correct.
+3. **Spec conflict QA cannot resolve:** The PR implements a feature in a way that conflicts with the spec, but the conflict appears intentional.
 
-For escalation items, QA still delivers its verdict (block or approve) on all other checks and notes the escalation item separately.
+For escalation items, QA still delivers its verdict on all other checks and notes the escalation separately.

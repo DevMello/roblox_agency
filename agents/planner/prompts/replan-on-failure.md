@@ -2,78 +2,124 @@
 
 You are the Planner agent in monitoring mode. A replan trigger has fired. Your job is to assess the situation and update the sprint plan.
 
+All reads and writes go through `http://localhost:7432/api/v1/`.
+
 ---
 
 ## Step 1: Assess the Impact
 
-Read the current `sprint-log.md` and identify:
+Read the current sprint:
+
+```bash
+curl -s "http://localhost:7432/api/v1/games/{game}/sprint-log"
+```
+
+Identify:
 - Which task triggered the replan (failed, over-time, or QA-blocked).
-- Which downstream tasks in tonight's sprint depend on the failed task (hard dependencies).
-- How much of the night's time budget has already been spent.
-- How much estimated work remains in the sprint.
+- Which downstream tasks depend on the failed task (hard dependencies — check `depends_on` arrays).
+- How much of the night's time budget has already been spent (`actual_minutes` on completed tasks).
+- How much estimated work remains.
 
 ---
 
 ## Step 2: Choose a Response
 
-Evaluate three options and pick the one that preserves the most value for tonight:
-
 ### Option A: Retry the task
-Choose retry when:
-- The failure reason is external (MCP server briefly unavailable, network error) rather than a fundamental implementation problem.
-- This is Builder's first or second failure on this task (not third).
+Choose when:
+- The failure reason is external (MCP server briefly unavailable, network error).
+- This is Builder's first or second failure (not third).
 - The task has no hard dependents whose delay would cascade.
 
-Action: Update the task status back to `pending` in the sprint log. Add a `replan_note` explaining the retry decision.
+Action:
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "pending"}'
+```
+
+Then add a replan note to the sprint:
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}" \
+  -H "Content-Type: application/json" \
+  -d '{"notes": [{"timestamp": "<now>", "type": "replan", "message": "Retrying {task_id}: <reason>"}]}'
+```
 
 ### Option B: Skip the task and continue
-Choose skip when:
-- The task's failure reason indicates a genuine implementation problem that cannot be fixed tonight.
+Choose when:
+- The failure reason indicates a genuine implementation problem.
 - The failed task has no hard dependents in tonight's sprint.
-- There are other pending tasks in the sprint that can make progress.
+- Other pending tasks can make progress.
 
-Action: Mark the task `skipped` in the sprint log. Reorder remaining tasks if needed. Add the task to `memory/blockers.md` with the failure detail so it is not silently lost.
+Actions:
+1. Mark the task skipped:
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}/tasks/{task_id}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "skipped"}'
+```
+
+2. Add a blocker so the task is not silently lost (Step 4).
+
+3. Add a replan note to the sprint.
 
 ### Option C: Abort the sprint
-Choose abort when:
+Choose when:
 - The failed task is the critical-path task that all other tonight's tasks depend on.
 - More than 60% of the night's estimated work has already failed or been skipped.
-- The sprint cannot produce any meaningful output even if the remaining tasks complete.
+- The sprint cannot produce any meaningful output.
 
-Action: Mark the sprint `failed` in the sprint log. Write a detailed failure summary. All remaining pending tasks are left as `pending` for tomorrow.
+Actions:
+1. Mark the sprint failed:
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "failed", "notes": [{"timestamp": "<now>", "type": "replan", "message": "Sprint aborted: <reason>"}]}'
+```
+
+2. Leave all remaining `pending` tasks as-is — they carry into tomorrow.
 
 ---
 
-## Step 3: Update the Sprint Log
+## Step 3: Reorder if Needed
 
-After the decision:
-1. Update the affected task's status in `sprint-log.md`.
-2. Update the sprint's `notes` field with the replan decision, timestamp, and reason.
-3. If Option B or C: update `status` on remaining tasks as appropriate.
+If Option B was chosen and remaining tasks need reordering, update each affected task's status individually via the PATCH task endpoint.
 
 ---
 
 ## Step 4: Log to Blockers
 
-If a task is skipped or the sprint aborted, add an entry to `games/{game-name}/memory/blockers.md` (create the file if it does not exist). Use `memory/blockers.md` only for agency-level blockers (infrastructure failures, cross-game issues).
+If a task is skipped or the sprint is aborted:
 
+```bash
+curl -s -X POST "http://localhost:7432/api/v1/games/{game}/blockers" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scope": "game",
+    "task_blocked": "{task_id}",
+    "description": "{what failed and why}",
+    "type": "implementation-failure|missing-dependency|mcp-server-issue|spec-ambiguity",
+    "responsible": "planner|builder|human|architect",
+    "priority": "high|medium|low",
+    "added_by": "planner"
+  }'
 ```
-## Blocker: {task_id}
-Added: {timestamp}
-Game: {game-name}
-Task: {task title}
-Description: {what failed and why}
-Type: {missing-dependency | human-input-required | mcp-server-issue | spec-ambiguity | implementation-failure}
-Responsible: {planner | builder | human | architect}
-Resolved: —
-```
+
+Use `scope: "agency"` only for infrastructure failures or cross-game issues.
 
 ---
 
 ## Step 5: Flag for Morning Report
 
-Add a `morning_report_flag` entry to the sprint log noting:
-- What failed.
-- Why it failed (if known).
-- What Planner decided to do about it.
-- Whether human input is needed to unblock it tomorrow.
+Add a `morning_report_flag` note to the sprint:
+
+```bash
+curl -s -X PATCH "http://localhost:7432/api/v1/games/{game}/sprint-log/{sprint_id}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "notes": [{
+      "timestamp": "<now>",
+      "type": "morning_report_flag",
+      "message": "Task {task_id} failed: <what failed>. Planner decision: <retry/skip/abort>. Human input needed: <yes/no — reason>"
+    }]
+  }'
+```
