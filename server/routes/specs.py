@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
 import json
 import os
 
@@ -12,12 +11,9 @@ from fastapi.responses import StreamingResponse
 from server import config as cfg
 from server.db import get_db
 from server.services.repo import repo_service  # type: ignore[attr-defined]
+from server.utils import now as _now
 
 router = APIRouter(tags=["specs"])
-
-
-def _now() -> str:
-    return datetime.datetime.utcnow().isoformat()
 
 
 @router.get("/")

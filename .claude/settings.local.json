@@ -10,7 +10,14 @@
       "Bash(mv \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon/.claude\" \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/games/tycoon-game/.claude\")",
       "Bash(rm -rf \"C:/Users/oajsa/OneDrive/Desktop/Projects/roblox-agency/roblox-tycoon\")",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from server.routes.games import router; print\\('games ok'\\)\")",
+      "Bash(python -c \"from server.routes.specs import router; print\\('specs ok'\\)\")",
+      "Bash(python -c \"from server.routes.reports import router; print\\('reports ok'\\)\")",
+      "Bash(python -c \"from server.services.repo import repo_service; print\\('repo ok'\\)\")",
+      "Bash(python -m py_compile scripts/migrate-to-db.py)",
+      "Bash(python -m py_compile server/db/init_db.py)"
     ]
   }
 }

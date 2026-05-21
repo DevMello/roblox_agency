@@ -1,7 +1,32 @@
 [
-  { "name": "luau-scripting",       "agent": "builder",   "active": true,  "description": "Core Luau scripting patterns for Roblox game logic" },
-  { "name": "blender-export",       "agent": "builder",   "active": true,  "description": "Export and import 3D assets between Blender and Studio" },
-  { "name": "milestone-planning",   "agent": "architect", "active": true,  "description": "Break game specs into milestone task trees" },
-  { "name": "physics-tuning",       "agent": "builder",   "active": false, "description": "Tune Roblox physics properties for game feel" },
-  { "name": "monetisation-balance", "agent": "planner",   "active": false, "description": "Balance economy and monetisation systems" }
+  {
+    "name": "luau-scripting",
+    "agent": "builder",
+    "active": true,
+    "description": "Core Luau scripting patterns for Roblox game logic"
+  },
+  {
+    "name": "blender-export",
+    "agent": "builder",
+    "active": true,
+    "description": "Export and import 3D assets between Blender and Studio"
+  },
+  {
+    "name": "milestone-planning",
+    "agent": "architect",
+    "active": true,
+    "description": "Break game specs into milestone task trees"
+  },
+  {
+    "name": "physics-tuning",
+    "agent": "builder",
+    "active": false,
+    "description": "Tune Roblox physics properties for game feel"
+  },
+  {
+    "name": "monetisation-balance",
+    "agent": "planner",
+    "active": false,
+    "description": "Balance economy and monetisation systems"
+  }
 ]

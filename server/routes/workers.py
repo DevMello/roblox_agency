@@ -1,13 +1,13 @@
 """Workers routes — registration and heartbeat for builder agents."""
 from __future__ import annotations
 
-import datetime
 import sqlite3
 import uuid
 
 from fastapi import APIRouter, HTTPException
 
 from server.db import get_db
+from server.utils import now as _now
 
 router = APIRouter(tags=["workers"])
 
@@ -35,7 +35,7 @@ async def register_worker(body: dict):
     if not slug:
         raise HTTPException(400, "slug is required")
 
-    now = datetime.datetime.utcnow().isoformat()
+    now = _now()
     worker_id = str(uuid.uuid4())
 
     with get_db() as conn:
@@ -56,7 +56,7 @@ async def register_worker(body: dict):
 @router.post("/{worker_id}/heartbeat")
 async def worker_heartbeat(worker_id: str, body: dict):
     """Builder calls this after each task to update last_seen and log a heartbeat."""
-    now = datetime.datetime.utcnow().isoformat()
+    now = _now()
 
     with get_db() as conn:
         row = _find_worker(conn, worker_id)

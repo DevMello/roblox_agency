@@ -1,21 +1,14 @@
 """Games routes — list games, sprint log, plan, progress, overrides, blockers."""
 from __future__ import annotations
 
-import datetime
 import json
 
 from fastapi import APIRouter, HTTPException
 
 from server.db import get_db
+from server.utils import now as _now
 
 router = APIRouter(tags=["games"])
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _now() -> str:
-    return datetime.datetime.utcnow().isoformat()
 
 
 def _loads(val: str | None, default=None):

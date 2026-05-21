@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from server import config as cfg
 from server.services.process import process_manager
-import sqlite3, uuid, datetime, sys
+import sqlite3, uuid, sys
+
+from server.utils import now as _now_str
 
 router = APIRouter(tags=["runs"])
 
@@ -20,7 +22,7 @@ def _save_run(run_id, game, script, pid):
     with _db() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO runs (id, game, script, status, started_at, pid) VALUES (?,?,?,?,?,?)",
-            (run_id, game, script, "running", datetime.datetime.utcnow().isoformat(), pid)
+            (run_id, game, script, "running", _now_str(), pid)
         )
 
 def _launch(script: str, game: str, extra_args: list | None = None) -> str:
