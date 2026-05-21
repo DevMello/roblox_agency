@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import type { ScheduledJob, Run, Game } from '../types'
 import { useGames } from '../hooks/useGames'
 import { useRunList } from '../hooks/useRun'
+import { fetchJson, API } from '../utils/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,15 +39,7 @@ const TIMEZONE_OPTIONS = [
 
 const CRON_LABELS = ['min', 'hr', 'day', 'mo', 'dow']
 
-const API = '/api/v1'
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json() as Promise<T>
-}
 
 function relativeLabel(iso: string): string {
   const d = new Date(iso)

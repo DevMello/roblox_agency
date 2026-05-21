@@ -4,14 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useGame } from '../hooks/useGames'
 import { ROUTES } from '../router'
 import type { Game } from '../types'
-
-const API = '/api/v1'
-
-async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
-  const r = await fetch(url, opts)
-  if (!r.ok) throw new Error(`HTTP ${r.status}`)
-  return r.json() as Promise<T>
-}
+import { fetchJson, API } from '../utils/api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -95,7 +88,7 @@ function StatusChip({ status }: { status: string }) {
 function PlanTab({ gameSlug }: { gameSlug: string }) {
   const { data, isLoading } = useQuery<{ milestones: any[]; tasks: any[] }>({
     queryKey: ['plan', gameSlug],
-    queryFn: () => apiFetch(`${API}/games/${gameSlug}/plan`),
+    queryFn: () => fetchJson(`${API}/games/${gameSlug}/plan`),
   })
 
   if (isLoading) return <div className="t-sm t-muted" style={{ padding: 24 }}>Loading plan…</div>
@@ -153,13 +146,13 @@ function SprintTab({ gameSlug }: { gameSlug: string }) {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery<any>({
     queryKey: ['sprint', gameSlug],
-    queryFn: () => apiFetch(`${API}/games/${gameSlug}/sprint-log`),
+    queryFn: () => fetchJson(`${API}/games/${gameSlug}/sprint-log`),
     retry: false,
   })
 
   const patchTask = useMutation({
     mutationFn: ({ sprintId, taskId, status }: { sprintId: string; taskId: string; status: string }) =>
-      apiFetch<void>(`${API}/games/${gameSlug}/sprint-log/${sprintId}/tasks/${taskId}`, {
+      fetchJson<void>(`${API}/games/${gameSlug}/sprint-log/${sprintId}/tasks/${taskId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       }),
@@ -223,7 +216,7 @@ function SprintTab({ gameSlug }: { gameSlug: string }) {
 function ProgressTab({ gameSlug }: { gameSlug: string }) {
   const { data, isLoading, refetch } = useQuery<{ entries: any[] }>({
     queryKey: ['progress', gameSlug],
-    queryFn: () => apiFetch(`${API}/games/${gameSlug}/progress`),
+    queryFn: () => fetchJson(`${API}/games/${gameSlug}/progress`),
     refetchInterval: 10_000,
   })
 
@@ -263,12 +256,12 @@ function ReportsTab() {
 
   const { data: files = [], isLoading } = useQuery<{ name: string; path?: string }[]>({
     queryKey: ['dirs', 'reports/morning'],
-    queryFn: () => fetch('/api/v1/files/dirs/reports/morning').then(r => r.ok ? r.json() : []),
+    queryFn: () => fetchJson<{ name: string; path?: string }[]>(`${API}/files/dirs/reports/morning`).catch(() => []),
   })
 
   const { data: fileData } = useQuery<{ content: string }>({
     queryKey: ['file', selected],
-    queryFn: () => apiFetch(`/api/v1/files/${selected}`),
+    queryFn: () => fetchJson(`/api/v1/files/${selected}`),
     enabled: !!selected,
   })
 
@@ -320,7 +313,7 @@ function OverridesTab({ gameSlug }: { gameSlug: string }) {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery<{ entries: any[] }>({
     queryKey: ['overrides', gameSlug],
-    queryFn: () => apiFetch(`${API}/games/${gameSlug}/overrides`),
+    queryFn: () => fetchJson(`${API}/games/${gameSlug}/overrides`),
   })
 
   const [showForm, setShowForm] = useState(false)
@@ -328,7 +321,7 @@ function OverridesTab({ gameSlug }: { gameSlug: string }) {
 
   const addOverride = useMutation({
     mutationFn: (text: string) =>
-      apiFetch<void>(`${API}/games/${gameSlug}/overrides`, {
+      fetchJson<void>(`${API}/games/${gameSlug}/overrides`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       }),
@@ -394,14 +387,14 @@ function OverviewTab({ game, gameSlug }: { game: Game; gameSlug: string }) {
 
   const { data: blockersRaw, refetch: refetchBlockers } = useQuery<Blocker[]>({
     queryKey: ['blockers', gameSlug],
-    queryFn: () => fetch(`/api/v1/games/${gameSlug}/blockers`).then(r => r.json()),
+    queryFn: () => fetchJson<Blocker[]>(`${API}/games/${gameSlug}/blockers`),
   })
 
   const blockers: Blocker[] = blockersRaw ?? []
 
   const resolveBlocker = useMutation({
     mutationFn: (blockerId: string) =>
-      fetch(`/api/v1/games/${gameSlug}/blockers/resolve`, {
+      fetchJson<void>(`${API}/games/${gameSlug}/blockers/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blocker_ids: [blockerId] }),

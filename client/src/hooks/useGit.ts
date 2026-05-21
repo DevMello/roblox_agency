@@ -1,15 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Branch, PR } from '../types'
-
-const API = '/api/v1'
-
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options)
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
-  }
-  return res.json() as Promise<T>
-}
+import { fetchJson, API } from '../utils/api'
 
 interface GitData {
   branches: Branch[]
