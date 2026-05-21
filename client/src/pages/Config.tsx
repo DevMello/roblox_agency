@@ -1,6 +1,8 @@
 // Page 8 · /config — Health dashboard (MCP cards, skills, workers, usage)
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchJson, API } from '../utils/api'
+import type { Run } from '../types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,14 +69,6 @@ interface UsageData {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const API = '/api/v1'
-
-async function fetchJson<T>(url: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(url, opts)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json() as Promise<T>
-}
 
 function relativeTime(iso?: string | null): string {
   if (!iso) return '—'
@@ -335,6 +329,12 @@ export default function Config() {
     staleTime: 5 * 60_000,
   })
 
+  const runsQuery = useQuery<Run[]>({
+    queryKey: ['runs', 'recent'],
+    queryFn: () => fetchJson<Run[]>(`${API}/runs/`),
+    staleTime: 60_000,
+  })
+
   // ── Mutations ──────────────────────────────────────────────────────────────
 
   const addMcp = useMutation({
@@ -411,6 +411,11 @@ export default function Config() {
   const spendVal = calcUsage ? fmtCost(usage?.spend_7d) : '—'
   const tokensVal = calcUsage ? fmtTokens(usage?.tokens_24h) : '—'
 
+  const sevenDaysAgo = Date.now() - 7 * 86_400_000
+  const buildsVal = runsQuery.data
+    ? String(runsQuery.data.filter(r => r.status === 'completed' && r.ended_at && new Date(r.ended_at).getTime() > sevenDaysAgo).length)
+    : '—'
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -460,7 +465,7 @@ export default function Config() {
           />
           <HeroStat
             label="Builds · 7d"
-            value="—"
+            value={buildsVal}
             sub="from run history"
             valTone="success"
           />
